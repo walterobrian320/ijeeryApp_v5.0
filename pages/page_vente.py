@@ -1565,7 +1565,8 @@ class PageVente(ctk.CTkFrame):
             try:
                 cursor = conn.cursor()
                 try:
-                    date_vente = datetime.strptime(date_vente_str, "%d/%m/%Y").date()
+                    # Capturer la date saisie et ajouter l'heure précise actuelle
+                    date_vente = datetime.strptime(date_vente_str, "%d/%m/%Y").replace(hour=datetime.now().hour, minute=datetime.now().minute, second=datetime.now().second)
                 except ValueError:
                     messagebox.showerror("Erreur de Date", "Format de date invalide (attendu: JJ/MM/AAAA).")
                     return
@@ -1799,7 +1800,7 @@ class PageVente(ctk.CTkFrame):
 
             data['vente'] = {
                 'refvente': refvente,
-                'dateregistre': dateregistre.strftime("%d/%m/%Y"),
+                'dateregistre': dateregistre.strftime("%d/%m/%Y %H:%M"),
                 'description': description,
             }
             data['utilisateur'] = {

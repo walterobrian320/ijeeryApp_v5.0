@@ -511,6 +511,8 @@ class PageVente(ctk.CTkFrame):
         ctk.CTkLabel(detail_frame, text="Quantité Vente:").grid(row=0, column=2, padx=5, pady=5, sticky="w")
         self.entry_qtvente = ctk.CTkEntry(detail_frame, width=100)
         self.entry_qtvente.grid(row=1, column=2, padx=5, pady=5, sticky="ew")
+        # ✅ Raccourci clavier : Entrée pour ajouter l'article
+        self.entry_qtvente.bind("<Return>", lambda e: self.valider_detail())
         
         # Unité
         ctk.CTkLabel(detail_frame, text="Unité:").grid(row=0, column=3, padx=5, pady=5, sticky="w")

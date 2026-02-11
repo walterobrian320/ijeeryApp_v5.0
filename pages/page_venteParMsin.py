@@ -2768,58 +2768,102 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
     # ==============================================================================
 
     def generate_pdf_a5(self, data: Dict[str, Any], filename: str):
-        """Génère le PDF de la facture au format A5 Portrait avec nouveau modèle HTML."""
-        try:
-            from weasyprint import HTML, CSS
-        except ImportError:
-            messagebox.showerror("Erreur", "weasyprint non installé. Exécutez: pip install weasyprint")
-            return
+        """Génère le PDF de la facture au format A5 Portrait avec structure HTML-inspirée."""
+        from reportlab.lib.pagesizes import A5
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Spacer, Paragraph
+        from reportlab.lib.units import inch
     
-        # ✅ ÉTAPE 1 : Vérification de sécurité des infos société
-        if not hasattr(self, 'infos_societe') or self.infos_societe is None:
-            self.charger_infos_societe()
+        # ✅ ÉTAPE 1 : Configuration du document A5 Portrait
+        doc = SimpleDocTemplate(
+            filename, 
+            pagesize=A5,
+            leftMargin=15,
+            rightMargin=15, 
+            topMargin=15, 
+            bottomMargin=15
+        )
     
-        # ✅ Protection supplémentaire
-        if self.infos_societe is None:
-            self.infos_societe = {
-            'nomsociete': 'NOM SOCIÉTÉ',
-            'adressesociete': 'N/A',
-            'villesociete': 'N/A',
-            'contactsociete': 'N/A',
-            'nifsociete': 'N/A',
-            'statsociete': 'N/A',
-            'cifsociete': 'N/A',
-            'ambleme': '',
-            'autre': ''
-        }
-    
-        # ✅ ÉTAPE 2 : Génération du HTML depuis le modèle
-        html_content = self._generate_invoice_html(data)
-        
-        # ✅ ÉTAPE 3 : Conversion HTML → PDF avec weasyprint
-        try:
-            HTML(string=html_content).write_pdf(filename)
-            print(f"✅ PDF généré avec succès : {filename}")
-        except Exception as e:
-            messagebox.showerror("Erreur PDF", f"Erreur lors de la génération du PDF : {e}")
-            print(f"❌ Erreur PDF : {e}")
-            import traceback
-            traceback.print_exc()
-
-    def _generate_invoice_html(self, data: Dict[str, Any]) -> str:
-        """Génère le HTML de la facture basé sur le modèle SARAH-GROS."""
+        # ✅ ÉTAPE 2 : Récupération des données
         societe = data['societe']
         client = data['client']
         vente = data['vente']
         details = data['details']
         utilisateur = data['utilisateur']
+        magasin = data.get('magasin', 'MAGASIN')
     
-        # ✅ Calcul des totaux
+        # ✅ ÉTAPE 3 : Initialisation des styles
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        # Verse biblique
+        style_verse = styles['Normal'].clone('VerseBible')
+        style_verse.fontSize = 7
+        style_verse.alignment = 1
+        style_verse.spaceAfter = 5
+        
+        v = Paragraph(
+            "<b>Ankino amin'ny Jehovah ny asanao dia ho lavorary izay kasainao. Ohabolana 16:3</b>",
+            style_verse
+        )
+        elements.append(v)
+        elements.append(Spacer(1, 5))
+    
+        # ✅ ÉTAPE 4 : EN-TÊTE - 2 COLONNES
+        style_header = ParagraphStyle(
+            'Header', parent=styles['Normal'],
+            fontSize=6, leading=8
+        )
+        
+        adresse = societe.get('adressesociete', 'N/A')
+        contact = societe.get('contactsociete', 'N/A')
+        nif = societe.get('nifsociete', 'N/A')
+        stat = societe.get('statsociete', 'N/A')
+        
+        header_left = f"""{societe.get('nomsociete', 'NOM SOCIÉTÉ')}<br/>
+{adresse}<br/>
+Grossiste et marchandises<br/>
+TEL: {contact}<br/>
+NIF: {nif}<br/>
+STAT: {stat}"""
+        
+        header_right = f"""<b>Facture N°: {vente['refvente']}</b><br/>
+{vente['dateregistre']}<br/>
+{magasin}<br/><br/>
+CLIENT: {client['nomcli']}<br/>
+<font size="5">Op: {utilisateur['prenomuser']} {utilisateur['nomuser']}</font>"""
+        
+        h_table = Table(
+            [[Paragraph(header_left, style_header), Paragraph(header_right, style_header)]],
+            colWidths=[150, 100]
+        )
+        h_table.setStyle(TableStyle([
+            ('BORDER', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 5),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]))
+        elements.append(h_table)
+        elements.append(Spacer(1, 8))
+    
+        # ✅ ÉTAPE 5 : TABLEAU DES ARTICLES
+        style_cell = ParagraphStyle('Cell', parent=styles['Normal'], fontSize=7, leading=8)
+        
+        table_data = [[
+            Paragraph('<b>QTE</b>', style_cell),
+            Paragraph('<b>UNITE</b>', style_cell),
+            Paragraph('<b>DESIGNATION</b>', style_cell),
+            Paragraph('<b>PU TTC</b>', style_cell),
+            Paragraph('<b>MONTANT</b>', style_cell)
+        ]]
+        
         total_ht = 0.0
         total_remise = 0.0
         total_ttc = 0.0
         
-        lignes_html = ""
         for detail in details:
             montant_ht = detail['montant_ht']
             montant_remise_ligne = detail['montant_remise']
@@ -2829,215 +2873,102 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
             total_remise += montant_remise_ligne
             total_ttc += montant_ttc_ligne
             
-            lignes_html += f"""
-            <tr>
-                <td>{self.formater_nombre_pdf(detail['qte'])}</td>
-                <td>{detail['unite'] or ''}</td>
-                <td>{detail['designation'] or ''}</td>
-                <td class="text-right">{self.formater_nombre_pdf(detail['prixunit'])}</td>
-                <td class="text-right">{self.formater_nombre_pdf(montant_ttc_ligne)}</td>
-            </tr>
-            """
+            table_data.append([
+                Paragraph(self.formater_nombre_pdf(detail['qte']), style_cell),
+                Paragraph(str(detail['unite'] or ''), style_cell),
+                Paragraph(str(detail['designation'] or ''), style_cell),
+                Paragraph(self.formater_nombre_pdf(detail['prixunit']), style_cell),
+                Paragraph(self.formater_nombre_pdf(montant_ttc_ligne), style_cell)
+            ])
         
-        # Montant en FMG
+        # Ligne stamp
+        table_data.append([
+            Paragraph('', style_cell),
+            Paragraph('', style_cell),
+            Paragraph(f"<b><font color=\"blue\">{societe.get('nomsociete', 'NOM')}</font></b><br/><font size=\"5\" color=\"blue\">LIVRÉ TNS</font>", style_cell),
+            Paragraph('', style_cell),
+            Paragraph('', style_cell)
+        ])
+        
+        table_articles = Table(table_data, colWidths=[35, 40, 130, 45, 50])
+        table_articles.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+            ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+            ('ALIGN', (3, 0), (-1, -1), 'RIGHT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 7),
+            ('GRID', (0, 0), (-1, -2), 0.5, colors.grey),
+            ('GRID', (0, -1), (-1, -1), 0.5, colors.grey),
+            ('TOPPADDING', (0, 1), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 2),
+            ('MINHEIGHT', (2, -1), (2, -1), 30),
+        ]))
+        elements.append(table_articles)
+        elements.append(Spacer(1, 5))
+    
+        # ✅ ÉTAPE 6 : TOTAUX
         montant_fmg = total_ttc * 5
-        
-        # Montant en lettres
         montant_lettres = nombre_en_lettres_fr(total_ttc).upper()
         
-        # Infos supplémentaires
-        adresse = societe.get('adressesociete', 'N/A')
-        ville = societe.get('villesociete', 'N/A')
-        contact = societe.get('contactsociete', 'N/A')
-        nif = societe.get('nifsociete', 'N/A')
-        stat = societe.get('statsociete', 'N/A')
+        style_bold = ParagraphStyle('Bold', parent=styles['Normal'], fontSize=7, fontName='Helvetica-Bold')
         
-        html = f"""<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Facture {vente['refvente']}</title>
-    <style>
-        body {{
-            font-family: Arial, sans-serif;
-            line-height: 1.4;
-            color: #333;
-            margin: 0;
-            padding: 20px;
-            background-color: #f4f4f4;
-        }}
-        .invoice-box {{
-            max-width: 800px;
-            margin: auto;
-            padding: 30px;
-            border: 1px solid #eee;
-            background-color: #fff;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
-        }}
-        .header-table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }}
-        .header-table td {{
-            width: 50%;
-            border: 1px solid #000;
-            padding: 10px;
-            vertical-align: top;
-            font-size: 0.9em;
-        }}
-        .verse-top {{
-            text-align: center;
-            font-weight: bold;
-            font-size: 0.85em;
-            margin-bottom: 10px;
-            padding: 8px;
-            border: 1px solid #000;
-        }}
-        .main-table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }}
-        .main-table th, .main-table td {{
-            border: 1px solid #000;
-            padding: 8px;
-            text-align: left;
-            font-size: 0.9em;
-        }}
-        .main-table th {{
-            background-color: #f2f2f2;
-            font-weight: bold;
-        }}
-        .text-right {{
-            text-align: right;
-        }}
-        .total-section {{
-            float: right;
-            width: 300px;
-            margin-bottom: 20px;
-        }}
-        .total-section table {{
-            width: 100%;
-            border-collapse: collapse;
-        }}
-        .total-section td {{
-            border: 1px solid #000;
-            padding: 8px;
-            font-size: 0.9em;
-        }}
-        .footer {{
-            clear: both;
-            margin-top: 40px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 0.9em;
-        }}
-        .signatures {{
-            margin-top: 50px;
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.9em;
-        }}
-        .stamp-area {{
-            border: 2px solid blue;
-            color: blue;
-            display: inline-block;
-            padding: 5px;
-            font-weight: bold;
-            text-align: center;
-            font-size: 0.85em;
-        }}
-        .legal-mention {{
-            font-size: 0.8em;
-            font-style: italic;
-            margin-top: 10px;
-        }}
-    </style>
-</head>
-<body>
-
-<div class="invoice-box">
-    <div class="verse-top">
-        Ankino amin'ny Jehovah ny asanao dia ho lavorary izay kasainao. Ohabolana 16:3
-    </div>
-
-    <table class="header-table">
-        <tr>
-            <td>
-                <strong>{societe.get('nomsociete', 'NOM SOCIÉTÉ')}</strong><br>
-                {adresse}<br>
-                Grossiste et marchandises<br>
-                TEL: {contact}<br>
-                NIF: {nif}<br>
-                STAT: {stat}
-            </td>
-            <td>
-                <strong>Facture N°: {vente['refvente']}</strong><br>
-                {vente['dateregistre']}<br>
-                {data.get('magasin', 'MAGASIN')}<br><br>
-                CLIENT: {client['nomcli']}<br>
-                <div class="text-right" style="font-size: 0.8em;">Op: {utilisateur['prenomuser']} {utilisateur['nomuser']}</div>
-            </td>
-        </tr>
-    </table>
-
-    <table class="main-table">
-        <thead>
-            <tr>
-                <th style="width: 60px;">QTE</th>
-                <th style="width: 80px;">UNITE</th>
-                <th style="width: 320px;">DESIGNATION</th>
-                <th style="width: 100px;">PU TTC</th>
-                <th style="width: 100px;">MONTANT</th>
-            </tr>
-        </thead>
-        <tbody>
-            {lignes_html}
-            <tr style="height: 80px;">
-                <td></td>
-                <td></td>
-                <td>
-                    <div class="stamp-area">{societe.get('nomsociete', 'NOM')}<br>LIVRÉ TNS</div>
-                </td>
-                <td></td>
-                <td></td>
-            </tr>
-        </tbody>
-    </table>
-
-    <div class="total-section">
-        <table>
-            <tr>
-                <td style="background-color: #f2f2f2;"><strong>TOTAL Ar:</strong></td>
-                <td class="text-right"><strong>{self.formater_nombre_pdf(total_ttc)}</strong></td>
-            </tr>
-            <tr>
-                <td><strong>Fmg:</strong></td>
-                <td class="text-right">{self.formater_nombre_pdf(montant_fmg)}</td>
-            </tr>
-        </table>
-    </div>
-
-    <div class="footer">
-        <p>ARRETE A LA SOMME DE {montant_lettres}</p>
-        <div class="legal-mention">
-            Nous déclinons la responsabilité des marchandises non livrées au-delà de 5 jours
-        </div>
-    </div>
-
-    <div class="signatures">
-        <div>Le Client</div>
-        <div>Le Caissier</div>
-        <div>Le Magasinier</div>
-    </div>
-</div>
-
-</body>
-</html>
-        """
-        return html
+        totals_data = [
+            [Paragraph('<b>TOTAL Ar:</b>', style_bold), Paragraph(f'<b>{self.formater_nombre_pdf(total_ttc)}</b>', style_bold)],
+            [Paragraph('Fmg:', style_cell), Paragraph(self.formater_nombre_pdf(montant_fmg), style_cell)]
+        ]
+        
+        totals_table = Table(totals_data, colWidths=[70, 80])
+        totals_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('FONTSIZE', (0, 0), (-1, -1), 7),
+            ('BORDER', (0, 0), (-1, -1), 0.5, colors.black),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('LEFTPADDING', (0, 0), (-1, -1), 3),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ]))
+        elements.append(totals_table)
+        elements.append(Spacer(1, 5))
+    
+        # ✅ ÉTAPE 7 : Montant en lettres
+        style_lettres = ParagraphStyle('Lettres', parent=styles['Normal'], fontSize=6)
+        elements.append(Paragraph(f"<b>ARRETE A LA SOMME DE {montant_lettres}</b>", style_lettres))
+        elements.append(Spacer(1, 8))
+    
+        # ✅ ÉTAPE 8 : SIGNATURES
+        style_sig = ParagraphStyle('Sig', parent=styles['Normal'], fontSize=6, alignment=1)
+        sig_data = [[
+            Paragraph('Le Client', style_sig),
+            Paragraph('Le Caissier', style_sig),
+            Paragraph('Le Magasinier', style_sig)
+        ]]
+        sig_table = Table(sig_data, colWidths=[65, 65, 70])
+        sig_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ]))
+        elements.append(sig_table)
+        elements.append(Spacer(1, 5))
+    
+        # ✅ ÉTAPE 9 : Mention légale
+        style_mention = ParagraphStyle('Mention', parent=styles['Normal'], fontSize=5, alignment=1, textColor=colors.HexColor('#666666'))
+        elements.append(Paragraph(
+            "<i>Nous déclinons la responsabilité des marchandises non livrées au-delà de 5 jours</i>",
+            style_mention
+        ))
+    
+        # ✅ ÉTAPE 10 : Génération
+        try:
+            doc.build(elements)
+            print(f"✅ PDF généré avec succès : {filename}")
+        except Exception as e:
+            print(f"❌ Erreur PDF : {e}")
+            import traceback
+            traceback.print_exc()
         
     # ==============================================================================
     # MÉTHODES D'IMPRESSION TICKET 80MM (Texte Brut)

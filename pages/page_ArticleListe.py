@@ -207,7 +207,7 @@ class page_listeArticle(customtkinter.CTkFrame):
             tb_article AS T2 ON T1.idarticle = T2.idarticle
         INNER JOIN
             tb_categoriearticle AS T3 ON T2.idca = T3.idca
-        ORDER BY T1."codearticle";
+        ORDER BY T2."designation" ASC, T1."codearticle" ASC;
         """
         
         data = []

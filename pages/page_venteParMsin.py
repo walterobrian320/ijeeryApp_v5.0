@@ -2768,7 +2768,12 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
     # ==============================================================================
 
     def generate_pdf_a5(self, data: Dict[str, Any], filename: str):
-        """Génère le PDF de la facture au format A5 Portrait avec remise et emblème."""
+        """Génère le PDF de la facture au format A5 Portrait avec nouveau modèle HTML."""
+        try:
+            from weasyprint import HTML, CSS
+        except ImportError:
+            messagebox.showerror("Erreur", "weasyprint non installé. Exécutez: pip install weasyprint")
+            return
     
         # ✅ ÉTAPE 1 : Vérification de sécurité des infos société
         if not hasattr(self, 'infos_societe') or self.infos_societe is None:
@@ -2788,264 +2793,251 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
             'autre': ''
         }
     
-        # ✅ ÉTAPE 2 : Configuration du document A5 Portrait
-        doc = SimpleDocTemplate(
-            filename, 
-            pagesize=A5,  # Format A5 en portrait
-            leftMargin=20,
-            rightMargin=20, 
-            topMargin=20, 
-            bottomMargin=20
-        )
-    
-        # ✅ ÉTAPE 3 : Initialisation des éléments et styles (AVANT toute utilisation)
-        elements = []
-        styles = getSampleStyleSheet()
-    
-        # ✅ ÉTAPE 4 : Récupération des données
+        # ✅ ÉTAPE 2 : Génération du HTML depuis le modèle
+        html_content = self._generate_invoice_html(data)
+        
+        # ✅ ÉTAPE 3 : Conversion HTML → PDF avec weasyprint
+        try:
+            HTML(string=html_content).write_pdf(filename)
+            print(f"✅ PDF généré avec succès : {filename}")
+        except Exception as e:
+            messagebox.showerror("Erreur PDF", f"Erreur lors de la génération du PDF : {e}")
+            print(f"❌ Erreur PDF : {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _generate_invoice_html(self, data: Dict[str, Any]) -> str:
+        """Génère le HTML de la facture basé sur le modèle SARAH-GROS."""
         societe = data['societe']
         client = data['client']
+        vente = data['vente']
+        details = data['details']
+        utilisateur = data['utilisateur']
     
-        # ✅ ÉTAPE 5 : Configuration de l'emblème en haut de page
-        texte_embleme = self.infos_societe.get('ambleme', '').strip()
-        autres_infos = self.infos_societe.get('autre', '').strip()
-    
-        # Style pour l'emblème (en gras et centré)
-        style_embleme = styles['Normal'].clone('EmblemeStyle')
-        style_embleme.fontSize = 10
-        style_embleme.alignment = 1  # Centré
-        style_embleme.spaceAfter = 5
-    
-        # ✅ AJOUT DE L'EMBLÈME EN HAUT SI PRÉSENT
-        if texte_embleme:
-            # Construction du texte : "EMBLEME • AUTRES INFOS"
-            if autres_infos:
-                contenu_header = f"<b>{texte_embleme}</b>"
-            else:
-                contenu_header = f"<b>{texte_embleme}</b>"
-        
-            header_content = Paragraph(contenu_header, style_embleme)
-        
-            # Table pour un alignement propre
-            header_table = Table([[header_content]], colWidths=[380])  # Largeur A5 Portrait
-            header_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('TOPPADDING', (0, 0), (-1, -1), 0),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ]))
-        
-            elements.append(header_table)
-            elements.append(Spacer(1, 5))
-    
-        # ✅ ÉTAPE 6 : Styles de tableau
-        style_table = TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0277bd')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('ALIGN', (3, 1), (-1, -1), 'RIGHT'),  # Alignement à droite pour Qté, P.U., Montant
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),  # Augmentation de 8 à 10
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('TOPPADDING', (0, 0), (-1, 0), 4),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),  # Augmentation de 7 à 9
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 4),  # Augmentation de 3 à 4
-            ('TOPPADDING', (0, 1), (-1, -1), 4),  # Augmentation de 3 à 4
-        ])
-    
-        # ✅ ÉTAPE 7 : EN-TÊTE SOCIÉTÉ
-        style_header = styles['Normal'].clone('HeaderStyle')
-        style_header.fontSize = 7
-        style_header.alignment = 1  # Centré
-    
-        adresse = societe.get('adressesociete', 'N/A')
-        ville = societe.get('villesociete', 'N/A')
-        contact = societe.get('contactsociete', 'N/A')
-        infos_legales = f"NIF: {societe.get('nifsociete', 'N/A')} | STAT: {societe.get('statsociete', 'N/A')} | CIF: {societe.get('cifsociete', 'N/A')}"
-    
-        # Titre société
-        style_titre = styles['Heading3'].clone('TitreStyle')
-        style_titre.fontSize = 11
-        style_titre.alignment = 1
-        
-        # Style pour le champ "autre"
-        style_autre = styles['Normal'].clone('AutreStyle')
-        style_autre.fontSize = 8
-        style_autre.alignment = 1  # Centré
-        style_autre.fontName = 'Helvetica-Oblique'  # Italique
-    
-        elements.append(Paragraph(f"<b>{societe.get('nomsociete', 'NOM SOCIÉTÉ')}</b>", style_titre))
-        
-        # Ajouter le champ "autre" s'il existe
-        autre = societe.get('autre', '').strip()
-        if autre:
-            elements.append(Paragraph(f"{autre}", style_autre))
-        
-        elements.append(Paragraph(f"{adresse}, {ville} - Tél: {contact}", style_header))
-        elements.append(Paragraph(infos_legales, style_header))
-        elements.append(Spacer(1, 10))
-    
-        # ✅ ÉTAPE 8 : TITRE FACTURE
-        style_facture = styles['Heading2'].clone('FactureStyle')
-        style_facture.fontSize = 12
-        style_facture.alignment = 1
-    
-        p_titre = Paragraph(f"<b>FACTURE N°{data['vente']['refvente']}</b>", style_facture)
-        elements.append(p_titre)
-        elements.append(Spacer(1, 8))
-    
-        # ✅ ÉTAPE 9 : Informations générales
-        style_info = styles['Normal'].clone('InfoStyle')
-        style_info.fontSize = 7
-    
-        data_header = [
-            [Paragraph('<b>Date:</b>', style_info), Paragraph(data['vente']['dateregistre'], style_info), 
-            Paragraph('<b>Client:</b>', style_info), Paragraph(client['nomcli'], style_info)],
-            [Paragraph('<b>Adresse:</b>', style_info), Paragraph(client['adressecli'], style_info), 
-            Paragraph('<b>Contact:</b>', style_info), Paragraph(client['contactcli'], style_info)],
-            [Paragraph('<b>Désignation:</b>', style_info), Paragraph(data['vente']['description'] or '', style_info), 
-            Paragraph('<b>Vendeur:</b>', style_info), 
-            Paragraph(f"{data['utilisateur']['prenomuser']} {data['utilisateur']['nomuser']}", style_info)],
-        ]
-    
-        table_header = Table(data_header, colWidths=[60, 130, 60, 130])
-        table_header.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 7),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ]))
-        elements.append(table_header)
-        elements.append(Spacer(1, 10))
-    
-        # ✅ ÉTAPE 10 : TABLEAU DES DÉTAILS SANS CODE ET REMISE
-        table_data = [
-            ['Désignation', 'Unité', 'Qté', 'P.U.', 'Montant']
-        ]
-    
+        # ✅ Calcul des totaux
         total_ht = 0.0
         total_remise = 0.0
         total_ttc = 0.0
-    
-        style_cell = styles['Normal'].clone('CellStyle')
-        style_cell.fontSize = 9  # Augmentation de 7 à 9
-        style_cell.leading = 10
-    
-        for detail in data['details']:
+        
+        lignes_html = ""
+        for detail in details:
             montant_ht = detail['montant_ht']
             montant_remise_ligne = detail['montant_remise']
             montant_ttc_ligne = detail['montant_ttc']
-        
+            
             total_ht += montant_ht
             total_remise += montant_remise_ligne
             total_ttc += montant_ttc_ligne
-        
-            # Construction de la désignation complète
-            designation_complete = str(detail['designation'] or '')
             
-            table_data.append([
-                Paragraph(designation_complete, style_cell),
-                Paragraph(str(detail['unite'] or ''), style_cell),
-                self.formater_nombre_pdf(detail['qte']),  # Sans décimales
-                self.formater_nombre_pdf(detail['prixunit']),  # Sans décimales
-                self.formater_nombre_pdf(montant_ttc_ligne)  # Sans décimales - montant après remise
-            ])
-    
-        # Largeurs des colonnes élargies pour Prix unitaire et Montant (sans colonne Dépôt)
-        col_widths = [190, 40, 35, 60, 65]  # Désignation, Unité, Qté, P.U., Montant
-        table_details = Table(table_data, colWidths=col_widths)
-        table_details.setStyle(style_table)
-        elements.append(table_details)
-        elements.append(Spacer(1, 8))
-    
-       # ✅ ÉTAPE 11 : TABLEAU DES TOTAUX (Sans décimales et avec Montant FMG)
-        # Calcul du montant en FMG
+            lignes_html += f"""
+            <tr>
+                <td>{self.formater_nombre_pdf(detail['qte'])}</td>
+                <td>{detail['unite'] or ''}</td>
+                <td>{detail['designation'] or ''}</td>
+                <td class="text-right">{self.formater_nombre_pdf(detail['prixunit'])}</td>
+                <td class="text-right">{self.formater_nombre_pdf(montant_ttc_ligne)}</td>
+            </tr>
+            """
+        
+        # Montant en FMG
         montant_fmg = total_ttc * 5
         
-        totals_data = [
-            ['TOTAL HT :', f"{self.formater_nombre_pdf(total_ht)}"],
-            ['TOTAL REMISE :', f"{self.formater_nombre_pdf(total_remise)}"],
-            ['TOTAL À PAYER :', f"{self.formater_nombre_pdf(total_ttc)}"],
-            ['Montant en FMG :', f"{self.formater_nombre_pdf(montant_fmg)}"]
-        ]
+        # Montant en lettres
+        montant_lettres = nombre_en_lettres_fr(total_ttc).upper()
+        
+        # Infos supplémentaires
+        adresse = societe.get('adressesociete', 'N/A')
+        ville = societe.get('villesociete', 'N/A')
+        contact = societe.get('contactsociete', 'N/A')
+        nif = societe.get('nifsociete', 'N/A')
+        stat = societe.get('statsociete', 'N/A')
+        
+        html = f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facture {vente['refvente']}</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            line-height: 1.4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }}
+        .invoice-box {{
+            max-width: 800px;
+            margin: auto;
+            padding: 30px;
+            border: 1px solid #eee;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
+        }}
+        .header-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }}
+        .header-table td {{
+            width: 50%;
+            border: 1px solid #000;
+            padding: 10px;
+            vertical-align: top;
+            font-size: 0.9em;
+        }}
+        .verse-top {{
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.85em;
+            margin-bottom: 10px;
+            padding: 8px;
+            border: 1px solid #000;
+        }}
+        .main-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }}
+        .main-table th, .main-table td {{
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+            font-size: 0.9em;
+        }}
+        .main-table th {{
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }}
+        .text-right {{
+            text-align: right;
+        }}
+        .total-section {{
+            float: right;
+            width: 300px;
+            margin-bottom: 20px;
+        }}
+        .total-section table {{
+            width: 100%;
+            border-collapse: collapse;
+        }}
+        .total-section td {{
+            border: 1px solid #000;
+            padding: 8px;
+            font-size: 0.9em;
+        }}
+        .footer {{
+            clear: both;
+            margin-top: 40px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.9em;
+        }}
+        .signatures {{
+            margin-top: 50px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+        }}
+        .stamp-area {{
+            border: 2px solid blue;
+            color: blue;
+            display: inline-block;
+            padding: 5px;
+            font-weight: bold;
+            text-align: center;
+            font-size: 0.85em;
+        }}
+        .legal-mention {{
+            font-size: 0.8em;
+            font-style: italic;
+            margin-top: 10px;
+        }}
+    </style>
+</head>
+<body>
 
-        # Définition des largeurs : 
-        # Col 0 (Libellé) : 120 points
-        # Col 1 (Montant) : 150 points (plus large pour les gros chiffres)
-        column_widths = [120, 150] 
+<div class="invoice-box">
+    <div class="verse-top">
+        Ankino amin'ny Jehovah ny asanao dia ho lavorary izay kasainao. Ohabolana 16:3
+    </div>
 
-        totals_table = Table(totals_data, colWidths=column_widths, hAlign='LEFT')
+    <table class="header-table">
+        <tr>
+            <td>
+                <strong>{societe.get('nomsociete', 'NOM SOCIÉTÉ')}</strong><br>
+                {adresse}<br>
+                Grossiste et marchandises<br>
+                TEL: {contact}<br>
+                NIF: {nif}<br>
+                STAT: {stat}
+            </td>
+            <td>
+                <strong>Facture N°: {vente['refvente']}</strong><br>
+                {vente['dateregistre']}<br>
+                {data.get('magasin', 'MAGASIN')}<br><br>
+                CLIENT: {client['nomcli']}<br>
+                <div class="text-right" style="font-size: 0.8em;">Op: {utilisateur['prenomuser']} {utilisateur['nomuser']}</div>
+            </td>
+        </tr>
+    </table>
 
-        totals_table.setStyle(TableStyle([
-            # Alignement général
-            ('ALIGN', (0, 0), (0, -1), 'LEFT'),   # Libellés à gauche
-            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),  # Montants à droite
-            
-            # Style pour les deux premières lignes
-            ('FONTNAME', (0, 0), (1, 1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (1, 1), 10),
-            
-            # --- Style spécial pour TOTAL À PAYER (Ligne 2) ---
-            ('FONTNAME', (0, 2), (1, 2), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 2), (1, 2), 14), # Police plus grande pour le total
-            ('TOPPADDING', (0, 2), (1, 2), 5), # Espace au dessus pour séparer
-            ('BOTTOMPADDING', (0, 2), (1, 2), 5),
-            
-            # Ajout d'une ligne de séparation au-dessus du total à payer
-            ('LINEABOVE', (0, 2), (1, 2), 1, colors.black),
-            
-            # --- Style pour Montant en FMG (Ligne 3) ---
-            ('FONTNAME', (0, 3), (1, 3), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 3), (1, 3), 11),
-            ('TEXTCOLOR', (0, 3), (1, 3), colors.HexColor('#1976d2')),  # Couleur bleue
-            ('TOPPADDING', (0, 3), (1, 3), 3),
-            ('BOTTOMPADDING', (0, 3), (1, 3), 3),
-        ]))
+    <table class="main-table">
+        <thead>
+            <tr>
+                <th style="width: 60px;">QTE</th>
+                <th style="width: 80px;">UNITE</th>
+                <th style="width: 320px;">DESIGNATION</th>
+                <th style="width: 100px;">PU TTC</th>
+                <th style="width: 100px;">MONTANT</th>
+            </tr>
+        </thead>
+        <tbody>
+            {lignes_html}
+            <tr style="height: 80px;">
+                <td></td>
+                <td></td>
+                <td>
+                    <div class="stamp-area">{societe.get('nomsociete', 'NOM')}<br>LIVRÉ TNS</div>
+                </td>
+                <td></td>
+                <td></td>
+            </tr>
+        </tbody>
+    </table>
 
-        elements.append(totals_table)
-    
-        # ✅ ÉTAPE 12 : Montant en lettres
-        total_lettres = nombre_en_lettres_fr(total_ttc)
-        style_lettres = styles['Normal'].clone('LettresStyle')
-        style_lettres.fontSize = 8
-    
-        elements.append(Paragraph(f"<b>Arrêté la présente facture à la somme de:</b> {total_lettres}", style_lettres))
-        elements.append(Spacer(1, 20))
-    
-        # ✅ ÉTAPE 13 : SIGNATURES
-        style_signature = styles['Normal'].clone('SignatureStyle')
-        style_signature.fontSize = 8
-        style_signature.alignment = 1
-    
-        signature_data = [
-            [Paragraph("Le Client", style_signature), '', Paragraph("Signature et cachet du Vendeur", style_signature)]
-        ]
-        table_signature = Table(signature_data, colWidths=[120, 140, 120])
-        table_signature.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-            ('TOPPADDING', (0, 0), (-1, -1), 15),
-        ]))
-        elements.append(table_signature)
-        elements.append(Spacer(1, 15))
-    
-        # ✅ ÉTAPE 14 : MENTION LÉGALE EN BAS DE PAGE
-        style_mention = styles['Normal'].clone('MentionStyle')
-        style_mention.fontSize = 7
-        style_mention.alignment = 1
-        style_mention.textColor = colors.HexColor('#666666')
-    
-        p_mention = Paragraph(
-            "<i>Nous ne sommes pas responsables des avaries ou pertes des marchandises non récupérées au delà de 15 jours</i>", 
-            style_mention
-        )
-        elements.append(p_mention)
-    
-        # ✅ ÉTAPE 15 : Génération du PDF
-        doc.build(elements)
-        print(f"✅ PDF généré avec succès : {filename}")
+    <div class="total-section">
+        <table>
+            <tr>
+                <td style="background-color: #f2f2f2;"><strong>TOTAL Ar:</strong></td>
+                <td class="text-right"><strong>{self.formater_nombre_pdf(total_ttc)}</strong></td>
+            </tr>
+            <tr>
+                <td><strong>Fmg:</strong></td>
+                <td class="text-right">{self.formater_nombre_pdf(montant_fmg)}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="footer">
+        <p>ARRETE A LA SOMME DE {montant_lettres}</p>
+        <div class="legal-mention">
+            Nous déclinons la responsabilité des marchandises non livrées au-delà de 5 jours
+        </div>
+    </div>
+
+    <div class="signatures">
+        <div>Le Client</div>
+        <div>Le Caissier</div>
+        <div>Le Magasinier</div>
+    </div>
+</div>
+
+</body>
+</html>
+        """
+        return html
         
     # ==============================================================================
     # MÉTHODES D'IMPRESSION TICKET 80MM (Texte Brut)

@@ -1,0 +1,547 @@
+CREATE TABLE tb_absence (
+	id SERIAL PRIMARY KEY,
+	idpers INT,
+	date TIMESTAMP,
+	observation VARCHAR (120),	
+	nbreheureabs DOUBLE PRECISION	
+);
+CREATE TABLE tb_article (
+	idArticle SERIAL PRIMARY KEY,
+	designation VARCHAR (150),
+	idca INT,
+	alert INT,
+	deleted INT
+);
+
+CREATE TABLE tb_autorisation (
+	id SERIAL PRIMARY KEY,
+	idfonction INT,
+	idmenu INT
+);
+
+CREATE TABLE tb_avancepers (
+	id SERIAL PRIMARY KEY,
+	datepmt DATE,
+	refpmt VARCHAR (50),
+	mtpaye DOUBLE PRECISION,
+	idtypeoperation INT,
+	idpers INT,
+	observation VARCHAR (100),
+	id_banque INT
+);
+
+CREATE TABLE tb_avancespecpers (
+	id SERIAL PRIMARY KEY,
+	idpers INT,
+	refpmt VARCHAR (50),
+	mtpaye DOUBLE PRECISION,
+	idtypeoperation INT,
+	nbremboursement DOUBLE PRECISION,
+	observation VARCHAR (120),
+	datepmt TIMESTAMP,
+	id_banque INT
+);
+
+CREATE TABLE tb_avoir (
+	id SERIAL PRIMARY KEY,
+	refAvoir VARCHAR (50),
+	refVente VARCHAR (50),
+	idClient INT,
+	idUser INT,
+	mtAvoir DOUBLE PRECISION,
+	idMode INT,
+	observation VARCHAR (150),
+	dateregistre TIMESTAMP,
+	deleted INT
+);
+
+CREATE TABLE tb_avoirDetail (
+	id SERIAL PRIMARY KEY,
+	refAvoir VARCHAR (50),
+	idMag INT,
+	idArticle INT,
+	idUnite INT,
+	qtAvoir DOUBLE PRECISION,
+	prixUnit DOUBLE PRECISION,
+	dateregistre TIMESTAMP,
+	deleted INT
+);
+
+CREATE TABLE tb_banque(
+	idbanque SERIAL PRIMARY KEY,
+	nombanque VARCHAR (75),
+	adresse VARCHAR (120),
+	numcompte INT,
+	iduser INT
+);
+
+CREATE TABLE tb_baseliste (
+	id SERIAL PRIMARY KEY,
+	nombase VARCHAR (75),
+	designationbase VARCHAR (75),
+	deleted INT DEFAULT 0	
+);
+
+CREATE TABLE tb_categorieArticle (
+	idca SERIAL PRIMARY KEY,
+	designationCat VARCHAR(150),
+	deleted INT
+);
+
+CREATE TABLE tb_categorieCompte (
+	idcc SERIAL PRIMARY KEY,
+	categorieCompte VARCHAR (100)
+);
+
+CREATE TABLE tb_client (
+	idClient SERIAL PRIMARY KEY,
+	nomCli VARCHAR (100),
+	contactCli VARCHAR (50),
+	adresseCli VARCHAR (150),
+	nifCli VARCHAR (20),
+	statCli VARCHAR (20),
+	cifCli VARCHAR (20),
+	credit DOUBLE PRECISION,
+	idtypeclient INT,
+	dateregistre TIMESTAMP,
+	blocked INT,
+	deleted INT
+);
+
+CREATE TABLE tb_codeautorisation (
+	id SERIAL PRIMARY KEY,
+	code VARCHAR (10),
+	iduser INT,
+	username VARCHAR (50),
+	deleted INT DEFAULT 0	
+);
+
+CREATE TABLE tb_commande (
+	idCom SERIAL PRIMARY KEY,
+	refCom VARCHAR (50),
+	dateCom TIMESTAMP,
+	idUser INT,
+	idFrs INT,
+	descriptionCom VARCHAR (150),
+	deleted INT
+);
+
+CREATE TABLE tb_commandeDetail (
+	id SERIAL PRIMARY KEY,
+	idCom INT,
+	idArticle INT,
+	idUnite INT,
+	qtCmd DOUBLE PRECISION	 	
+);
+
+CREATE TABLE tb_configdb(
+	id SERIAL PRIMARY KEY,
+	dbname VARCHAR (50),
+	password VARCHAR (100),
+	host VARCHAR (100),
+	port INT	 	
+);
+
+CREATE TABLE tb_decaissement (
+	id SERIAL PRIMARY KEY,
+	refDec VARCHAR (50),
+	idcc INT,
+	mtpaye DOUBLE PRECISION,
+	observation VARCHAR (150),
+	idTypeOperation INT DEFAULT 2,
+	datepmt TIMESTAMP,
+	idpaiment INT
+);
+
+CREATE TABLE tb_decaissementbq (
+	id SERIAL PRIMARY KEY,
+	refDec VARCHAR (50),
+	idcc INT,
+	mtpaye DOUBLE PRECISION,
+	observation VARCHAR (150),
+	idTypeOperation INT DEFAULT 2,
+	datepmt TIMESTAMP,
+	idpaiment INT
+);
+
+CREATE TABLE tb_encaissement (
+	id SERIAL PRIMARY KEY,
+	refEnc VARCHAR (50),
+	idcc INT,
+	mtpaye DOUBLE PRECISION,
+	observation VARCHAR (150),
+	idTypeOperation INT DEFAULT 1,
+	datepmt TIMESTAMP,
+	idpaiment INT
+);
+
+CREATE TABLE tb_encaissementbq (
+	id SERIAL PRIMARY KEY,
+	refEnc VARCHAR (50),
+	idcc INT,
+	mtpaye DOUBLE PRECISION,
+	observation VARCHAR (150),
+	idTypeOperation INT DEFAULT 1,
+	datepmt TIMESTAMP,
+	idpaiment INT
+);
+
+
+
+CREATE TABLE tb_fournisseur (
+	idFrs SERIAL PRIMARY KEY,
+	nomFrs VARCHAR (150),
+	contactFrs VARCHAR (50),
+	adresseFrs VARCHAR (150),
+	nifFrs VARCHAR (20),
+	statFrs VARCHAR (20),
+	cifFrs VARCHAR (20),
+	dateregistre TIMESTAMP,
+	deleted INT
+);
+
+CREATE TABLE tb_magasin (
+	idMag SERIAL PRIMARY KEY,
+	designationMag VARCHAR (50),
+	adresseMag VARCHAR (50),
+	livraison INT,
+	deleted INT
+);
+
+CREATE TABLE tb_unite (
+	idUnite SERIAL PRIMARY KEY,
+	codeArticle VARCHAR (20),
+	idArticle INT,
+	designationUnite VARCHAR (50),
+	niveau INT,
+	qtUnite DOUBLE PRECISION,
+	poids DOUBLE PRECISION,
+	deleted INT
+);
+
+CREATE TABLE tb_peremption (
+	id SERIAL PRIMARY KEY,
+	idCom INT,
+	idArticle INT,
+	idMag INT,
+	datePer TIMESTAMP,
+	deleted INT
+);
+
+CREATE TABLE tb_infoSociete (
+	id SERIAL PRIMARY KEY,
+	nomSociete VARCHAR (100),
+	adresseSociete VARCHAR (150),
+	contactSociete VARCHAR (50),
+	villeSociete VARCHAR (100),
+	nifSociete VARCHAR (50),
+	statSociete VARCHAR (50),
+	cifSociete VARCHAR (50),
+	ambleme VARCHAR (200),
+	autre VARCHAR (100)
+);
+
+CREATE TABLE tb_fonction (
+	idFonction SERIAL PRIMARY KEY,
+	designationFonction VARCHAR (50),
+	dateregistre TIMESTAMP,
+	idAutorisation INT,
+	deleted INT
+);
+
+CREATE TABLE tb_stock (
+	id SERIAL PRIMARY KEY,
+	idArticle INT,
+	idMag INT,
+	qtStock DOUBLE PRECISION,
+	qtAlert DOUBLE PRECISION,
+	deleted INT
+);
+
+CREATE TABLE tb_vente (
+	id SERIAL PRIMARY KEY,
+	refVente VARCHAR (50),
+	idClient INT,
+	idUser INT,
+	totmtVente DOUBLE PRECISION,
+	dateregistre TIMESTAMP,
+	deleted INT
+);
+
+CREATE TABLE tb_venteDetail (
+	id SERIAL PRIMARY KEY,
+	refVente VARCHAR (50),
+	idMag INT,
+	idArticle INT,
+	idUnite INT,
+	qtVente DOUBLE PRECISION,
+	prixUnit DOUBLE PRECISION,
+	mtVente DOUBLE PRECISION,
+	deleted INT
+);
+	
+CREATE TABLE tb_users (
+	idUser SERIAL PRIMARY KEY,
+	nomUser VARCHAR (50),
+	prenomUser VARCHAR (50),
+	adresseUser VARCHAR (100),
+	contactUser VARCHAR (50),
+	username VARCHAR (50),
+	password VARCHAR (50),
+	idFonction INT,
+	idMag INT,
+	active INT,
+	dateregistre TIMESTAMP,
+	deleted INT
+);
+
+CREATE TABLE tb_prix (
+	id SERIAL PRIMARY KEY,
+	idArticle INT,
+	idUnite INT,
+	prix DOUBLE PRECISION,
+	dateregistre TIMESTAMP,
+	idUser INT,
+	deleted INT
+);
+
+CREATE TABLE tb_typeOperation (
+	idTypeOperation SERIAL PRIMARY KEY,
+	typeoperation VARCHAR (3)
+);
+
+CREATE TABLE tb_modepaiement (
+	idMode SERIAL PRIMARY KEY,
+	modeDePaiement VARCHAR (50)
+);
+
+CREATE TABLE tb_pmtVente (
+	id SERIAL PRIMARY KEY,
+	datepmt TIMESTAMP,
+	mtpaye DOUBLE PRECISION,
+	observation VARCHAR (150),
+	idTypeOperation INT,
+	idClient INT,
+	refVente VARCHAR (50),
+	idMode INT,
+	idpaiment INT
+);
+
+CREATE TABLE tb_pmtCom (
+	id SERIAL PRIMARY KEY,
+	datepmt TIMESTAMP,
+	mtpaye DOUBLE PRECISION,
+	observation VARCHAR (150),
+	idTypeOperation INT DEFAULT 1,
+	idFrs INT,
+	refCom VARCHAR (50),
+	idMode INT,
+	idpaiment INT
+);
+
+CREATE TABLE tb_paiement (
+	idpaiement SERIAL PRIMARY KEY,
+	Paiement VARCHAR (25)
+);
+
+CREATE TABLE tb_proforma (
+	idprof SERIAL PRIMARY KEY,
+	refProf VARCHAR (50),
+	idClient INT,
+	idUser INT,
+	mtProf DOUBLE PRECISION,
+	observation VARCHAR (150),
+	dateregistre TIMESTAMP,
+	deleted INT
+);
+
+CREATE TABLE tb_proformaDetail (
+	id SERIAL PRIMARY KEY,
+	idprof INT,
+	idMag INT,
+	idArticle INT,
+	idUnite INT,
+	qtProf DOUBLE PRECISION,
+	prixUnit DOUBLE PRECISION
+	
+);
+
+CREATE TABLE tb_factureCli (
+	idFact SERIAL PRIMARY KEY,
+	refFact VARCHAR (50),
+	refVente VARCHAR (50),
+	idMod INT,
+	idClient INT,
+	idUser INT,
+	mtpaye DOUBLE PRECISION,
+	dateregistre TIMESTAMP
+);
+
+CREATE TABLE tb_livraisonFrs (
+	idLivFrs SERIAL PRIMARY KEY,
+	refLivFrs VARCHAR (50),
+	idCom INT,
+	idArticle INT,
+	idUnite INT,
+	qtLivreFrs DOUBLE PRECISION,
+	dateregistre TIMESTAMP	
+);
+
+CREATE TABLE tb_livraisonCli (
+	idLivCli SERIAL PRIMARY KEY,
+	refLivCli VARCHAR (50),
+	refVente VARCHAR (50),
+	idMag INT,
+	idArticle INT,
+	idUnite INT,
+	qtLivreCli DOUBLE PRECISION,
+	datregistre TIMESTAMP
+);
+
+CREATE TABLE tb_menu (
+	id SERIAL PRIMARY KEY,
+	designationmenu VARCHAR (100),
+	page VARCHAR (50)
+);
+
+CREATE TABLE tb_sortie (
+	id SERIAL PRIMARY KEY,
+	refsortie VARCHAR (50),
+	idUser INT,
+	dateregistre TIMESTAMP,
+	description VARCHAR (150),
+	deleted INT
+);
+
+CREATE TABLE tb_sortiedetail (
+	id SERIAL PRIMARY KEY,
+	refsortie VARCHAR (50),
+	idmag INT,
+	idarticle INT,
+	idunite INT,
+	qtsortie DOUBLE PRECISION,
+	typemouvement INT DEFAULT 2,
+	deleted INT
+);
+CREATE TABLE tb_transfert (
+	id SERIAL PRIMARY KEY,
+	reftransfert VARCHAR (50),
+	idUser INT,
+	idmagsortie INT,
+	idmagentree INT,
+	dateregistre TIMESTAMP,
+	description VARCHAR (150),
+	deleted INT
+);
+
+CREATE TABLE tb_transfertdetail (
+	id SERIAL PRIMARY KEY,
+	reftransfert VARCHAR (50),
+	idarticle INT,
+	idunite INT,
+	qttranfertsortie DOUBLE PRECISION,
+	qttransfertentree DOUBLE PRECISION,
+	deleted INT
+);
+
+CREATE TABLE tb_pmtfacture (
+	id SERIAL PRIMARY KEY,
+	datepmt TIMESTAMP,
+	mtpaye DOUBLE PRECISION,
+	refvente INT,
+	observation VARCHAR(150),
+	idtypeoperation INT DEFAULT 1,
+	refpmt VARCHAR (100),
+	idtypepmt INT DEFAULT 1,
+	deleted INT DEFAULT 0
+);
+
+CREATE TABLE tb_typepmt (
+	idtypepmt SERIAL PRIMARY KEY,
+	typepmt VARCHAR (50),
+	deleted INT DEFAULT 0
+);
+
+CREATE TABLE tb_pmtavoir (
+	id SERIAL PRIMARY KEY,
+	datepmt TIMESTAMP,
+	mtpaye DOUBLE PRECISION,
+	refvente INT,
+	refavoir INT,
+	observation VARCHAR(150),
+	idtypeoperation INT DEFAULT 1,
+	refpmt VARCHAR (100),
+	idtypepmt INT DEFAULT 1,
+	deleted INT DEFAULT 0
+);
+
+CREATE TABLE tb_transfertbanque (
+	id SERIAL PRIMARY KEY,
+	datepmt DATE,
+	refpmt VARCHAR (50),
+	mtpaye DOUBLE PRECISION,
+	idtypeoperation INT,
+	observation VARCHAR (100),
+	id_banque INT
+);
+CREATE TABLE tb_transfertcaisse (
+	id SERIAL PRIMARY KEY,
+	datepmt DATE,
+	refpmt VARCHAR (50),
+	mtpaye DOUBLE PRECISION,
+	idtypeoperation INT,
+	observation VARCHAR (100),
+	id_banque INT
+);
+
+CREATE TABLE tb_pmtsalaire (
+	id SERIAL PRIMARY KEY,
+	datepmt DATE,
+	refpmt VARCHAR (50),
+	mtpaye DOUBLE PRECISION,
+	idtypeoperation INT,
+	idpers INT,
+	observation VARCHAR (100),
+	id_banque INT
+);
+CREATE TABLE tb_personnel (
+	id SERIAL PRIMARY KEY,
+	nom VARCHAR (50),
+	prenom VARCHAR (50),
+	datenaissance DATE,
+	adresse VARCHAR (100),
+	cin VARCHAR (20),
+	contact VARCHAR (50),
+	idfonction INT
+);
+
+CREATE TABLE tb_salairebasepers (
+	id SERIAL PRIMARY KEY,
+	idpers INT,
+	montant DOUBLE PRECISION,
+	date TIMESTAMP	
+);
+CREATE TABLE tb_presencepers (
+	id SERIAL PRIMARY KEY,
+	idpers INT,
+	nbheure DOUBLE PRECISION,
+	date TIMESTAMP	
+);
+CREATE TABLE tb_inventaire (
+	id SERIAL PRIMARY KEY,
+	idarticle INT,
+	qtinventaire DOUBLE PRECISION,
+	observation VARCHAR (100),
+	date TIMESTAMP,
+	iduser INT	
+);
+CREATE TABLE tb_log_stock (
+    id SERIAL PRIMARY KEY,
+    idarticle INT,
+    idmag INT,
+    ancien_stock DOUBLE PRECISION,
+    nouveau_stock DOUBLE PRECISION,
+    date_action TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    iduser INT,
+    type_action VARCHAR(50) DEFAULT 'INVENTAIRE'
+);

@@ -257,10 +257,11 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         self.settings = self.load_settings()
         
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=0)
-        self.grid_rowconfigure(1, weight=1)
-        self.grid_rowconfigure(2, weight=0)
-        self.grid_rowconfigure(3, weight=0)
+        self.grid_rowconfigure(0, weight=0)  # En-tête - pas de resize
+        self.grid_rowconfigure(1, weight=0)  # Panneau saisie articles - taille fixe
+        self.grid_rowconfigure(2, weight=0)  # Boutons action - taille fixe
+        self.grid_rowconfigure(3, weight=1)  # Tableau articles - grandit avec la fenêtre
+        self.grid_rowconfigure(4, weight=0)  # Totaux - pas de resize
         
         self.setup_ui()
         self.generer_reference()
@@ -862,7 +863,7 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         self.entry_designation.grid(row=1, column=1, columnspan=5, padx=5, pady=5, sticky="ew") # Colspan 5 (1 à 5)
 
         # --- Frame d'ajout de Détail (Lot 2) ---
-        detail_frame = ctk.CTkFrame(self, height=350)
+        detail_frame = ctk.CTkFrame(self)
         detail_frame.grid(row=1, column=0, padx=2, pady=(0, 15), sticky="ew")
         detail_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6), weight=1)
         

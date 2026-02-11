@@ -205,7 +205,7 @@ class PagePrixListe(ctk.CTkFrame):
         try:
             cursor = conn.cursor()
 
-            # Requête OPTIMISÉE avec LEFT JOIN LATERAL au lieu de sous-requête répétée
+            # Requête OPTIMISÉE avec window function ROW_NUMBER (plus rapide que LATERAL)
             query = """
             SELECT 
                 u.codearticle::TEXT,
@@ -214,14 +214,14 @@ class PagePrixListe(ctk.CTkFrame):
                 COALESCE(prix_recent.prix, 0) as prix
             FROM tb_unite u
             INNER JOIN tb_article a ON u.idarticle = a.idarticle
-            LEFT JOIN LATERAL (
-                SELECT p.prix 
-                FROM tb_prix p 
-                WHERE p.idunite = u.idunite 
-                AND p.deleted = 0
-                ORDER BY p.dateregistre DESC 
-                LIMIT 1
-            ) prix_recent ON true
+            LEFT JOIN (
+                SELECT 
+                    idunite, 
+                    prix,
+                    ROW_NUMBER() OVER (PARTITION BY idunite ORDER BY dateregistre DESC) as rn
+                FROM tb_prix 
+                WHERE deleted = 0
+            ) prix_recent ON u.idunite = prix_recent.idunite AND prix_recent.rn = 1
             WHERE u.deleted = 0 AND a.deleted = 0
             """
 

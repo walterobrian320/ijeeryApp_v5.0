@@ -642,6 +642,14 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
                     'inventaire' as type_mouvement
                 FROM tb_inventaire i
                 INNER JOIN tb_unite u ON i.codearticle = u.codearticle
+                WHERE u.idunite IN (
+                    -- Sélectionner UNIQUEMENT l'unité de base (plus petit qtunite)
+                    -- pour chaque idarticle afin d'éviter le double-comptage
+                    SELECT DISTINCT ON (idarticle) idunite
+                    FROM tb_unite
+                    WHERE deleted = 0
+                    ORDER BY idarticle, qtunite ASC
+                )
             ),
 
             solde_base_par_mag AS (

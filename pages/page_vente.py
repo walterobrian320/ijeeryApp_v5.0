@@ -549,7 +549,7 @@ class PageVente(ctk.CTkFrame):
         
         style = ttk.Style()
         style.theme_use("clam") 
-        style.configure("Treeview", rowheight=25, font=('Arial', 10), background=self._apply_appearance_mode(ctk.get_appearance_mode()))
+        style.configure("Treeview", rowheight=30, font=('Arial', 10), background=self._apply_appearance_mode(ctk.get_appearance_mode()))
         style.configure("Treeview.Heading", font=('Arial', 10, 'bold'))
 
         # Colonnes AJOUTÉES: "Montant"
@@ -588,18 +588,18 @@ class PageVente(ctk.CTkFrame):
         totals_frame.grid_columnconfigure(1, weight=0) # Pour le total général (à droite)
 
         # Total en Lettres (Côté gauche)
-        ctk.CTkLabel(totals_frame, text="Total en Lettres:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=5, pady=5, sticky="nw")
+        ctk.CTkLabel(totals_frame, text="Total en Lettres:", font=ctk.CTkFont(family="Segoe UI", weight="bold")).grid(row=0, column=0, padx=5, pady=5, sticky="nw")
         self.label_total_lettres = ctk.CTkLabel(totals_frame, text="Zéro Ariary", wraplength=700, justify="left", 
-                                                font=ctk.CTkFont(slant="italic"))
+                                                font=ctk.CTkFont(family="Segoe UI", slant="italic"))
         self.label_total_lettres.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
         
         # Total Général (Côté droit)
         right_total_frame = ctk.CTkFrame(totals_frame, fg_color="transparent")
         right_total_frame.grid(row=0, column=1, rowspan=2, padx=5, pady=5, sticky="ne")
         
-        ctk.CTkLabel(right_total_frame, text="TOTAL GÉNÉRAL:", font=ctk.CTkFont(size=14, weight="bold"), fg_color="transparent").pack(side="left", padx=5, pady=5)
+        ctk.CTkLabel(right_total_frame, text="TOTAL GÉNÉRAL:", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"), fg_color="transparent").pack(side="left", padx=5, pady=5)
         self.label_total_general = ctk.CTkLabel(right_total_frame, text=self.formater_nombre(0.0), 
-                                               font=ctk.CTkFont(size=14, weight="bold"), text_color="#d32f2f")
+                                               font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"), text_color="#d32f2f")
         self.label_total_general.pack(side="right", padx=5, pady=5)
         # --------------------------------------------------------------------------
 
@@ -639,7 +639,7 @@ class PageVente(ctk.CTkFrame):
         self.btn_imprimer.grid(row=0, column=3, padx=5, pady=5, sticky="ew") 
         
         self.btn_enregistrer = ctk.CTkButton(btn_action_frame, text="💾 Enregistrer la Facture", command=self.enregistrer_facture, 
-                                             font=ctk.CTkFont(size=13, weight="bold"))
+                                             font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"))
         self.btn_enregistrer.grid(row=0, column=4, padx=5, pady=5, sticky="e")
 
         # Initialisation des totaux
@@ -736,7 +736,7 @@ class PageVente(ctk.CTkFrame):
         frame = ctk.CTkFrame(fen)
         frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        ctk.CTkLabel(frame, text="Rechercher un client :", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=5)
+        ctk.CTkLabel(frame, text="Rechercher un client :", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold")).pack(pady=5)
         entry_search = ctk.CTkEntry(frame, placeholder_text="Nom client...")
         entry_search.pack(fill="x", padx=5, pady=5)
 

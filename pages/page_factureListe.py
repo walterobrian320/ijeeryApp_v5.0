@@ -43,7 +43,7 @@ class PageFactureListe(ctk.CTkFrame):
         self.date_frame.grid_columnconfigure(2, weight=1)
         
         # Label Date Début
-        self.label_date_debut = ctk.CTkLabel(self.date_frame, text="Date Début:", font=ctk.CTkFont(weight="bold"))
+        self.label_date_debut = ctk.CTkLabel(self.date_frame, text="Date Début:", font=ctk.CTkFont(family="Segoe UI", weight="bold"))
         self.label_date_debut.grid(row=0, column=0, padx=10, pady=10, sticky="w")
         
         # DateEntry Date Début
@@ -60,7 +60,7 @@ class PageFactureListe(ctk.CTkFrame):
         self.date_debut.grid(row=0, column=1, padx=10, pady=10, sticky="w")
         
         # Label Date Fin
-        self.label_date_fin = ctk.CTkLabel(self.date_frame, text="Date Fin:", font=ctk.CTkFont(weight="bold"))
+        self.label_date_fin = ctk.CTkLabel(self.date_frame, text="Date Fin:", font=ctk.CTkFont(family="Segoe UI", weight="bold"))
         self.label_date_fin.grid(row=0, column=2, padx=10, pady=10, sticky="w")
         
         # DateEntry Date Fin
@@ -207,17 +207,17 @@ class PageFactureListe(ctk.CTkFrame):
         self.total_frame.grid_columnconfigure(2, weight=1)
         
         # Labels pour les totaux
-        self.total_cmd_label = ctk.CTkLabel(self.total_frame, text="Total Facture: 0,00", font=ctk.CTkFont(weight="bold"))
+        self.total_cmd_label = ctk.CTkLabel(self.total_frame, text="Total Facture: 0,00", font=ctk.CTkFont(family="Segoe UI", weight="bold"))
         self.total_cmd_label.grid(row=0, column=0, padx=10, pady=10, sticky="w")
         
-        self.total_paye_label = ctk.CTkLabel(self.total_frame, text="Total Payé: 0,00", font=ctk.CTkFont(weight="bold"))
+        self.total_paye_label = ctk.CTkLabel(self.total_frame, text="Total Payé: 0,00", font=ctk.CTkFont(family="Segoe UI", weight="bold"))
         self.total_paye_label.grid(row=0, column=1, padx=10, pady=10, sticky="w")
         
-        self.total_solde_label = ctk.CTkLabel(self.total_frame, text="Total Solde: 0,00", font=ctk.CTkFont(weight="bold"), text_color="orange")
+        self.total_solde_label = ctk.CTkLabel(self.total_frame, text="Total Solde: 0,00", font=ctk.CTkFont(family="Segoe UI", weight="bold"), text_color="orange")
         self.total_solde_label.grid(row=0, column=2, padx=10, pady=10, sticky="w")
         
         # Label pour le nombre de factures
-        self.count_label = ctk.CTkLabel(self.total_frame, text="Nombre de factures: 0", font=ctk.CTkFont(weight="bold"))
+        self.count_label = ctk.CTkLabel(self.total_frame, text="Nombre de factures: 0", font=ctk.CTkFont(family="Segoe UI", weight="bold"))
         self.count_label.grid(row=0, column=3, padx=10, pady=10, sticky="e")
         
         self.load_all_credit()

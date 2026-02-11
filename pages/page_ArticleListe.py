@@ -41,14 +41,14 @@ def import_page_info_article():
                     customtkinter.CTkLabel(
                         error_frame,
                         text="❌ Erreur de chargement",
-                        font=customtkinter.CTkFont(size=20, weight="bold"),
+                        font=customtkinter.CTkFont(family="Segoe UI", size=20, weight="bold"),
                         text_color="#c62828"
                     ).pack(pady=20)
                     
                     customtkinter.CTkLabel(
                         error_frame,
                         text=f"Impossible de charger PageInfoArticle\nArticle ID: {initial_idarticle}",
-                        font=customtkinter.CTkFont(size=12),
+                        font=customtkinter.CTkFont(family="Segoe UI", size=12),
                         text_color="#666"
                     ).pack(pady=10)
             
@@ -83,13 +83,14 @@ def configure_treeview_style(root):
                     foreground=text_color,
                     fieldbackground=bg_color,
                     borderwidth=0,
-                    rowheight=25)
+                    font=('Segoe UI', 8),
+                    rowheight=22)
     
     # Configuration des en-têtes
     style.configure("Treeview.Heading",
                     background=heading_bg,
                     foreground=text_color,
-                    font=('Arial', 10, 'bold'))
+                    font=('Segoe UI', 8, 'bold'))
     
     # Configuration de la couleur de sélection
     style.map('Treeview', 
@@ -144,7 +145,7 @@ class page_listeArticle(customtkinter.CTkFrame):
         self.label_count = customtkinter.CTkLabel(
             self, 
             text="Nombre d'articles : 0", 
-            font=customtkinter.CTkFont(size=12, weight="bold")
+            font=customtkinter.CTkFont(family="Segoe UI", size=12, weight="bold")
         )
         self.label_count.grid(row=3, column=0, padx=10, pady=(5, 10), sticky="w")
         
@@ -236,7 +237,7 @@ class page_listeArticle(customtkinter.CTkFrame):
         label_search = customtkinter.CTkLabel(
             search_frame, 
             text="🔍 Recherche globale (cherche dans Code, Désignation, Unité et Catégorie):",
-            font=customtkinter.CTkFont(size=12, weight="bold")
+            font=customtkinter.CTkFont(family="Segoe UI", size=12, weight="bold")
         )
         label_search.grid(row=0, column=0, padx=5, pady=(5, 2), sticky="w")
         
@@ -250,7 +251,7 @@ class page_listeArticle(customtkinter.CTkFrame):
             search_input_frame, 
             placeholder_text="Tapez votre recherche ici...",
             height=35,
-            font=customtkinter.CTkFont(size=13)
+            font=customtkinter.CTkFont(family="Segoe UI", size=13)
         )
         self.entry_search.grid(row=0, column=0, padx=(0, 5), pady=0, sticky="ew")
         self.entry_search.bind('<KeyRelease>', lambda e: self.filter_data())
@@ -262,7 +263,7 @@ class page_listeArticle(customtkinter.CTkFrame):
             command=self.reset_filters,
             width=100,
             height=35,
-            font=customtkinter.CTkFont(size=12)
+            font=customtkinter.CTkFont(family="Segoe UI", size=12)
         )
         btn_reset.grid(row=0, column=1, padx=0, pady=0)
 
@@ -278,7 +279,7 @@ class page_listeArticle(customtkinter.CTkFrame):
             command=self.open_new_article,
             width=180,
             height=35,
-            font=customtkinter.CTkFont(size=13, weight="bold"),
+            font=customtkinter.CTkFont(family="Segoe UI", size=13, weight="bold"),
             fg_color="#007bff",
             hover_color="#0056b3"
         )
@@ -291,7 +292,7 @@ class page_listeArticle(customtkinter.CTkFrame):
             command=self.open_new_category,
             width=180,
             height=35,
-            font=customtkinter.CTkFont(size=13, weight="bold"),
+            font=customtkinter.CTkFont(family="Segoe UI", size=13, weight="bold"),
             fg_color="#6c757d",
             hover_color="#5a6268"
         )
@@ -304,7 +305,7 @@ class page_listeArticle(customtkinter.CTkFrame):
             command=self.export_to_excel,
             width=180,
             height=35,
-            font=customtkinter.CTkFont(size=13, weight="bold"),
+            font=customtkinter.CTkFont(family="Segoe UI", size=13, weight="bold"),
             fg_color="#28a745",
             hover_color="#218838"
         )
@@ -685,7 +686,7 @@ if __name__ == "__main__":
             label_title = customtkinter.CTkLabel(
                 self, 
                 text="Liste Complète des Articles", 
-                font=customtkinter.CTkFont(size=20, weight="bold")
+                font=customtkinter.CTkFont(family="Segoe UI", size=20, weight="bold")
             )
             label_title.grid(row=0, column=0, padx=20, pady=(20, 10), sticky="nw")
             

@@ -170,7 +170,7 @@ class PageCommandeCli(ctk.CTkFrame):
     def setup_ui(self):
         # Titre
         self.titre = ctk.CTkLabel(self, text="Nouvelle Commande Clients", 
-                            font=ctk.CTkFont(size=20, weight="bold"))
+                            font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"))
         self.titre.pack(pady=10)
         
         # Frame en haut pour référence et Client
@@ -320,7 +320,7 @@ class PageCommandeCli(ctk.CTkFrame):
         
         # Label total
         self.label_total = ctk.CTkLabel(frame_boutons, text="Total: 0,00", 
-                                       font=ctk.CTkFont(size=16, weight="bold"))
+                                       font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         self.label_total.pack(side="right", padx=20)
     
     # ==================== NOUVELLES FONCTIONS: Sélection et modification de ligne ====================
@@ -752,7 +752,7 @@ class PageCommandeCli(ctk.CTkFrame):
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
         titre = ctk.CTkLabel(main_frame, text="Sélectionner une commande", 
-                            font=ctk.CTkFont(size=16, weight="bold"))
+                            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         titre.pack(pady=(0, 10))
         
         search_frame = ctk.CTkFrame(main_frame)
@@ -985,7 +985,7 @@ class PageCommandeCli(ctk.CTkFrame):
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
         titre = ctk.CTkLabel(main_frame, text="Sélectionner un Article", 
-                            font=ctk.CTkFont(size=16, weight="bold"))
+                            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         titre.pack(pady=(0, 10))
         
         search_frame = ctk.CTkFrame(main_frame)

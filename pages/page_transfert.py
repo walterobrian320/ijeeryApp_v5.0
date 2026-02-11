@@ -23,7 +23,7 @@ class PageTransfert(ctk.CTkFrame):
     def setup_ui(self):
         # Titre
         titre = ctk.CTkLabel(self, text="TRANSFERT DE STOCK", 
-                            font=ctk.CTkFont(size=24, weight="bold"))
+                            font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold"))
         titre.pack(pady=20)
         
         # Frame principal
@@ -270,7 +270,7 @@ class PageTransfert(ctk.CTkFrame):
         main_frame = ctk.CTkFrame(fenetre_recherche)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        titre = ctk.CTkLabel(main_frame, text="Sélectionner un article", font=ctk.CTkFont(size=16, weight="bold"))
+        titre = ctk.CTkLabel(main_frame, text="Sélectionner un article", font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         titre.pack(pady=(0, 10))
 
         # Zone de recherche
@@ -288,7 +288,7 @@ class PageTransfert(ctk.CTkFrame):
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
 
         style = ttk.Style()
-        style.configure("Treeview", rowheight=25, font=('Arial', 10))
+        style.configure("Treeview", rowheight=30, font=('Arial', 10))
         style.configure("Treeview.Heading", font=('Arial', 10, 'bold'))
 
         tree.heading("ID_Article", text="ID_Article")

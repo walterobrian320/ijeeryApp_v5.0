@@ -43,13 +43,13 @@ class PagePmtFacture(ctk.CTkToplevel):
     def _construire_interface(self):
         main_frame = ctk.CTkFrame(self)
         main_frame.pack(fill="both", expand=True, padx=20, pady=20)
-        ctk.CTkLabel(main_frame, text="GESTION DU PAIEMENT", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(0, 20))
+        ctk.CTkLabel(main_frame, text="GESTION DU PAIEMENT", font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold")).pack(pady=(0, 20))
         
         info_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         info_frame.pack(fill="x", pady=10, padx=10)
-        ctk.CTkLabel(info_frame, text=f"Facture N°: {self.refvente}", font=ctk.CTkFont(weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(info_frame, text=f"Facture N°: {self.refvente}", font=ctk.CTkFont(family="Segoe UI", weight="bold")).pack(anchor="w")
         ctk.CTkLabel(info_frame, text=f"Client: {self.client}").pack(anchor="w")
-        ctk.CTkLabel(info_frame, text=f"Montant Total: {self.montant_total_str} Ar", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", pady=10)
+        ctk.CTkLabel(info_frame, text=f"Montant Total: {self.montant_total_str} Ar", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold")).pack(anchor="w", pady=10)
 
         saisie_frame = ctk.CTkFrame(main_frame)
         saisie_frame.pack(fill="x", pady=10, padx=10)
@@ -173,7 +173,7 @@ class PagePmtFacture(ctk.CTkToplevel):
         ctk.CTkLabel(
             main_frame, 
             text="⚠️ AUTORISATION REQUISE ⚠️", 
-            font=ctk.CTkFont(size=16, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
             text_color="#d32f2f"
         ).pack(pady=(0, 10))
         

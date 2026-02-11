@@ -324,7 +324,7 @@ class LoginWindow(ctk.CTk):
             self.logo_label = ctk.CTkLabel(
                 main_frame, 
                 text="iJeery_V5.0", 
-                font=ctk.CTkFont(size=24, weight="bold")
+                font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold")
             )
             self.logo_label.pack(pady=(0, 20))
 
@@ -334,7 +334,7 @@ class LoginWindow(ctk.CTk):
         username_label = ctk.CTkLabel(
             input_frame,
             text="Nom d'utilisateur:",
-            font=ctk.CTkFont(size=12)
+            font=ctk.CTkFont(family="Segoe UI", size=12)
         )
         username_label.pack(anchor="w", pady=(0, 5))
 
@@ -348,7 +348,7 @@ class LoginWindow(ctk.CTk):
         password_label = ctk.CTkLabel(
             input_frame,
             text="Mot de passe:",
-            font=ctk.CTkFont(size=12)
+            font=ctk.CTkFont(family="Segoe UI", size=12)
         )
         password_label.pack(anchor="w", pady=(0, 5))
 
@@ -391,7 +391,7 @@ class LoginWindow(ctk.CTk):
             input_frame,
             text="",
             text_color="red",
-            font=ctk.CTkFont(size=12)
+            font=ctk.CTkFont(family="Segoe UI", size=12)
         )
         self.error_label.pack(pady=(10, 0))
 

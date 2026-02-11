@@ -75,7 +75,7 @@ class PageArticleFrs(ctk.CTkFrame):
         
         for i, header in enumerate(self.tableau_headers):
             lbl = ctk.CTkLabel(self.scroll_frame_tableau, text=header, 
-                               font=ctk.CTkFont(weight="bold"), 
+                               font=ctk.CTkFont(family="Segoe UI", weight="bold"), 
                                fg_color="gray50", corner_radius=5)
             lbl.grid(row=0, column=i, padx=2, pady=2, sticky="ew")
 

@@ -24,7 +24,7 @@ class PagePrixSaisie(ctk.CTkFrame):
         titre = ctk.CTkLabel(
             self, 
             text="Gestion des Prix", 
-            font=ctk.CTkFont(size=24, weight="bold")
+            font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold")
         )
         titre.grid(row=0, column=0, pady=20, padx=20, sticky="w")
         
@@ -40,7 +40,7 @@ class PagePrixSaisie(ctk.CTkFrame):
         form_frame.grid_columnconfigure(1, weight=1)
         
         # Code Article
-        ctk.CTkLabel(form_frame, text="Code Article:", font=ctk.CTkFont(size=13)).grid(
+        ctk.CTkLabel(form_frame, text="Code Article:", font=ctk.CTkFont(family="Segoe UI", size=13)).grid(
             row=0, column=0, sticky="w", padx=10, pady=10
         )
         self.combo_code = ctk.CTkComboBox(
@@ -52,14 +52,14 @@ class PagePrixSaisie(ctk.CTkFrame):
         self.combo_code.grid(row=0, column=1, sticky="ew", padx=10, pady=10)
         
         # Nom d'Article
-        ctk.CTkLabel(form_frame, text="Nom d'Article:", font=ctk.CTkFont(size=13)).grid(
+        ctk.CTkLabel(form_frame, text="Nom d'Article:", font=ctk.CTkFont(family="Segoe UI", size=13)).grid(
             row=1, column=0, sticky="w", padx=10, pady=10
         )
         self.entry_nom = ctk.CTkEntry(form_frame, width=300, state="readonly")
         self.entry_nom.grid(row=1, column=1, sticky="ew", padx=10, pady=10)
         
         # Unité
-        ctk.CTkLabel(form_frame, text="Unité:", font=ctk.CTkFont(size=13)).grid(
+        ctk.CTkLabel(form_frame, text="Unité:", font=ctk.CTkFont(family="Segoe UI", size=13)).grid(
             row=2, column=0, sticky="w", padx=10, pady=10
         )
         self.combo_unite = ctk.CTkComboBox(
@@ -70,7 +70,7 @@ class PagePrixSaisie(ctk.CTkFrame):
         self.combo_unite.grid(row=2, column=1, sticky="ew", padx=10, pady=10)
         
         # Prix
-        ctk.CTkLabel(form_frame, text="Prix:", font=ctk.CTkFont(size=13)).grid(
+        ctk.CTkLabel(form_frame, text="Prix:", font=ctk.CTkFont(family="Segoe UI", size=13)).grid(
             row=3, column=0, sticky="w", padx=10, pady=10
         )
         self.entry_prix = ctk.CTkEntry(form_frame, width=300, placeholder_text="0.00")
@@ -130,7 +130,7 @@ class PagePrixSaisie(ctk.CTkFrame):
         ctk.CTkLabel(
             table_frame, 
             text="Historique des Prix", 
-            font=ctk.CTkFont(size=16, weight="bold")
+            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold")
         ).grid(row=0, column=0, sticky="w", padx=10, pady=(10, 5))
         
         # Treeview

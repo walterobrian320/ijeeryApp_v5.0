@@ -91,7 +91,7 @@ class PageUnite(ctk.CTkFrame):
         self.label_title = ctk.CTkLabel(
             self, 
             text=f"📦 Unités pour Article ID: {self.id_article}", 
-            font=ctk.CTkFont(size=18, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"),
             text_color="#2c3e50"
         )
         self.label_title.grid(row=0, column=0, columnspan=3, padx=20, pady=(20, 10), sticky="ew")

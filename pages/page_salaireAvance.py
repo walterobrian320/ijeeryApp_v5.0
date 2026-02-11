@@ -129,7 +129,7 @@ def page_salaireAvance(master):
     frame = ctk.CTkFrame(master, fg_color="transparent")
 
     # Titre principal
-    titre = ctk.CTkLabel(frame, text="GESTION DES SALAIRES ET AVANCES", font=ctk.CTkFont(size=18, weight="bold"))
+    titre = ctk.CTkLabel(frame, text="GESTION DES SALAIRES ET AVANCES", font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"))
     titre.pack(pady=10)
 
     # Variables pour la connexion a la base de donnees
@@ -316,7 +316,7 @@ def page_salaireAvance(master):
 
     # --- Onglet AVANCE (Fonctionnel) ---
     # Date
-    ctk.CTkLabel(tab_avance, text=datetime.now().strftime("%d/%m/%Y"), font=ctk.CTkFont(size=14)).pack(anchor="w", padx=10, pady=10)
+    ctk.CTkLabel(tab_avance, text=datetime.now().strftime("%d/%m/%Y"), font=ctk.CTkFont(family="Segoe UI", size=14)).pack(anchor="w", padx=10, pady=10)
 
     # Zone recherche
     search_frame = ctk.CTkFrame(tab_avance, fg_color="transparent")
@@ -339,7 +339,7 @@ def page_salaireAvance(master):
     headers = ["Nom", "Prenom", "Montant", "Description"]
     widths = [250, 200, 180, 250]
     for i, (text, width) in enumerate(zip(headers, widths)):
-        ctk.CTkLabel(header, text=text, font=ctk.CTkFont(weight="bold"), width=width).grid(row=0, column=i, padx=5, sticky="w")
+        ctk.CTkLabel(header, text=text, font=ctk.CTkFont(family="Segoe UI", weight="bold"), width=width).grid(row=0, column=i, padx=5, sticky="w")
 
     # Zone scrollable
     scroll_frame = ctk.CTkFrame(tab_avance)
@@ -370,21 +370,21 @@ def page_salaireAvance(master):
         
         title_label = ctk.CTkLabel(container, 
                                   text=f"Module {module_name} temporairement desactive",
-                                  font=ctk.CTkFont(size=16, weight="bold"))
+                                  font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         title_label.pack(pady=20)
         
         info_label = ctk.CTkLabel(container,
                                  text="Ce module sera reactive une fois que les problemes d'encodage seront corriges.\n"
                                       "Pour reactiver, modifiez ENABLE_OTHER_MODULES = True dans le code.",
-                                 font=ctk.CTkFont(size=12))
+                                 font=ctk.CTkFont(family="Segoe UI", size=12))
         info_label.pack(pady=10)
         
         if ENABLE_OTHER_MODULES:
             status_label = ctk.CTkLabel(container, text="Status: ACTIVE", 
-                                       text_color="green", font=ctk.CTkFont(size=12, weight="bold"))
+                                       text_color="green", font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"))
         else:
             status_label = ctk.CTkLabel(container, text="Status: DESACTIVE", 
-                                       text_color="orange", font=ctk.CTkFont(size=12, weight="bold"))
+                                       text_color="orange", font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"))
         status_label.pack(pady=5)
 
     # Onglet SALAIRE
@@ -394,7 +394,7 @@ def page_salaireAvance(master):
             page_salaire_base.pack(expand=True, fill="both")
         except Exception as e:
             ctk.CTkLabel(tab_salaire, text=f"Erreur: {str(e)}", 
-                        font=ctk.CTkFont(size=12)).pack(pady=20)
+                        font=ctk.CTkFont(family="Segoe UI", size=12)).pack(pady=20)
     else:
         create_placeholder_tab(tab_salaire, "PageSalaireBase")
 
@@ -405,7 +405,7 @@ def page_salaireAvance(master):
             page_salaireEtatBase.pack(expand=True, fill="both")
         except Exception as e:
             ctk.CTkLabel(tab_etat_salaire_base, text=f"Erreur: {str(e)}", 
-                        font=ctk.CTkFont(size=12)).pack(pady=20)
+                        font=ctk.CTkFont(family="Segoe UI", size=12)).pack(pady=20)
     else:
         create_placeholder_tab(tab_etat_salaire_base, "PageSalaireEtatSB")
 
@@ -416,7 +416,7 @@ def page_salaireAvance(master):
             page_salaireEtatHoraire.pack(expand=True, fill="both")
         except Exception as e:
             ctk.CTkLabel(tab_etat_salaire_horaire, text=f"Erreur: {str(e)}", 
-                        font=ctk.CTkFont(size=12)).pack(pady=20)
+                        font=ctk.CTkFont(family="Segoe UI", size=12)).pack(pady=20)
     else:
         create_placeholder_tab(tab_etat_salaire_horaire, "page_salaireEtatHoraire_")
 
@@ -427,7 +427,7 @@ def page_salaireAvance(master):
             page_avanceSpecial.pack(expand=True, fill="both")
         except Exception as e:
             ctk.CTkLabel(tab_avance_special, text=f"Erreur: {str(e)}", 
-                        font=ctk.CTkFont(size=12)).pack(pady=20)
+                        font=ctk.CTkFont(family="Segoe UI", size=12)).pack(pady=20)
     else:
         create_placeholder_tab(tab_avance_special, "page_avanceSpecial_")
 

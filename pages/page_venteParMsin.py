@@ -815,7 +815,7 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
     
         # Référence
         ctk.CTkLabel(header_frame, text="N° Facture:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self.entry_ref_vente = ctk.CTkEntry(header_frame, width=150, font=ctk.CTkFont(size=12, weight="bold"))
+        self.entry_ref_vente = ctk.CTkEntry(header_frame, width=150, font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"))
         self.entry_ref_vente.grid(row=0, column=1, padx=5, pady=5, sticky="w")
         self.entry_ref_vente.configure(state="readonly")
     
@@ -956,8 +956,8 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         
         style = ttk.Style()
         style.theme_use("clam") 
-        style.configure("Treeview", rowheight=10, font=('Arial', 8), background=self._apply_appearance_mode(ctk.get_appearance_mode()))
-        style.configure("Treeview.Heading", font=('Arial', 8, 'bold'))
+        style.configure("Treeview", rowheight=22, font=('Segoe UI', 8), background=self._apply_appearance_mode(ctk.get_appearance_mode()))
+        style.configure("Treeview.Heading", font=('Segoe UI', 8, 'bold'))
 
         # Colonnes AJOUTÉES: "Montant"
         colonnes = ("ID_Article", "ID_Unite", "ID_Magasin", "Code Article", "Désignation", "Magasin", "Unité", "Remise (%)", "Prix Unitaire", "Quantité Vente", "Montant")
@@ -995,27 +995,27 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         totals_frame.grid_columnconfigure(1, weight=0) # Pour le total général (à droite)
 
         # Total en Lettres (Côté gauche)
-        ctk.CTkLabel(totals_frame, text="Total en Lettres:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=5, pady=5, sticky="nw")
+        ctk.CTkLabel(totals_frame, text="Total en Lettres:", font=ctk.CTkFont(family="Segoe UI", weight="bold")).grid(row=0, column=0, padx=5, pady=5, sticky="nw")
         self.label_total_lettres = ctk.CTkLabel(totals_frame, text="Zéro Ariary", wraplength=700, justify="left", 
-                                                font=ctk.CTkFont(slant="italic"))
+                                                font=ctk.CTkFont(family="Segoe UI", slant="italic"))
         self.label_total_lettres.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
         
         # Total Général (Côté droit)
         right_total_frame = ctk.CTkFrame(totals_frame, fg_color="transparent")
         right_total_frame.grid(row=0, column=1, rowspan=1, padx=5, pady=5, sticky="ne")
         
-        ctk.CTkLabel(right_total_frame, text="TOTAL GÉNÉRAL:", font=ctk.CTkFont(size=14, weight="bold"), fg_color="transparent").pack(side="left", padx=5, pady=5)
+        ctk.CTkLabel(right_total_frame, text="TOTAL GÉNÉRAL:", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"), fg_color="transparent").pack(side="left", padx=5, pady=5)
         self.label_total_general = ctk.CTkLabel(right_total_frame, text=self.formater_nombre(0.0), 
-                                               font=ctk.CTkFont(size=14, weight="bold"), text_color="#d32f2f")
+                                               font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"), text_color="#d32f2f")
         self.label_total_general.pack(side="right", padx=5, pady=5)
         
         # Montant en FMG (sous le TOTAL GÉNÉRAL)
         fmg_frame = ctk.CTkFrame(totals_frame, fg_color="transparent")
         fmg_frame.grid(row=1, column=1, padx=5, pady=(0, 5), sticky="ne")
         
-        ctk.CTkLabel(fmg_frame, text="Montant en FMG:", font=ctk.CTkFont(size=12), fg_color="transparent").pack(side="left", padx=5)
+        ctk.CTkLabel(fmg_frame, text="Montant en FMG:", font=ctk.CTkFont(family="Segoe UI", size=12), fg_color="transparent").pack(side="left", padx=5)
         self.label_montant_fmg = ctk.CTkLabel(fmg_frame, text=self.formater_nombre(0.0), 
-                                             font=ctk.CTkFont(size=12, weight="bold"), text_color="#1976d2")
+                                             font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"), text_color="#1976d2")
         self.label_montant_fmg.pack(side="right", padx=5)
         # --------------------------------------------------------------------------
 
@@ -1056,7 +1056,7 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         # self.btn_imprimer.grid(row=0, column=3, padx=5, pady=5, sticky="ew") 
         
         self.btn_enregistrer = ctk.CTkButton(btn_action_frame, text="💾 Enregistrer la Facture", command=self.enregistrer_facture, 
-                                             font=ctk.CTkFont(size=13, weight="bold"))
+                                             font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"))
         self.btn_enregistrer.grid(row=0, column=4, padx=5, pady=5, sticky="e")
 
         # Initialisation des totaux
@@ -1183,7 +1183,7 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         frame = ctk.CTkFrame(fen)
         frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        ctk.CTkLabel(frame, text="Rechercher un client :", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=10)
+        ctk.CTkLabel(frame, text="Rechercher un client :", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold")).pack(pady=10)
     
         # Entrée de recherche
         entry_search = ctk.CTkEntry(frame, placeholder_text="Nom client...")
@@ -1191,8 +1191,8 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
 
         # 1. Définition du Style d'abord
         style = ttk.Style()
-        style.configure("ClientTreeview.Treeview", rowheight=25, font=('Arial', 11))
-        style.configure("ClientTreeview.Treeview.Heading", font=('Arial', 11, 'bold'))
+        style.configure("ClientTreeview.Treeview", rowheight=22, font=('Segoe UI', 8))
+        style.configure("ClientTreeview.Treeview.Heading", font=('Segoe UI', 8, 'bold'))
 
         # 2. Création de l'objet Treeview (INDISPENSABLE avant la configuration)
         colonnes = ("ID", "Nom Client")
@@ -1449,7 +1449,7 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         main_frame = ctk.CTkFrame(fenetre_recherche)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        titre = ctk.CTkLabel(main_frame, text="Sélectionner un article", font=ctk.CTkFont(size=16, weight="bold"))
+        titre = ctk.CTkLabel(main_frame, text="Sélectionner un article", font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         titre.pack(pady=(0, 10))
 
         # Zone de recherche
@@ -1467,8 +1467,8 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
     
         style = ttk.Style()
-        style.configure("Treeview", rowheight=25, font=('Arial', 10)) 
-        style.configure("Treeview.Heading", font=('Arial', 10, 'bold'))
+        style.configure("Treeview", rowheight=22, font=('Segoe UI', 8)) 
+        style.configure("Treeview.Heading", font=('Segoe UI', 8, 'bold'))
 
         tree.heading("ID_Article", text="ID_Article")
         tree.heading("ID_Unite", text="ID_Unite")
@@ -1936,8 +1936,8 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
         
         style = ttk.Style()
-        style.configure("Treeview", rowheight=25, font=('Arial', 10)) 
-        style.configure("Treeview.Heading", font=('Arial', 10, 'bold'))
+        style.configure("Treeview", rowheight=22, font=('Segoe UI', 8)) 
+        style.configure("Treeview.Heading", font=('Segoe UI', 8, 'bold'))
 
         tree.heading("ID", text="ID")
         tree.heading("Ref Vente", text="N° Facture")
@@ -2449,7 +2449,7 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         frame.pack(fill="both", expand=True, padx=10, pady=10)
     
         ctk.CTkLabel(frame, text="Sélectionnez la facture à imprimer:", 
-                 font=ctk.CTkFont(size=14, weight="bold")).pack(pady=10)
+                 font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold")).pack(pady=10)
     
         # Liste des factures
         listbox_frame = ctk.CTkFrame(frame)
@@ -3137,8 +3137,8 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
         
         style = ttk.Style()
-        style.configure("Treeview", rowheight=25, font=('Arial', 10)) 
-        style.configure("Treeview.Heading", font=('Arial', 10, 'bold'))
+        style.configure("Treeview", rowheight=22, font=('Segoe UI', 8)) 
+        style.configure("Treeview.Heading", font=('Segoe UI', 8, 'bold'))
 
         tree.heading("ID", text="ID")
         tree.heading("Ref Proforma", text="N° Proforma")

@@ -343,7 +343,7 @@ class PageSortie(ctk.CTkFrame):
         # -----------------------------
         
         self.btn_enregistrer = ctk.CTkButton(btn_action_frame, text="💾 Enregistrer la Sortie", command=self.enregistrer_sortie, 
-                                             font=ctk.CTkFont(size=13, weight="bold"))
+                                             font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"))
         self.btn_enregistrer.grid(row=0, column=2, padx=5, pady=5, sticky="e")
         
 
@@ -494,7 +494,7 @@ class PageSortie(ctk.CTkFrame):
         main_frame = ctk.CTkFrame(fenetre_recherche)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        titre = ctk.CTkLabel(main_frame, text="Sélectionner un article", font=ctk.CTkFont(size=16, weight="bold"))
+        titre = ctk.CTkLabel(main_frame, text="Sélectionner un article", font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         titre.pack(pady=(0, 10))
 
         # Zone de recherche
@@ -979,7 +979,7 @@ class PageSortie(ctk.CTkFrame):
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
     
         titre = ctk.CTkLabel(main_frame, text="Sélectionner un bon de sortie", 
-                        font=ctk.CTkFont(size=16, weight="bold"))
+                        font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         titre.pack(pady=(0, 10))
     
         search_frame = ctk.CTkFrame(main_frame)

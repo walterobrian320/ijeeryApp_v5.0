@@ -74,7 +74,7 @@ class PageFacturation(ctk.CTkFrame):
         ctk.CTkLabel(
             frame_stock,
             text="📦 Stock par dépôt",
-            font=ctk.CTkFont(weight="bold")
+            font=ctk.CTkFont(family="Segoe UI", weight="bold")
         ).pack()
 
         btn_tous = ctk.CTkButton(
@@ -97,7 +97,7 @@ class PageFacturation(ctk.CTkFrame):
         ctk.CTkLabel(
             frame_vente,
             text="🧾 Facturation",
-            font=ctk.CTkFont(size=14, weight="bold")
+            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold")
         ).pack()
 
         self.page_vente = PageVenteParMsin(

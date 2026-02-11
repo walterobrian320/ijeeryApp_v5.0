@@ -249,7 +249,7 @@ class PagePmtFrs(ctk.CTkToplevel):
         title_label = ctk.CTkLabel(
             main_frame, 
             text="💳 PAIEMENT FOURNISSEUR",
-            font=ctk.CTkFont(size=20, weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"),
             text_color=("#1f538d", "#3d8bfd")
         )
         title_label.pack(pady=(0, 20))
@@ -258,14 +258,14 @@ class PagePmtFrs(ctk.CTkToplevel):
         info_frame.pack(fill="x", pady=10, padx=10)
         
         # Labels Infos
-        ctk.CTkLabel(info_frame, text="Facture N°:", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=15, pady=5, sticky="w")
+        ctk.CTkLabel(info_frame, text="Facture N°:", font=ctk.CTkFont(family="Segoe UI", weight="bold")).grid(row=0, column=0, padx=15, pady=5, sticky="w")
         ctk.CTkLabel(info_frame, text=self.refcom).grid(row=0, column=1, padx=15, pady=5, sticky="w")
         
-        ctk.CTkLabel(info_frame, text="Fournisseur:", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=15, pady=5, sticky="w")
+        ctk.CTkLabel(info_frame, text="Fournisseur:", font=ctk.CTkFont(family="Segoe UI", weight="bold")).grid(row=1, column=0, padx=15, pady=5, sticky="w")
         ctk.CTkLabel(info_frame, text=self.fournisseur).grid(row=1, column=1, padx=15, pady=5, sticky="w")
 
-        ctk.CTkLabel(info_frame, text="Montant Total:", font=ctk.CTkFont(weight="bold")).grid(row=2, column=0, padx=15, pady=5, sticky="w")
-        ctk.CTkLabel(info_frame, text=f"{self.montant_total_str} Ar", text_color="green", font=ctk.CTkFont(size=14, weight="bold")).grid(row=2, column=1, padx=15, pady=5, sticky="w")
+        ctk.CTkLabel(info_frame, text="Montant Total:", font=ctk.CTkFont(family="Segoe UI", weight="bold")).grid(row=2, column=0, padx=15, pady=5, sticky="w")
+        ctk.CTkLabel(info_frame, text=f"{self.montant_total_str} Ar", text_color="green", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold")).grid(row=2, column=1, padx=15, pady=5, sticky="w")
 
         # Saisie
         saisie_frame = ctk.CTkFrame(main_frame)

@@ -34,7 +34,7 @@ class PageGestionPeremption(ctk.CTkFrame):
     def setup_ui(self):
         # Titre de la page
         self.titre = ctk.CTkLabel(self, text="🛡️ Suivi de Péremption par Article", 
-                                 font=ctk.CTkFont(size=20, weight="bold"))
+                                 font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"))
         self.titre.pack(pady=15)
 
         # Barre d'outils et recherche
@@ -45,7 +45,7 @@ class PageGestionPeremption(ctk.CTkFrame):
         frame_recherche = ctk.CTkFrame(frame_outils, fg_color="transparent")
         frame_recherche.pack(side="left", padx=10, pady=10)
         
-        ctk.CTkLabel(frame_recherche, text="🔍 Rechercher:", font=ctk.CTkFont(size=12)).pack(side="left", padx=5)
+        ctk.CTkLabel(frame_recherche, text="🔍 Rechercher:", font=ctk.CTkFont(family="Segoe UI", size=12)).pack(side="left", padx=5)
         
         self.entry_recherche = ctk.CTkEntry(frame_recherche, placeholder_text="Code ou désignation d'article", width=250)
         self.entry_recherche.pack(side="left", padx=5)
@@ -64,9 +64,9 @@ class PageGestionPeremption(ctk.CTkFrame):
         legend_frame = ctk.CTkFrame(frame_outils, fg_color="transparent")
         legend_frame.pack(side="right", padx=10)
         
-        ctk.CTkLabel(legend_frame, text="Rouge: Périmé", text_color="#e53935", font=ctk.CTkFont(size=11, weight="bold")).pack(side="right", padx=10)
-        ctk.CTkLabel(legend_frame, text="Orange: < 1 mois", text_color="#fb8c00", font=ctk.CTkFont(size=11, weight="bold")).pack(side="right", padx=10)
-        ctk.CTkLabel(legend_frame, text="Vert: < 2 mois", text_color="#43a047", font=ctk.CTkFont(size=11, weight="bold")).pack(side="right", padx=10)
+        ctk.CTkLabel(legend_frame, text="Rouge: Périmé", text_color="#e53935", font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold")).pack(side="right", padx=10)
+        ctk.CTkLabel(legend_frame, text="Orange: < 1 mois", text_color="#fb8c00", font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold")).pack(side="right", padx=10)
+        ctk.CTkLabel(legend_frame, text="Vert: < 2 mois", text_color="#43a047", font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold")).pack(side="right", padx=10)
 
         # Conteneur pour le tableau avec scrollbar horizontal
         frame_container = ctk.CTkFrame(self)
@@ -401,7 +401,7 @@ class PageGestionPeremption(ctk.CTkFrame):
         frame_info.pack(fill="both", expand=True, padx=20, pady=20)
         
         ctk.CTkLabel(frame_info, text="Informations sur la péremption", 
-                     font=ctk.CTkFont(size=16, weight="bold")).pack(pady=10)
+                     font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold")).pack(pady=10)
         
         info_text = f"""
 Article: {cell_data['code']} - {cell_data['article']}
@@ -414,7 +414,7 @@ Souhaitez-vous la supprimer de la liste de suivi ?
         """
         
         ctk.CTkLabel(frame_info, text=info_text, 
-                     font=ctk.CTkFont(size=12),
+                     font=ctk.CTkFont(family="Segoe UI", size=12),
                      justify="left").pack(pady=20)
         
         # Boutons

@@ -103,7 +103,7 @@ class PageBonReception(ctk.CTkFrame):
     def setup_ui(self):
         # Titre
         self.titre = ctk.CTkLabel(self, text="Bon de Réception Fournisseur", 
-                            font=ctk.CTkFont(size=20, weight="bold"))
+                            font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"))
         self.titre.pack(pady=10)
         
         # Frame en haut pour référence, fournisseur et date
@@ -147,7 +147,7 @@ class PageBonReception(ctk.CTkFrame):
         
         # Label titre du tableau
         label_titre_tableau = ctk.CTkLabel(frame_tree, text="Articles Livrés", 
-                                          font=ctk.CTkFont(size=14, weight="bold"))
+                                          font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"))
         label_titre_tableau.pack(pady=(5, 5))
         
         # Treeview
@@ -194,7 +194,7 @@ class PageBonReception(ctk.CTkFrame):
         
         # Label total
         self.label_total = ctk.CTkLabel(frame_boutons, text="Total: 0,00", 
-                                       font=ctk.CTkFont(size=16, weight="bold"))
+                                       font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         self.label_total.pack(side="right", padx=20)
     
     def toggle_date_peremption(self):
@@ -267,7 +267,7 @@ class PageBonReception(ctk.CTkFrame):
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
         titre = ctk.CTkLabel(main_frame, text="Sélectionner une commande avec articles livrés", 
-                            font=ctk.CTkFont(size=16, weight="bold"))
+                            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         titre.pack(pady=(0, 10))
         
         search_frame = ctk.CTkFrame(main_frame)

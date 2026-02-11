@@ -171,7 +171,7 @@ class PageCommandeFrs(ctk.CTkFrame):
     def setup_ui(self):
         # Titre
         self.titre = ctk.CTkLabel(self, text="Nouvelle Commande Fournisseur", 
-                            font=ctk.CTkFont(size=20, weight="bold"))
+                            font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"))
         self.titre.pack(pady=10)
         
         # Frame en haut pour référence, fournisseur ET TOTAL GLOBAL
@@ -200,7 +200,7 @@ class PageCommandeFrs(ctk.CTkFrame):
         
         # LABEL TOTAL GLOBAL DE COMMANDE (NOUVEAU)
         self.label_total_global = ctk.CTkLabel(frame_haut, text="Total Commande: 0,00", 
-                                       font=ctk.CTkFont(size=16, weight="bold"),
+                                       font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
                                        text_color="#2e7d32")
         self.label_total_global.grid(row=1, column=3, padx=20, pady=10, sticky="e")
         
@@ -239,7 +239,7 @@ class PageCommandeFrs(ctk.CTkFrame):
         
         # Label Total Ligne (NOUVEAU)
         self.label_total_ligne = ctk.CTkLabel(frame_milieu, text="Total Ligne: 0,00",
-                                              font=ctk.CTkFont(weight="bold"))
+                                              font=ctk.CTkFont(family="Segoe UI", weight="bold"))
         self.label_total_ligne.grid(row=2, column=4, padx=20, pady=10, sticky="w")
         
         # Quantité Livrée
@@ -341,7 +341,7 @@ class PageCommandeFrs(ctk.CTkFrame):
         
         # Label total (pour la zone basse, inchangé pour la cohérence, mais le total principal est en haut)
         self.label_total = ctk.CTkLabel(frame_boutons, text="Total: 0,00", 
-                                       font=ctk.CTkFont(size=16, weight="bold"))
+                                       font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         self.label_total.pack(side="right", padx=20)
         
     def toggle_date_peremption(self):
@@ -699,7 +699,7 @@ class PageCommandeFrs(ctk.CTkFrame):
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
         titre = ctk.CTkLabel(main_frame, text="Sélectionner une commande", 
-                            font=ctk.CTkFont(size=16, weight="bold"))
+                            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         titre.pack(pady=(0, 10))
         
         search_frame = ctk.CTkFrame(main_frame)
@@ -932,7 +932,7 @@ class PageCommandeFrs(ctk.CTkFrame):
         main_frame = ctk.CTkFrame(fenetre_recherche)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
-        titre = ctk.CTkLabel(main_frame, text="Sélectionner un article", font=ctk.CTkFont(size=16, weight="bold"))
+        titre = ctk.CTkLabel(main_frame, text="Sélectionner un article", font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         titre.pack(pady=(0, 10))
         
         search_frame = ctk.CTkFrame(main_frame)

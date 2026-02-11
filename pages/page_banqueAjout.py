@@ -30,7 +30,7 @@ class PageBanqueNv(ctk.CTkFrame):
         else:
             # Afficher un message d'erreur si la connexion échoue
             error_label = ctk.CTkLabel(self, text="Erreur: Impossible de se connecter à la base de données", 
-                                     font=ctk.CTkFont(size=16, weight="bold"),
+                                     font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
                                      text_color="red")
             error_label.pack(pady=50)
 
@@ -76,7 +76,7 @@ class PageBanqueNv(ctk.CTkFrame):
         self.title_frame.pack(side="top", fill="x", padx=20, pady=10)
 
         self.title_label = ctk.CTkLabel(self.title_frame, text="Gestion des Banques", 
-                                      font=ctk.CTkFont(size=24, weight="bold"))
+                                      font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold"))
         self.title_label.pack(pady=10)
 
         # --- Cadre pour les boutons (Ajouter, Modifier, Supprimer) ---
@@ -162,31 +162,31 @@ class PageBanqueNv(ctk.CTkFrame):
 
         # Titre du formulaire
         form_title = ctk.CTkLabel(self.entry_frame, text="Informations Banque", 
-                                font=ctk.CTkFont(size=16, weight="bold"))
+                                font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         form_title.grid(row=0, column=0, columnspan=2, pady=(10, 20))
 
         self.label_nombanque = ctk.CTkLabel(self.entry_frame, text="Nom banque :", 
-                                          font=ctk.CTkFont(size=14))
+                                          font=ctk.CTkFont(family="Segoe UI", size=14))
         self.label_nombanque.grid(row=1, column=0, padx=10, pady=10, sticky="w")
 
         self.entry_nombanque = ctk.CTkEntry(self.entry_frame, width=200, 
-                                          font=ctk.CTkFont(size=14))
+                                          font=ctk.CTkFont(family="Segoe UI", size=14))
         self.entry_nombanque.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
 
         self.label_adresse = ctk.CTkLabel(self.entry_frame, text="Adresse :", 
-                                        font=ctk.CTkFont(size=14))
+                                        font=ctk.CTkFont(family="Segoe UI", size=14))
         self.label_adresse.grid(row=2, column=0, padx=10, pady=10, sticky="w")
 
         self.entry_adresse = ctk.CTkEntry(self.entry_frame, width=200, 
-                                        font=ctk.CTkFont(size=14))
+                                        font=ctk.CTkFont(family="Segoe UI", size=14))
         self.entry_adresse.grid(row=2, column=1, padx=10, pady=10, sticky="ew")
 
         self.label_numcompte = ctk.CTkLabel(self.entry_frame, text="Compte :", 
-                                          font=ctk.CTkFont(size=14))
+                                          font=ctk.CTkFont(family="Segoe UI", size=14))
         self.label_numcompte.grid(row=3, column=0, padx=10, pady=10, sticky="w")
 
         self.entry_numcompte = ctk.CTkEntry(self.entry_frame, width=200, 
-                                          font=ctk.CTkFont(size=14))
+                                          font=ctk.CTkFont(family="Segoe UI", size=14))
         self.entry_numcompte.grid(row=3, column=1, padx=10, pady=10, sticky="ew")
 
         # Bouton pour vider les champs

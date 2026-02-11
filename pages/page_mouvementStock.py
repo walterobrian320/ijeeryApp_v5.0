@@ -181,7 +181,7 @@ class PageCmdFrs(ctk.CTkFrame):
         main_frame = ctk.CTkFrame(fenetre_recherche)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
-        titre = ctk.CTkLabel(main_frame, text="Sélectionner un article", font=ctk.CTkFont(size=16, weight="bold"))
+        titre = ctk.CTkLabel(main_frame, text="Sélectionner un article", font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         titre.pack(pady=(0, 10))
         
         search_frame = ctk.CTkFrame(main_frame)
@@ -412,7 +412,7 @@ class PageCmdFrs(ctk.CTkFrame):
     def setup_ui(self):
         # Titre
         self.titre = ctk.CTkLabel(self, text="Nouvelle Commande Fournisseur", 
-                            font=ctk.CTkFont(size=20, weight="bold"))
+                            font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"))
         self.titre.pack(pady=10)
         
         # Frame en haut pour référence, fournisseur ET TOTAL GLOBAL
@@ -437,7 +437,7 @@ class PageCmdFrs(ctk.CTkFrame):
         
         # LABEL TOTAL GLOBAL DE COMMANDE (NOUVEAU)
         self.label_total_global = ctk.CTkLabel(frame_haut, text="Total Commande: 0,00", 
-                                       font=ctk.CTkFont(size=16, weight="bold"),
+                                       font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
                                        text_color="#2e7d32")
         self.label_total_global.grid(row=0, column=5, padx=20, pady=10, sticky="e")
         
@@ -476,7 +476,7 @@ class PageCmdFrs(ctk.CTkFrame):
         
         # Label Total Ligne (NOUVEAU)
         self.label_total_ligne = ctk.CTkLabel(frame_milieu, text="Total Ligne: 0,00",
-                                              font=ctk.CTkFont(weight="bold"))
+                                              font=ctk.CTkFont(family="Segoe UI", weight="bold"))
         self.label_total_ligne.grid(row=2, column=4, padx=20, pady=10, sticky="w")
         
         # Quantité Livrée
@@ -563,7 +563,7 @@ class PageCmdFrs(ctk.CTkFrame):
         
         # Label total (pour la zone basse, inchangé pour la cohérence, mais le total principal est en haut)
         self.label_total = ctk.CTkLabel(frame_boutons, text="Total: 0,00", 
-                                       font=ctk.CTkFont(size=16, weight="bold"))
+                                       font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         self.label_total.pack(side="right", padx=20)
 
     # --- Méthodes de gestion (inchangées) ---
@@ -854,7 +854,7 @@ class PageCmdFrs(ctk.CTkFrame):
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
         titre = ctk.CTkLabel(main_frame, text="Sélectionner une commande", 
-                            font=ctk.CTkFont(size=16, weight="bold"))
+                            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
         titre.pack(pady=(0, 10))
         
         search_frame = ctk.CTkFrame(main_frame)
@@ -1524,7 +1524,7 @@ class PageLivrFrs(ctk.CTkFrame):
     """Fenêtre pour le Bon de Réception."""
     def __init__(self, master=None):
         super().__init__(master, fg_color="white")
-        label = ctk.CTkLabel(self, text="BON DE RÉCEPTION", font=ctk.CTkFont(size=30, weight="bold"), text_color="black")
+        label = ctk.CTkLabel(self, text="BON DE RÉCEPTION", font=ctk.CTkFont(family="Segoe UI", size=30, weight="bold"), text_color="black")
         label.pack(pady=50, padx=50)
         
         
@@ -1533,14 +1533,14 @@ class PageTransfert(ctk.CTkFrame):
     """Fenêtre pour le Bon de Transfert."""
     def __init__(self, master=None):
         super().__init__(master, fg_color="white")
-        label = ctk.CTkLabel(self, text="BON DE TRANSFERT", font=ctk.CTkFont(size=30, weight="bold"), text_color="black")
+        label = ctk.CTkLabel(self, text="BON DE TRANSFERT", font=ctk.CTkFont(family="Segoe UI", size=30, weight="bold"), text_color="black")
         label.pack(pady=50, padx=50)
 
 class PageSortie(ctk.CTkFrame):
     """Fenêtre pour le Bon de Sortie."""
     def __init__(self, master=None):
         super().__init__(master, fg_color="white")
-        label = ctk.CTkLabel(self, text="BON DE SORTIE", font=ctk.CTkFont(size=30, weight="bold"), text_color="black")
+        label = ctk.CTkLabel(self, text="BON DE SORTIE", font=ctk.CTkFont(family="Segoe UI", size=30, weight="bold"), text_color="black")
         label.pack(pady=50, padx=50)
 
 
@@ -1561,7 +1561,7 @@ class PageMouvementStock(ctk.CTkFrame):
         self.navigation_frame.grid(row=0, column=0, sticky="nsew")
         self.navigation_frame.grid_rowconfigure(6, weight=1)
         
-        title_label = ctk.CTkLabel(self.navigation_frame, text="Mise-à-jour", font=ctk.CTkFont(size=18, weight="bold"), text_color="white")
+        title_label = ctk.CTkLabel(self.navigation_frame, text="Mise-à-jour", font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"), text_color="white")
         title_label.grid(row=0, column=0, padx=20, pady=20)
         
         # --- Boutons de Navigation (Lambda corrigée) ---
@@ -1604,7 +1604,7 @@ class PageMouvementStock(ctk.CTkFrame):
                 hover_color="#006BB3", 
                 text_color=INACTIVE_TEXT_COLOR,
                 anchor="w",
-                font=ctk.CTkFont(size=14)
+                font=ctk.CTkFont(family="Segoe UI", size=14)
             )
             button.grid(row=0, column=1, padx=(0, 10), pady=5, sticky="ew")
             
@@ -1619,7 +1619,7 @@ class PageMouvementStock(ctk.CTkFrame):
         stop_label_container.grid(row=7, column=0, padx=0, pady=(0, 20), sticky="ew")
         stop_checkbox = ctk.CTkCheckBox(stop_label_container, text="", width=15, height=15, border_width=2, fg_color=NAV_BAR_COLOR, border_color="white", checkmark_color="white")
         stop_checkbox.pack(side="left", padx=(10, 5), pady=5)
-        stop_label = ctk.CTkLabel(stop_label_container, text="Mise-à-jour Arrêt", font=ctk.CTkFont(size=14), text_color="white")
+        stop_label = ctk.CTkLabel(stop_label_container, text="Mise-à-jour Arrêt", font=ctk.CTkFont(family="Segoe UI", size=14), text_color="white")
         stop_label.pack(side="left")
 
 

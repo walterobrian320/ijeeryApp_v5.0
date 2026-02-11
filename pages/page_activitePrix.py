@@ -186,7 +186,7 @@ class PageActivitePrix(ctk.CTkFrame):
 
     def create_widgets(self):
         # Titre principal de la page
-        title_label = ctk.CTkLabel(self, text="Activités et Prix", font=ctk.CTkFont(size=20, weight="bold"))
+        title_label = ctk.CTkLabel(self, text="Activités et Prix", font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"))
         title_label.pack(pady=10)
 
         main_frame = ctk.CTkFrame(self)
@@ -201,7 +201,7 @@ class PageActivitePrix(ctk.CTkFrame):
         input_frame = ctk.CTkFrame(main_frame)
         input_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
         
-        ctk.CTkLabel(input_frame, text="Champ de saisie", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=(5, 10))
+        ctk.CTkLabel(input_frame, text="Champ de saisie", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold")).pack(pady=(5, 10))
 
         ctk.CTkLabel(input_frame, text="Activité :").pack(pady=(2,0))
         activite_options = sorted(list(self.activites_data.keys()))
@@ -241,7 +241,7 @@ class PageActivitePrix(ctk.CTkFrame):
         treeview_frame.grid_rowconfigure(1, weight=1)
         treeview_frame.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(treeview_frame, text="Prix par Série", font=ctk.CTkFont(size=14, weight="bold")).grid(row=0, column=0, pady=(10, 20), sticky="n")
+        ctk.CTkLabel(treeview_frame, text="Prix par Série", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold")).grid(row=0, column=0, pady=(10, 20), sticky="n")
 
         style = ttk.Style()
         style.theme_use("clam")
@@ -262,7 +262,7 @@ class PageActivitePrix(ctk.CTkFrame):
         style.map('Treeview', background=[('selected', select_color)])
         
         style.configure("Treeview.Heading",
-                        font=ctk.CTkFont(size=10, weight="bold"),
+                        font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
                         background=select_color,
                         foreground="white"
                         )
@@ -299,7 +299,7 @@ class PageActivitePrix(ctk.CTkFrame):
         title_export_frame.grid_columnconfigure(0, weight=1) # For title
         title_export_frame.grid_columnconfigure(1, weight=0) # For button
 
-        ctk.CTkLabel(title_export_frame, text="Liste des Étudiants", font=ctk.CTkFont(size=14, weight="bold")).grid(row=0, column=0, sticky="w", padx=10)
+        ctk.CTkLabel(title_export_frame, text="Liste des Étudiants", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold")).grid(row=0, column=0, sticky="w", padx=10)
         
         # New Export Excel Button
         self.export_excel_button = ctk.CTkButton(

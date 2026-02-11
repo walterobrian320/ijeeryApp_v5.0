@@ -60,7 +60,7 @@ class PageStock(ctk.CTkFrame):
 
     def setup_ui(self):
         # Titre
-        titre = ctk.CTkLabel(self, text="📦 Gestion des Stocks", font=ctk.CTkFont(size=20, weight="bold"))
+        titre = ctk.CTkLabel(self, text="📦 Gestion des Stocks", font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"))
         titre.pack(pady=10)
         
         # Frame de recherche
@@ -91,10 +91,10 @@ class PageStock(ctk.CTkFrame):
         frame_info = ctk.CTkFrame(self)
         frame_info.pack(fill="x", padx=20, pady=10)
         
-        self.label_total_articles = ctk.CTkLabel(frame_info, text="Total articles: 0", font=ctk.CTkFont(size=12, weight="bold"))
+        self.label_total_articles = ctk.CTkLabel(frame_info, text="Total articles: 0", font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"))
         self.label_total_articles.pack(side="left", padx=20)
         
-        self.label_derniere_maj = ctk.CTkLabel(frame_info, text="Dernière mise à jour: --", font=ctk.CTkFont(size=12))
+        self.label_derniere_maj = ctk.CTkLabel(frame_info, text="Dernière mise à jour: --", font=ctk.CTkFont(family="Segoe UI", size=12))
         self.label_derniere_maj.pack(side="right", padx=20)
 
     def creer_treeview(self):

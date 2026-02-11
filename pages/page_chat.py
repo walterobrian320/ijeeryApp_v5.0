@@ -32,7 +32,7 @@ class PageChat(ctk.CTkFrame):
         self.sidebar = ctk.CTkFrame(self, width=250, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
         
-        ctk.CTkLabel(self.sidebar, text="Collaborateurs", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=10)
+        ctk.CTkLabel(self.sidebar, text="Collaborateurs", font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold")).pack(pady=10)
         self.scroll_contacts = ctk.CTkScrollableFrame(self.sidebar, fg_color="transparent")
         self.scroll_contacts.pack(fill="both", expand=True, padx=5, pady=5)
         
@@ -42,7 +42,7 @@ class PageChat(ctk.CTkFrame):
         self.chat_container.grid_rowconfigure(1, weight=1)
         self.chat_container.grid_columnconfigure(0, weight=1)
 
-        self.header_chat = ctk.CTkLabel(self.chat_container, text="Sélectionnez un collègue", font=ctk.CTkFont(size=14))
+        self.header_chat = ctk.CTkLabel(self.chat_container, text="Sélectionnez un collègue", font=ctk.CTkFont(family="Segoe UI", size=14))
         self.header_chat.grid(row=0, column=0, pady=10)
 
         self.text_display = ctk.CTkTextbox(self.chat_container, state="disabled", wrap="word")

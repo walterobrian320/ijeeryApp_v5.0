@@ -131,13 +131,13 @@ class PageFrsDette(ctk.CTkFrame):
         self.total_frame.grid(row=2, column=0, padx=20, pady=(5, 20), sticky="ew") 
         self.total_frame.grid_columnconfigure(0, weight=1)
         
-        self.total_cmd_label = ctk.CTkLabel(self.total_frame, text="Total Commandes: 0,00", font=ctk.CTkFont(weight="bold"))
+        self.total_cmd_label = ctk.CTkLabel(self.total_frame, text="Total Commandes: 0,00", font=ctk.CTkFont(family="Segoe UI", weight="bold"))
         self.total_cmd_label.grid(row=0, column=0, padx=10, pady=10, sticky="w")
         
-        self.total_paye_label = ctk.CTkLabel(self.total_frame, text="Total Payé: 0,00", font=ctk.CTkFont(weight="bold"))
+        self.total_paye_label = ctk.CTkLabel(self.total_frame, text="Total Payé: 0,00", font=ctk.CTkFont(family="Segoe UI", weight="bold"))
         self.total_paye_label.grid(row=0, column=1, padx=10, pady=10, sticky="w")
         
-        self.total_solde_label = ctk.CTkLabel(self.total_frame, text="Total Solde: 0,00", font=ctk.CTkFont(weight="bold"), text_color="orange")
+        self.total_solde_label = ctk.CTkLabel(self.total_frame, text="Total Solde: 0,00", font=ctk.CTkFont(family="Segoe UI", weight="bold"), text_color="orange")
         self.total_solde_label.grid(row=0, column=2, padx=10, pady=10, sticky="w")
         
         self.load_all_dettes()

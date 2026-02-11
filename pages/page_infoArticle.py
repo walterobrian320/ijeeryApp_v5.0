@@ -105,7 +105,7 @@ class PageInfoArticle(ctk.CTkFrame):
         ctk.CTkLabel(
             self.sidebar_frame, 
             text="Article Détaillé", 
-            font=ctk.CTkFont(size=16, weight="bold"), 
+            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"), 
             text_color="white"
         ).grid(row=0, column=0, padx=20, pady=(20, 10))
 
@@ -119,7 +119,7 @@ class PageInfoArticle(ctk.CTkFrame):
             "hover_color": "#3498db",
             "checkmark_color": "white",
             "text_color": "white",
-            "font": ctk.CTkFont(size=13),
+            "font": ctk.CTkFont(family="Segoe UI", size=13),
             "corner_radius": 5
         }
         
@@ -159,7 +159,7 @@ class PageInfoArticle(ctk.CTkFrame):
         self.title_frame.grid_propagate(False)
     
         title_text = f"Détail de l'Article" + (f" - ID: {self.initial_idarticle}" if self.initial_idarticle else "")
-        ctk.CTkLabel(self.title_frame, text=title_text, font=ctk.CTkFont(size=18, weight="bold"), text_color="white").pack(expand=True)
+        ctk.CTkLabel(self.title_frame, text=title_text, font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"), text_color="white").pack(expand=True)
     
         # Conteneur des vues
         self.view_container = ctk.CTkFrame(self.right_panel, fg_color="white")

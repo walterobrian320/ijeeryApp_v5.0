@@ -50,7 +50,7 @@ class PageStockLivraison(ctk.CTkFrame):
         titre = ctk.CTkLabel(
             self, 
             text="📊 Stock et Livraisons en Attente", 
-            font=ctk.CTkFont(size=20, weight="bold")
+            font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold")
         )
         titre.pack(pady=10)
         
@@ -59,7 +59,7 @@ class PageStockLivraison(ctk.CTkFrame):
         frame_filtres.pack(fill="x", padx=20, pady=10)
         
         # Champ de recherche
-        ctk.CTkLabel(frame_filtres, text="🔍 Recherche:", font=ctk.CTkFont(size=12)).pack(side="left", padx=5)
+        ctk.CTkLabel(frame_filtres, text="🔍 Recherche:", font=ctk.CTkFont(family="Segoe UI", size=12)).pack(side="left", padx=5)
         self.entry_recherche = ctk.CTkEntry(
             frame_filtres, 
             placeholder_text="Code article ou Désignation...", 
@@ -69,7 +69,7 @@ class PageStockLivraison(ctk.CTkFrame):
         self.entry_recherche.bind('<KeyRelease>', self.filtrer_donnees)
         
         # Combobox Magasin
-        ctk.CTkLabel(frame_filtres, text="🏪 Magasin:", font=ctk.CTkFont(size=12)).pack(side="left", padx=(20, 5))
+        ctk.CTkLabel(frame_filtres, text="🏪 Magasin:", font=ctk.CTkFont(family="Segoe UI", size=12)).pack(side="left", padx=(20, 5))
         self.combo_magasin = ctk.CTkComboBox(
             frame_filtres,
             values=["Tous"],
@@ -168,14 +168,14 @@ class PageStockLivraison(ctk.CTkFrame):
         self.label_total = ctk.CTkLabel(
             frame_info,
             text="Total lignes: 0",
-            font=ctk.CTkFont(size=12, weight="bold")
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold")
         )
         self.label_total.pack(side="left", padx=20)
         
         self.label_maj = ctk.CTkLabel(
             frame_info,
             text="Dernière MAJ: --",
-            font=ctk.CTkFont(size=12)
+            font=ctk.CTkFont(family="Segoe UI", size=12)
         )
         self.label_maj.pack(side="right", padx=20)
     

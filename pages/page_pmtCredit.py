@@ -88,7 +88,7 @@ class PagePmtCredit(ctk.CTkToplevel):
         main_frame.pack(fill="both", expand=True, padx=20, pady=20)
         
         ctk.CTkLabel(main_frame, text="ENREGISTRER LE PAIEMENT", 
-                    font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(0, 20))
+                    font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold")).pack(pady=(0, 20))
         
         # Résumé des informations
         info_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
@@ -96,7 +96,7 @@ class PagePmtCredit(ctk.CTkToplevel):
         ctk.CTkLabel(info_frame, text=f"Client : {self.client_nom}", font=("Arial", 12)).pack(anchor="w")
         ctk.CTkLabel(info_frame, text=f"Réf Facture : {self.refvente}", font=("Arial", 12)).pack(anchor="w")
         ctk.CTkLabel(info_frame, text=f"Reste à payer : {self.montant_total_float:,.2f} Ar", 
-                    font=ctk.CTkFont(size=14, weight="bold"), text_color="#d32f2f").pack(anchor="w", pady=5)
+                    font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"), text_color="#d32f2f").pack(anchor="w", pady=5)
 
         # Zone de saisie
         saisie_frame = ctk.CTkFrame(main_frame)

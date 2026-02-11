@@ -94,7 +94,7 @@ class PageAutorisation(ctk.CTkFrame):
         
         # Label pour les fonctions
         ctk.CTkLabel(left_frame, text="Liste des fonctions", 
-                    font=ctk.CTkFont(size=14, weight="bold")).pack(pady=5)
+                    font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold")).pack(pady=5)
         
         # Treeview pour les fonctions
         self.fonction_tree = ttk.Treeview(left_frame, columns=("ID", "Fonction"), show="headings")
@@ -142,7 +142,7 @@ class PageAutorisation(ctk.CTkFrame):
         
         # Label pour les menus
         ctk.CTkLabel(right_frame, text="Autorisations des menus",
-                    font=ctk.CTkFont(size=14, weight="bold")).pack(pady=5)
+                    font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold")).pack(pady=5)
         
         # Frame pour le treeview des menus
         menu_frame = ctk.CTkFrame(right_frame)
@@ -172,7 +172,7 @@ class PageAutorisation(ctk.CTkFrame):
                                        fg_color="#2ecc71",
                                        hover_color="#27ae60",
                                        height=40,
-                                       font=ctk.CTkFont(size=13, weight="bold"))
+                                       font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"))
         self.save_button.pack(pady=10, padx=20, fill="x")
         
         # Stockage des données non filtrées

@@ -1865,130 +1865,170 @@ class PageVente(ctk.CTkFrame):
     # ==============================================================================
 
     def generate_pdf_a5(self, data: Dict[str, Any], filename: str):
-        """Génère le PDF de la facture au format A5 Paysage."""
-        
-        doc = SimpleDocTemplate(
-            filename, 
-            pagesize=landscape(A5),
-            leftMargin=30, 
-            rightMargin=30, 
-            topMargin=30, 
-            bottomMargin=30
-        )
-        elements = []
+        """
+        Génère le PDF de la facture au format A5 avec le modèle canvas amélioré.
+        Utilise les données existantes du dictionnaire data.
+        """
+        from reportlab.lib.pagesizes import A5
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import mm
+        from reportlab.pdfgen import canvas
+        from reportlab.platypus import Table, TableStyle, Paragraph
+
+        # ✅ CRÉATION DU PDF AVEC CANVAS
+        c = canvas.Canvas(filename, pagesize=A5)
+        width, height = A5
+
+        # ✅ 1. CADRE DU VERSET (Haut de page avec bordure)
+        verset = "Ankino amin'ny Jehovah ny asanao dia ho lavorary izay kasainao. Ohabolana 16:3"
+        c.setLineWidth(1)
+        c.rect(10*mm, height - 15*mm, width - 20*mm, 8*mm)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawCentredString(width/2, height - 12.5*mm, verset)
+
+        # ✅ 2. EN-TÊTE DEUX COLONNES
         styles = getSampleStyleSheet()
+        style_p = ParagraphStyle('style_p', fontSize=9, leading=11, parent=styles['Normal'])
+
         societe = data['societe']
+        utilisateur = data['utilisateur']
         client = data['client']
-        
-        # Style de tableau
-        style_table = TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0277bd')), # Couleur de fond de l'en-tête
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke), # Couleur du texte de l'en-tête
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('ALIGN', (3, 1), (-1, -1), 'RIGHT'), # Alignement des nombres à droite
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ])
-        
-        # --- 1. EN-TÊTE SOCIÉTÉ ---
-        style_header = styles['Normal']
-        style_header.fontSize = 9
-        style_header.alignment = 1 # Center
-        
-        adresse = societe.get('adressesociete', 'N/A')
-        ville = societe.get('villesociete', 'N/A')
-        contact = societe.get('contactsociete', 'N/A')
-        infos_legales = f"NIF: {societe.get('nifsociete', 'N/A')} | STAT: {societe.get('statsociete', 'N/A')} | CIF: {societe.get('cifsociete', 'N/A')}"
+        vente = data['vente']
 
-        elements.append(Paragraph(f"<b>{societe.get('nomsociete', 'NOM SOCIÉTÉ')}</b>", styles['Heading3']))
-        elements.append(Paragraph(f"{adresse}, {ville} - Tél: {contact}", style_header))
-        elements.append(Paragraph(infos_legales, style_header))
-        elements.append(Spacer(1, 15))
+        # Adapter les clés de données si nécessaire
+        nomsociete = societe.get('nomsociete', 'N/A')
+        adressesociete = societe.get('adressesociete') or societe.get('adresse', 'N/A')
+        contactsociete = societe.get('contactsociete') or societe.get('tel', 'N/A')
+        nifsociete = societe.get('nifsociete') or societe.get('nif', 'N/A')
+        statsociete = societe.get('statsociete') or societe.get('stat', 'N/A')
 
-        # --- 2. TITRE ---
-        p_titre = Paragraph(f"<b>FACTURE N°{data['vente']['refvente']}</b>", styles['Heading2'])
-        elements.append(p_titre)
-        elements.append(Spacer(1, 12))
+        gauche_text = f"<b>{nomsociete}</b><br/>{adressesociete}<br/>TEL: {contactsociete}<br/>NIF: {nifsociete} | STAT: {statsociete}"
 
-        # --- 3. Informations générales ---
-        data_header = [
-            ['Date:', data['vente']['dateregistre'], 'Client:', client['nomcli']],
-            ['Adresse Client:', client['adressecli'], 'Contact Client:', client['contactcli']],
-            ['Désignation:', data['vente']['description'], 'Utilisateur:', f"{data['utilisateur']['prenomuser']} {data['utilisateur']['nomuser']}"],
-        ]
-        
-        table_header = Table(data_header, colWidths=[80, 200, 100, 200])
-        table_header.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        # Gérer si utilisateur est un dict ou une string
+        if isinstance(utilisateur, dict):
+            user_name = f"{utilisateur.get('prenomuser', '')} {utilisateur.get('nomuser', '')}"
+        else:
+            user_name = str(utilisateur)
+
+        droite_text = f"<b>Facture N°: {vente['refvente']}</b><br/>{vente['dateregistre']}<br/><b>CLIENT: {client['nomcli']}</b><br/><font size='8'>Op: {user_name}</font>"
+
+        gauche = Paragraph(gauche_text, style_p)
+        droite = Paragraph(droite_text, style_p)
+
+        header_table = Table([[gauche, droite]], colWidths=[64*mm, 64*mm])
+        header_table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
         ]))
-        elements.append(table_header)
-        elements.append(Spacer(1, 15))
 
-        # --- 4. TABLEAU DES DÉTAILS ---
-        table_data = [
-            ['Code Article', 'Désignation', 'Unité', 'Quantité', 'Prix Unitaire', 'Montant']
-        ]
-        total_general = 0.0
-        
+        header_table.wrapOn(c, width, height)
+        header_table.drawOn(c, 10*mm, height - 42*mm)
+
+        # ✅ 3. TABLEAU DES ARTICLES
+        table_top = height - 52*mm
+        table_bottom = 65*mm
+        frame_height = table_top - table_bottom
+
+        row_height = 5.5*mm
+        max_rows = int(frame_height / row_height)
+
+        # Préparer les données du tableau
+        table_data = [['QTE', 'UNITE', 'DESIGNATION', 'PU TTC', 'MONTANT']]
+
+        total_montant = 0
+        num_articles = 0
         for detail in data['details']:
-            montant = detail['montant']
-            total_general += montant
+            montant = detail.get('montant_ttc', detail.get('montant', 0))
+            total_montant += montant
+            num_articles += 1
             table_data.append([
-                detail['code_article'],
-                detail['designation'],
-                detail['unite'],
-                self.formater_nombre(detail['qte']),
-                self.formater_nombre(detail['prixunit']),
+                str(detail.get('qte', '')),
+                str(detail.get('unite', '')),
+                str(detail.get('designation', '')),
+                self.formater_nombre(detail.get('prixunit', 0)),
                 self.formater_nombre(montant)
             ])
 
-        # Calculer les largeurs de colonnes (520 points de largeur totale pour A5 paysage)
-        col_widths = [80, 180, 70, 70, 70, 80]
-        table_details = Table(table_data, colWidths=col_widths)
-        table_details.setStyle(style_table)
-        elements.append(table_details)
-        elements.append(Spacer(1, 12))
-        
-        # --- 5. LIGNE TOTAL ET MONTANT EN LETTRES ---
-        total_data = [
-            ['', 'TOTAL :', self.formater_nombre(total_general)]
-        ]
-        table_total = Table(total_data, colWidths=[sum(col_widths[:-2]), col_widths[-2], col_widths[-1]])
-        table_total.setStyle(TableStyle([
-            ('ALIGN', (1, 0), (-1, 0), 'RIGHT'),
-            ('FONTNAME', (1, 0), (-1, 0), 'Helvetica-Bold'),
-            ('BACKGROUND', (1, 0), (-1, 0), colors.lightgrey),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        # Ajouter des lignes vides
+        montant_fmg = int(total_montant * 5)
+        empty_rows_needed = max_rows - 1 - num_articles - 2
+        for i in range(max(0, empty_rows_needed)):
+            table_data.append(['', '', '', '', ''])
+
+        # Totaux
+        table_data.append(['', '', 'TOTAL Ar:', self.formater_nombre(total_montant), ''])
+        table_data.append(['', '', 'Fmg:', self.formater_nombre(montant_fmg), ''])
+
+        col_widths = [12*mm, 15*mm, 62*mm, 19.5*mm, 19.5*mm]
+
+        # Dessiner le cadre et lignes
+        c.setLineWidth(1)
+        c.rect(10*mm, table_bottom, width - 20*mm, frame_height)
+
+        x_pos = 10*mm
+        for w in col_widths[:-1]:
+            x_pos += w
+            c.line(x_pos, table_top, x_pos, table_bottom)
+
+        # Créer le tableau avec hauteurs proportionnelles
+        actual_row_height = frame_height / len(table_data)
+        row_heights = [actual_row_height] * len(table_data)
+
+        articles_table = Table(table_data, colWidths=col_widths, rowHeights=row_heights)
+        articles_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('BACKGROUND', (0, -2), (-1, -1), colors.lightgrey),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, -2), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('FONTSIZE', (0, 1), (-1, -3), 8),
+            ('FONTSIZE', (0, -2), (-1, -1), 9),
+            ('LINEBELOW', (0, 0), (-1, 0), 1, colors.black),
+            ('LINEABOVE', (0, -2), (-1, -2), 1, colors.black),
+            ('ALIGN', (3, 0), (-1, -1), 'RIGHT'),
+            ('ALIGN', (0, 0), (2, 0), 'LEFT'),
+            ('ALIGN', (2, -2), (2, -1), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 1),
+            ('RIGHTPADDING', (3, 0), (-1, -1), 1),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
         ]))
-        elements.append(table_total)
-        elements.append(Spacer(1, 15))
-        
-        # Montant en lettres
-        total_lettres = nombre_en_lettres_fr(total_general)
-        elements.append(Paragraph(f"<b>Arrêté la présente facture à la somme de:</b> {total_lettres}", styles['Normal']))
-        elements.append(Spacer(1, 30))
 
-        # --- 6. SIGNATURES ---
-        signature_data = [
-            [Paragraph("Le Client", styles['Normal']), '', Paragraph("Signature et cachet du Vendeur", styles['Normal'])]
-        ]
-        table_signature = Table(signature_data, colWidths=[150, 200, 150])
-        table_signature.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-            ('TOPPADDING', (0, 0), (-1, -1), 20),
-        ]))
-        elements.append(table_signature)
+        articles_table.wrapOn(c, width, height)
+        assert actual_row_height, 'actual_row_height must not be None'
+        actual_total_height = len(table_data) * actual_row_height
+        articles_table.drawOn(c, 10*mm, table_top - actual_total_height)
 
+        # ✅ 4. TEXTE EN LETTRES
+        montant_lettres = nombre_en_lettres_fr(int(total_montant)).upper()
+        text_y = table_bottom - 18*mm
+        c.setFont("Helvetica-Bold", 10)
+        c.drawCentredString(width/2, text_y, f"ARRETE A LA SOMME DE {montant_lettres} ARIARY")
 
-        doc.build(elements)
+        # ✅ 5. MENTION LÉGALE
+        c.setFont("Helvetica-Oblique", 8)
+        c.drawCentredString(width/2, text_y - 5*mm, "Nous déclinons la responsabilité des marchandises non livrées au-delà de 5 jours")
+
+        # ✅ 6. SIGNATURES
+        sig_y = 15*mm
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(15*mm, sig_y, "Le Client")
+        c.drawCentredString(width/2, sig_y, "Le Caissier")
+        c.drawString(width - 35*mm, sig_y, "Le Magasinier")
+
+        # ✅ SAUVEGARDER
+        try:
+            c.save()
+            print(f"✅ PDF généré avec succès : {filename}")
+        except Exception as e:
+            print(f"❌ Erreur PDF : {e}")
+            import traceback
+            traceback.print_exc()
         
     # ==============================================================================
     # MÉTHODES D'IMPRESSION TICKET 80MM (Texte Brut)

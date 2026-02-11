@@ -2168,185 +2168,181 @@ class PageAvoir(ctk.CTkFrame):
 
     def generate_pdf_a5_avoir(self, data: Dict[str, Any], filename: str):
         """
-        Génère un PDF au format A5 Paysage pour un AVOIR.
-        Format identique à la facture mais affiche les quantités d'avoir.
-        Avec filigrane "AVOIR" en arrière-plan.
+        Génère un PDF au format A5 pour un AVOIR avec le modèle canvas amélioré.
+        Utilise les données existantes du dictionnaire data.
         """
-        doc = SimpleDocTemplate(
-            filename, 
-            pagesize=landscape(A5), 
-            leftMargin=30, 
-            rightMargin=30, 
-            topMargin=30, 
-            bottomMargin=20
-        )
-        styles = getSampleStyleSheet()
-        elements = []
-    
-        societe = data['societe']
-        client = data['client']
-    
-        
-    
-        class AvoirCanvasWithWatermark(canvas.Canvas):
-            """Canvas personnalisé pour ajouter le filigrane AVOIR en arrière-plan"""
-        
-            def __init__(self, *args, **kwargs):
-                canvas.Canvas.__init__(self, *args, **kwargs)
-        
-            def showPage(self):
-                # Sauvegarder l'état actuel du canvas
-                self.saveState()
-            
-                # Configuration du filigrane
-                page_width = landscape(A5)[0]  # Largeur A5 paysage (~595 points)
-                page_height = landscape(A5)[1]  # Hauteur A5 paysage (~420 points)
-            
-                # Position au centre de la page
-                center_x = page_width / 2
-                center_y = page_height / 2
-            
-                # Configuration de la police et de la couleur
-                self.setFont("Helvetica-Bold", 120)
-                self.setFillColorRGB(0.85, 0.85, 0.85)  # Gris clair (85%)
-            
-                # Se déplacer au centre de la page
-                self.translate(center_x, center_y)
-            
-                # Rotation de -30° (vers la gauche)
-                self.rotate(-30)
-            
-                # Dessiner le texte "AVOIR" centré
-                self.drawCentredString(0, 0, "AVOIR")
-            
-                # Restaurer l'état du canvas
-                self.restoreState()
-            
-                # Appeler la méthode parente pour afficher la page
-                canvas.Canvas.showPage(self)
-    
-        # Création du document avec le canvas personnalisé
-        doc = SimpleDocTemplate(
-            filename, 
-            pagesize=landscape(A5), 
-            leftMargin=30, 
-            rightMargin=30, 
-            topMargin=30, 
-            bottomMargin=20
-        )
-    
-        styles = getSampleStyleSheet()
-        elements = []
-    
-        societe = data['societe']
-        client = data['client']
-    
-        # --- 1. EN-TÊTE SOCIÉTÉ ---
-        style_header = styles['Normal']
-        style_header.fontSize = 9
-        style_header.alignment = 1  # Centré
-    
-        adresse = societe.get('adressesociete', 'N/A')
-        ville = societe.get('villesociete', 'N/A')
-        contact = societe.get('contactsociete', 'N/A')
-        infos_legales = f"NIF: {societe.get('nifsociete', 'N/A')} | STAT: {societe.get('statsociete', 'N/A')} | CIF: {societe.get('cifsociete', 'N/A')}"
-    
-        elements.append(Paragraph(f"<b>{societe.get('nomsociete', 'NOM SOCIÉTÉ')}</b>", styles['Heading3']))
-        elements.append(Paragraph(f"{adresse}, {ville} - Tél: {contact}", style_header))
-        elements.append(Paragraph(infos_legales, style_header))
-        elements.append(Spacer(1, 15))
+        from reportlab.lib.pagesizes import A5
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import mm
+        from reportlab.pdfgen import canvas
+        from reportlab.platypus import Table, TableStyle, Paragraph
 
-        # --- 2. TITRE (AVOIR) ---
-        style_titre = styles['Heading1']
-        style_titre.textColor = colors.HexColor("#d32f2f")  # Rouge
-        p_titre = Paragraph(f"<b>AVOIR N°{data['avoir']['refavoir']}</b>", style_titre)
-        elements.append(p_titre)
-        elements.append(Spacer(1, 12))
-    
-        # --- 3. Informations générales ---
-        data_header = [
-            ['Date Facture:', data['avoir']['dateregistre'], 'Client:', client['nomcli']],
-            ['Date Avoir:', data['avoir']['dateavoir'], 'Contact Client:', client['contactcli']],
-            ['Adresse Client:', client['adressecli'], 'Utilisateur:', f"{data['utilisateur']['prenomuser']} {data['utilisateur']['nomuser']}"],
-            ['Désignation:', data['avoir']['observation'], '', ''],
-        ]
-    
-        table_header = Table(data_header, colWidths=[100, 200, 100, 200])
-        table_header.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('SPAN', (0, -1), (-1, -1)),
+        # ✅ CRÉATION DU PDF AVEC CANVAS
+        c = canvas.Canvas(filename, pagesize=A5)
+        width, height = A5
+
+        # ✅ 1. CADRE DU VERSET (Haut de page avec bordure)
+        verset = "Ankino amin'ny Jehovah ny asanao dia ho lavorary izay kasainao. Ohabolana 16:3"
+        c.setLineWidth(1)
+        c.rect(10*mm, height - 15*mm, width - 20*mm, 8*mm)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawCentredString(width/2, height - 12.5*mm, verset)
+
+        # ✅ 2. EN-TÊTE DEUX COLONNES
+        styles = getSampleStyleSheet()
+        style_p = ParagraphStyle('style_p', fontSize=9, leading=11, parent=styles['Normal'])
+
+        societe = data['societe']
+        utilisateur = data['utilisateur']
+        client = data['client']
+        avoir = data.get('avoir', {})
+
+        # Adapter les clés de données si nécessaire
+        nomsociete = societe.get('nomsociete', 'N/A')
+        adressesociete = societe.get('adressesociete') or societe.get('adresse', 'N/A')
+        contactsociete = societe.get('contactsociete') or societe.get('tel', 'N/A')
+        nifsociete = societe.get('nifsociete') or societe.get('nif', 'N/A')
+        statsociete = societe.get('statsociete') or societe.get('stat', 'N/A')
+
+        gauche_text = f"<b>{nomsociete}</b><br/>{adressesociete}<br/>TEL: {contactsociete}<br/>NIF: {nifsociete} | STAT: {statsociete}"
+
+        # Gérer si utilisateur est un dict ou une string
+        if isinstance(utilisateur, dict):
+            user_name = f"{utilisateur.get('prenomuser', '')} {utilisateur.get('nomuser', '')}"
+        else:
+            user_name = str(utilisateur)
+
+        # Titre AVOIR
+        refavoir = avoir.get('refavoir', 'N/A')
+        droite_text = f"<b>AVOIR N°: {refavoir}</b><br/>{avoir.get('dateavoir', '')}<br/><b>CLIENT: {client['nomcli']}</b><br/><font size='8'>Op: {user_name}</font>"
+
+        gauche = Paragraph(gauche_text, style_p)
+        droite = Paragraph(droite_text, style_p)
+
+        header_table = Table([[gauche, droite]], colWidths=[64*mm, 64*mm])
+        header_table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
         ]))
-        elements.append(table_header)
-        elements.append(Spacer(1, 20))
-    
-        # --- 4. Tableau des Détails de l'AVOIR ---
-        data_details = [
-            ['Code Article', 'Désignation', 'Unité', 'Qté Avoir', 'Prix Unitaire', 'Montant Total']
-        ]
-    
-        total_general = 0.0
-    
-        for code, designation, unite, qtavoir, prixunit, montant_total, magasin in data['details']:
-            data_details.append([
-                code,
-                designation,
-                unite,
-                self.formater_nombre(qtavoir),
+
+        header_table.wrapOn(c, width, height)
+        header_table.drawOn(c, 10*mm, height - 42*mm)
+
+        # ✅ 3. TABLEAU DES ARTICLES
+        table_top = height - 52*mm
+        table_bottom = 65*mm
+        frame_height = table_top - table_bottom
+
+        row_height = 5.5*mm
+        max_rows = int(frame_height / row_height)
+
+        # Préparer les données du tableau
+        table_data = [['QTE', 'UNITE', 'DESIGNATION', 'PU TTC', 'MONTANT']]
+
+        total_montant = 0
+        num_articles = 0
+        for detail in data['details']:
+            # Adapter selon la structure (peut être tuple ou dict)
+            if isinstance(detail, (list, tuple)) and len(detail) >= 7:
+                code, designation, unite, qtavoir, prixunit, montant_total, magasin = detail[:7]
+                montant = montant_total
+            else:
+                qtavoir = detail.get('qtavoir', detail.get('qte', 0))
+                designation = detail.get('designation', '')
+                unite = detail.get('unite', '')
+                prixunit = detail.get('prixunit', 0)
+                montant = detail.get('montant_ttc', detail.get('montant', 0))
+
+            total_montant += montant
+            num_articles += 1
+            table_data.append([
+                str(qtavoir),
+                str(unite),
+                str(designation),
                 self.formater_nombre(prixunit),
-                self.formater_nombre(montant_total)
+                self.formater_nombre(montant)
             ])
-            total_general += montant_total
-    
-        formatted_total = self.formater_nombre(total_general)
 
-        # Ligne Total
-        data_details.append(['', '', 'Total Général', '', '', formatted_total])
+        # Ajouter des lignes vides
+        montant_fmg = int(total_montant * 5)
+        empty_rows_needed = max_rows - 1 - num_articles - 2
+        for i in range(max(0, empty_rows_needed)):
+            table_data.append(['', '', '', '', ''])
 
-        table_details = Table(data_details, colWidths=[65, 180, 70, 70, 70, 70])
-        table_details.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#ffcccc")),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('ALIGN', (3, 1), (5, -1), 'RIGHT'),
-            ('FONTNAME', (2, -1), (5, -1), 'Helvetica-Bold'),
-            ('SPAN', (0, -1), (2, -1)),
-            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#ffe6e6")),
+        # Totaux
+        table_data.append(['', '', 'TOTAL Ar:', self.formater_nombre(total_montant), ''])
+        table_data.append(['', '', 'Fmg:', self.formater_nombre(montant_fmg), ''])
+
+        col_widths = [12*mm, 15*mm, 62*mm, 19.5*mm, 19.5*mm]
+
+        # Dessiner le cadre et lignes
+        c.setLineWidth(1)
+        c.rect(10*mm, table_bottom, width - 20*mm, frame_height)
+
+        x_pos = 10*mm
+        for w in col_widths[:-1]:
+            x_pos += w
+            c.line(x_pos, table_top, x_pos, table_bottom)
+
+        # Créer le tableau avec hauteurs proportionnelles
+        actual_row_height = frame_height / len(table_data)
+        row_heights = [actual_row_height] * len(table_data)
+
+        articles_table = Table(table_data, colWidths=col_widths, rowHeights=row_heights)
+        articles_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('BACKGROUND', (0, -2), (-1, -1), colors.lightgrey),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, -2), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('FONTSIZE', (0, 1), (-1, -3), 8),
+            ('FONTSIZE', (0, -2), (-1, -1), 9),
+            ('LINEBELOW', (0, 0), (-1, 0), 1, colors.black),
+            ('LINEABOVE', (0, -2), (-1, -2), 1, colors.black),
+            ('ALIGN', (3, 0), (-1, -1), 'RIGHT'),
+            ('ALIGN', (0, 0), (2, 0), 'LEFT'),
+            ('ALIGN', (2, -2), (2, -1), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 1),
+            ('RIGHTPADDING', (3, 0), (-1, -1), 1),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
         ]))
-        elements.append(table_details)
-    
-        # --- 5. TOTAL EN LETTRES ---
-        total_lettres = nombre_en_lettres_fr(total_general)
-    
-        style_total_lettres = styles['Normal']
-        style_total_lettres.fontSize = 10
-        style_total_lettres.alignment = 0
-        elements.append(Spacer(1, 10))
-        elements.append(Paragraph(
-            f"<b>Arrêté le présent avoir à la somme de :</b> <i>{total_lettres}</i>", 
-            style_total_lettres
-        ))
-    
-        elements.append(Spacer(1, 30))
 
-        # --- 6. SIGNATURE DU RESPONSABLE ---
-        style_signature = styles['Normal']
-        style_signature.fontSize = 10
-        style_signature.alignment = 2
-    
-        elements.append(Paragraph("<b>Le Responsable</b>", style_signature))
-        elements.append(Spacer(1, 50))
-        elements.append(Paragraph("Signature: __________________________", style_signature))
+        articles_table.wrapOn(c, width, height)
+        assert actual_row_height, 'actual_row_height must not be None'
+        actual_total_height = len(table_data) * actual_row_height
+        articles_table.drawOn(c, 10*mm, table_top - actual_total_height)
 
+        # ✅ 4. TEXTE EN LETTRES
+        montant_lettres = nombre_en_lettres_fr(int(total_montant)).upper()
+        text_y = table_bottom - 18*mm
+        c.setFont("Helvetica-Bold", 10)
+        c.drawCentredString(width/2, text_y, f"ARRETE A LA SOMME DE {montant_lettres} ARIARY")
+
+        # ✅ 5. MENTION LÉGALE
+        c.setFont("Helvetica-Oblique", 8)
+        c.drawCentredString(width/2, text_y - 5*mm, "Nous déclinons la responsabilité des marchandises non livrées au-delà de 5 jours")
+
+        # ✅ 6. SIGNATURES
+        sig_y = 15*mm
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(15*mm, sig_y, "Le Client")
+        c.drawCentredString(width/2, sig_y, "Le Caissier")
+        c.drawString(width - 35*mm, sig_y, "Le Magasinier")
+
+        # ✅ SAUVEGARDER
         try:
-            # ✅ UTILISER LE CANVAS PERSONNALISÉ AVEC FILIGRANE
-            doc.build(elements, canvasmaker=AvoirCanvasWithWatermark)
+            c.save()
+            print(f"✅ PDF généré avec succès : {filename}")
         except Exception as e:
-            messagebox.showerror("Erreur d'impression", f"Erreur lors de la construction du document : {str(e)}")
-            raise
+            print(f"❌ Erreur PDF : {e}")
+            import traceback
+            traceback.print_exc()
 
     
     def reset_form(self, reset_imprimer=True):
@@ -2523,182 +2519,7 @@ class PageAvoir(ctk.CTkFrame):
         canvas.drawCentredString(0, 0, "AVOIR")
         canvas.restoreState()
 
-    def generate_pdf_a5_avoir(self, data: Dict[str, Any], filename: str):
-        """
-        Génère un PDF au format A5 PORTRAIT pour un AVOIR.
-        Avec filigrane "AVOIR" en ARRIÈRE-PLAN (gris clair).
-        """
-    
-        class AvoirCanvasWithWatermark(canvas.Canvas):
-            """Canvas personnalisé pour ajouter le filigrane AVOIR en arrière-plan"""
-        
-            def __init__(self, *args, **kwargs):
-                canvas.Canvas.__init__(self, *args, **kwargs)
-                self.pages = []
-        
-            def showPage(self):
-                # On dessine le filigrane AVANT d'afficher la page 
-                # pour qu'il soit placé sur la couche la plus basse (arrière-plan)
-                self.draw_watermark()
-                canvas.Canvas.showPage(self)
-        
-            def save(self):
-                """Applique le filigrane AVANT de dessiner le contenu (arrière-plan)"""
-                num_pages = len(self.pages)
-                for page_num in range(num_pages):
-                    # Restaurer l'état de la page
-                    self.__dict__.update(self.pages[page_num])
-                
-                    # ✅ DESSINER LE FILIGRANE EN PREMIER (ARRIÈRE-PLAN)
-                    self._draw_watermark()
-                
-                    # Puis dessiner le contenu de la page par-dessus
-                    canvas.Canvas.showPage(self)
-            
-                # Finaliser le document
-                canvas.Canvas.save(self)
-        
-            def draw_watermark(self):
-                self.saveState()
-                # Configuration du texte "AVOIR"
-                self.setFont('Helvetica-Bold', 100)
-                self.setFillGray(0.5, 0.15)  # Gris avec 15% d'opacité (très léger pour l'arrière-plan)
-        
-                # Positionnement pour format A5 Portrait (Dimensions env. 420x595 pts)
-                # Centre du document : x=210, y=297
-                self.translate(210, 297)
-                self.rotate(45) # Inclinaison diagonale
-                self.drawCentredString(0, 0, "AVOIR")
-                self.restoreState()
-
-        # ✅ Création du document A5 PORTRAIT avec le canvas personnalisé
-        doc = SimpleDocTemplate(
-            filename, 
-            pagesize=A5,  # A5 PORTRAIT (pas landscape)
-            leftMargin=20, 
-            rightMargin=20, 
-            topMargin=20, 
-            bottomMargin=15
-        )
-
-        styles = getSampleStyleSheet()
-        elements = []
-
-        societe = data['societe']
-        client = data['client']
-
-        # --- 1. EN-TÊTE SOCIÉTÉ ---
-        style_header = styles['Normal']
-        style_header.fontSize = 8
-        style_header.alignment = 1  # Centré
-
-        adresse = societe.get('adressesociete', 'N/A')
-        ville = societe.get('villesociete', 'N/A')
-        contact = societe.get('contactsociete', 'N/A')
-        infos_legales = f"NIF: {societe.get('nifsociete', 'N/A')} | STAT: {societe.get('statsociete', 'N/A')} | CIF: {societe.get('cifsociete', 'N/A')}"
-
-        elements.append(Paragraph(f"<b>{societe.get('nomsociete', 'NOM SOCIÉTÉ')}</b>", styles['Heading3']))
-        elements.append(Paragraph(f"{adresse}, {ville} - Tél: {contact}", style_header))
-        elements.append(Paragraph(infos_legales, style_header))
-        elements.append(Spacer(1, 10))
-
-        # --- 2. TITRE (AVOIR) ---
-        style_titre = styles['Heading2']
-        style_titre.textColor = colors.HexColor("#d32f2f")  # Rouge
-        p_titre = Paragraph(f"<b>AVOIR N°{data['avoir']['refavoir']}</b>", style_titre)
-        elements.append(p_titre)
-        elements.append(Spacer(1, 8))
-
-        # --- 3. Informations générales (format compact pour portrait) ---
-        data_header = [
-            ['Date Facture:', data['avoir']['dateregistre']],
-            ['Date Avoir:', data['avoir']['dateavoir']],
-            ['Client:', client['nomcli']],
-            ['Contact:', client['contactcli']],
-            ['Adresse:', client['adressecli']],
-            ['Utilisateur:', f"{data['utilisateur']['prenomuser']} {data['utilisateur']['nomuser']}"],
-            ['Désignation:', data['avoir']['observation']],
-        ]
-
-        table_header = Table(data_header, colWidths=[80, 280])
-        table_header.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ]))
-        elements.append(table_header)
-        elements.append(Spacer(1, 12))
-
-        # --- 4. Tableau des Détails (colonnes adaptées au portrait) ---
-        data_details = [
-            ['Code', 'Désignation', 'Unité', 'Qté', 'P.U.', 'Montant']
-        ]
-
-        total_general = 0.0
-
-        for code, designation, unite, qtavoir, prixunit, montant_total, magasin in data['details']:
-            # Tronquer la désignation si trop longue
-            desig_courte = (designation[:30] + '...') if len(designation) > 30 else designation
-            data_details.append([
-                code[:10],
-                desig_courte,
-                unite[:8],
-                self.formater_nombre(qtavoir),
-                self.formater_nombre(prixunit),
-                self.formater_nombre(montant_total)
-            ])
-            total_general += montant_total
-
-        formatted_total = self.formater_nombre(total_general)
-
-        # Ligne Total
-        data_details.append(['', '', 'TOTAL', '', '', formatted_total])
-
-        # Largeurs adaptées au format portrait A5 (~380 points disponibles)
-        table_details = Table(data_details, colWidths=[45, 140, 40, 45, 50, 55])
-        table_details.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#ffcccc")),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 7),
-            ('ALIGN', (3, 1), (5, -1), 'RIGHT'),
-            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-            ('SPAN', (0, -1), (2, -1)),
-            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#ffe6e6")),
-        ]))
-        elements.append(table_details)
-
-        # --- 5. TOTAL EN LETTRES ---
-        total_lettres = nombre_en_lettres_fr(total_general)
-
-        style_total_lettres = styles['Normal']
-        style_total_lettres.fontSize = 8
-        style_total_lettres.alignment = 0
-        elements.append(Spacer(1, 8))
-        elements.append(Paragraph(
-            f"<b>Arrêté le présent avoir à la somme de :</b> <i>{total_lettres}</i>", 
-            style_total_lettres
-        ))
-
-        elements.append(Spacer(1, 20))
-
-        # --- 6. SIGNATURE DU RESPONSABLE ---
-        style_signature = styles['Normal']
-        style_signature.fontSize = 9
-        style_signature.alignment = 2
-
-        elements.append(Paragraph("<b>Le Responsable</b>", style_signature))
-        elements.append(Spacer(1, 30))
-        elements.append(Paragraph("Signature: _____________________", style_signature))
-
-        try:
-            # ✅ UTILISER LE CANVAS PERSONNALISÉ AVEC FILIGRANE EN ARRIÈRE-PLAN
-            doc.build(elements, canvasmaker=AvoirCanvasWithWatermark)
-        except Exception as e:
-            messagebox.showerror("Erreur d'impression", f"Erreur lors de la construction du document : {str(e)}")
-            raise
+    # (Cette méthode est supprimée car il y avait une duplication - voir generate_pdf_a5_avoir ci-dessus)
 
     
     def generate_ticket_80mm(self, data: Dict[str, Any], filename: str):

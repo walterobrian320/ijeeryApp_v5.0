@@ -1615,7 +1615,7 @@ class PageCommandeCli(ctk.CTkFrame):
             total_montant += montant
             num_articles += 1
             table_data.append([
-                str(detail.get('qte', '')),
+                str(int(detail.get('qte', 0))),
                 str(detail.get('unite', '')),
                 str(detail.get('designation', '')),
                 self.formater_nombre(detail.get('prixunit', 0)),

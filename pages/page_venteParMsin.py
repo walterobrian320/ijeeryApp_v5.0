@@ -2831,7 +2831,7 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
             total_montant += montant
             num_articles += 1
             table_data.append([
-                str(detail.get('qte', '')),
+                str(int(detail.get('qte', 0))),
                 str(detail.get('unite', '')),
                 str(detail.get('designation', '')),
                 self.formater_nombre_pdf(detail.get('prixunit', 0)),
@@ -3006,7 +3006,7 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
             elements.append(Paragraph(f"<b>{designation}</b>", style_normal))
             
             # Ligne avec Quantité x Prix unitaire = Montant
-            qte_str = self.formater_nombre_pdf(detail.get('qte', 0))
+            qte_str = str(int(detail.get('qte', 0)))
             unite = detail.get('unite', '')
             prixunit_str = self.formater_nombre_pdf(detail.get('prixunit', 0))
             montant_ligne = detail.get('montant_ttc', 0)

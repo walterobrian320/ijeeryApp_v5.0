@@ -2333,7 +2333,7 @@ class PageAvoir(ctk.CTkFrame):
             total_montant += montant
             num_articles += 1
             table_data.append([
-                str(qtavoir),
+                str(int(qtavoir)),
                 str(unite),
                 str(designation),
                 self.formater_nombre(prixunit),

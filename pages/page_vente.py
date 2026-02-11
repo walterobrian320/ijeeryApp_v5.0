@@ -1947,7 +1947,7 @@ class PageVente(ctk.CTkFrame):
             total_montant += montant
             num_articles += 1
             table_data.append([
-                str(detail.get('qte', '')),
+                str(int(detail.get('qte', 0))),
                 str(detail.get('unite', '')),
                 str(detail.get('designation', '')),
                 self.formater_nombre(detail.get('prixunit', 0)),
@@ -2055,7 +2055,7 @@ class PageVente(ctk.CTkFrame):
             designation_lines = textwrap.wrap(designation, MAX_WIDTH)
             lines.extend(designation_lines)
             
-            qte_str = self.formater_nombre(qte)
+            qte_str = str(int(qte))
             prixunit_str = self.formater_nombre(prixunit)
             
             qte_pu_line = f"{qte_str} {unite} @ {prixunit_str}"

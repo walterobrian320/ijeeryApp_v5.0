@@ -62,10 +62,6 @@ class PageDetailFacture(ctk.CTkToplevel):
         self.lbl_montant = ctk.CTkLabel(left_frame, text="0,00 Ar", font=("Segoe UI", 14, "bold"), text_color="#2ecc71")
         self.lbl_montant.pack(anchor="w")
         
-        ctk.CTkLabel(left_frame, text="", font=("Segoe UI", 11)).pack(anchor="w", pady=(10, 0))
-        self.lbl_paiement = ctk.CTkLabel(left_frame, text="", font=("Segoe UI", 12))
-        self.lbl_paiement.pack(anchor="w")
-        
         # Droite : Bouton Réimpression
         right_frame = ctk.CTkFrame(footer_frame)
         right_frame.pack(side="right", fill="both")
@@ -107,9 +103,7 @@ class PageDetailFacture(ctk.CTkToplevel):
             result = cursor.fetchone()
             if result:
                 self.montant_total = float(result[0]) if result[0] else 0
-                self.mode_paiement = "N/A"  # Mode paiement non disponible dans tb_vente
                 self.lbl_montant.configure(text=f"{self.formater_montant(self.montant_total)} Ar")
-                self.lbl_paiement.configure(text=self.mode_paiement)
             
             # Requête SQL pour les détails
             sql = """
@@ -340,7 +334,7 @@ class PageDetailFacture(ctk.CTkToplevel):
             total_montant += montant
             num_articles += 1
             table_data.append([
-                str(detail.get('qte', '')),
+                str(int(detail.get('qte', 0))),
                 str(detail.get('unite', '')),
                 str(detail.get('designation', '')),
                 page_vente.formater_nombre(detail.get('prixunit', 0)) if hasattr(page_vente, 'formater_nombre') else str(detail.get('prixunit', 0)),

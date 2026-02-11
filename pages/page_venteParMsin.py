@@ -1739,9 +1739,8 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         self.entry_prixunit.insert(0, prix_format)
         self.entry_prixunit.configure(state="readonly")
     
-        # Reset quantité et focus
+        # Reset quantité et focus - laisser le champ vide pour saisie manuelle
         self.entry_qtvente.delete(0, "end")
-        self.entry_qtvente.insert(0, "1,00")
         self.entry_qtvente.focus_set()
 
         # ✅ NOUVEAU : Appeler le callback pour afficher le stock par dépôt

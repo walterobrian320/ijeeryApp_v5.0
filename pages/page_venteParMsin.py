@@ -154,8 +154,8 @@ def nombre_en_lettres_fr(montant: float) -> str:
     result_str = " ".join(resultat).strip().replace("  ", " ").replace("-", " ") 
     if not result_str: result_str = "zéro"
     
-    unite_monetaire = "Ariary" # Assurez-vous que cette unité est correcte (était "Francs" dans le code précédent)
-    result_str += " " + unite_monetaire
+    #unite_monetaire = "Ariary" # Assurez-vous que cette unité est correcte (était "Francs" dans le code précédent)
+    #result_str += " " + unite_monetaire
     
     # Centimes
     if centimes > 0:
@@ -2807,7 +2807,7 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         nifsociete = societe.get('nifsociete') or societe.get('nif', 'N/A')
         statsociete = societe.get('statsociete') or societe.get('stat', 'N/A')
 
-        gauche_text = f"<b>{nomsociete}</b><br/>{adressesociete}<br/>TEL: {contactsociete}<br/>NIF: {nifsociete} | STAT: {statsociete}"
+        gauche_text = f"<b>{nomsociete}</b><br/>{adressesociete}<br/>TEL: {contactsociete}<br/>NIF: {nifsociete} <br/>STAT: {statsociete}"
 
         # Gérer si utilisateur est un dict ou une string
         if isinstance(utilisateur, dict):
@@ -2815,7 +2815,7 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         else:
             user_name = str(utilisateur)
 
-        droite_text = f"<b>Facture N°: {vente['refvente']}</b><br/>{vente['dateregistre']}<br/><b>CLIENT: {client['nomcli']}</b><br/><font size='8'>Op: {user_name}</font>"
+        droite_text = f"<b>Facture N°: {vente['refvente']}</b><br/>{vente['dateregistre']}<br/><b>CLIENT: {client['nomcli']}</b><br/><br/><font size='8'>Op: {user_name}</font>"
 
         gauche = Paragraph(gauche_text, style_p)
         droite = Paragraph(droite_text, style_p)
@@ -2912,7 +2912,7 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         montant_lettres = nombre_en_lettres_fr(int(total_montant)).upper()
         text_y = table_bottom - 18*mm
         c.setFont("Helvetica-Bold", 10)
-        c.drawCentredString(width/2, text_y, f"ARRETE A LA SOMME DE {montant_lettres} ARIARY")
+        c.drawCentredString(width/2, text_y, f"ARRETE A LA SOMME DE {montant_lettres} ARIARY TTC")
 
         # ✅ 5. MENTION LÉGALE
         c.setFont("Helvetica-Oblique", 8)

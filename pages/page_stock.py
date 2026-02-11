@@ -331,6 +331,32 @@ class PageStock(ctk.CTkFrame):
                     ) as solde_base
                 FROM mouvements_bruts
                 GROUP BY idarticle, idmag
+            ),
+
+            -- ✅ CTE de HIÉRARCHIE : calcule le coefficient de conversion via la chaîne hiérarchique
+            unite_hierarchie AS (
+                SELECT
+                    u.idarticle,
+                    u.idunite,
+                    u.niveau,
+                    u.qtunite,
+                    u.designationunite
+                FROM tb_unite u
+                WHERE u.deleted = 0
+            ),
+
+            -- Coefficient cumulatif pour chaque unité (produit des qtunite de la chaîne)
+            unite_coeff AS (
+                SELECT
+                    idarticle,
+                    idunite,
+                    niveau,
+                    qtunite,
+                    designationunite,
+                    exp(sum(ln(NULLIF(CASE WHEN qtunite > 0 THEN qtunite ELSE 1 END, 0))) 
+                        OVER (PARTITION BY idarticle ORDER BY niveau ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+                    ) as coeff_hierarchique
+                FROM unite_hierarchie
             )
 
             SELECT
@@ -350,15 +376,18 @@ class PageStock(ctk.CTkFrame):
                 u.idarticle,
                 u.idunite,
                 m.idmag,
-                -- Division du réservoir commun par le qtunite de cette ligne
-                -- Exemple : solde_base = 60 PIECES → CARTON (qtunite=20) = 60/20 = 3
-                COALESCE(sb.solde_base, 0) / NULLIF(COALESCE(u.qtunite, 1), 0) as stock
+                -- ✅ Division par le coefficient hiérarchique (pas seulement qtunite)
+                -- Gère les hiérarchies multi-niveaux : u3 = 5*u2, u2 = 10*u1
+                COALESCE(sb.solde_base, 0) / NULLIF(COALESCE(uc.coeff_hierarchique, 1), 0) as stock
             FROM tb_unite u
             INNER JOIN tb_article a ON u.idarticle = a.idarticle
             CROSS JOIN tb_magasin m
             LEFT JOIN solde_base_par_mag sb
                 ON sb.idarticle = u.idarticle
                 AND sb.idmag = m.idmag
+            LEFT JOIN unite_coeff uc
+                ON uc.idarticle = u.idarticle
+                AND uc.idunite = u.idunite
             WHERE a.deleted = 0
               AND m.deleted = 0
             ORDER BY u.codearticle, m.idmag

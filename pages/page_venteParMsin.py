@@ -1555,6 +1555,32 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
                     GROUP BY idarticle
                 ),
                 
+                -- ✅ CTE de HIÉRARCHIE : calcule le coefficient de conversion via la chaîne hiérarchique
+                unite_hierarchie AS (
+                    SELECT
+                        u.idarticle,
+                        u.idunite,
+                        u.niveau,
+                        u.qtunite,
+                        u.designationunite
+                    FROM tb_unite u
+                    WHERE u.deleted = 0
+                ),
+
+                -- Coefficient cumulatif pour chaque unité (produit des qtunite de la chaîne)
+                unite_coeff AS (
+                    SELECT
+                        idarticle,
+                        idunite,
+                        niveau,
+                        qtunite,
+                        designationunite,
+                        exp(sum(ln(NULLIF(CASE WHEN qtunite > 0 THEN qtunite ELSE 1 END, 0))) 
+                            OVER (PARTITION BY idarticle ORDER BY niveau ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+                        ) as coeff_hierarchique
+                    FROM unite_hierarchie
+                ),
+                
                 prix_recent AS (
                     -- Sous-requête pour obtenir le prix le plus récent de chaque article/unité
                     SELECT DISTINCT ON (p.idarticle, p.idunite)
@@ -1572,12 +1598,14 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
                     a.designation,
                     u.designationunite,
                     COALESCE(pr.prix, 0) as prix,
-                    -- Division du réservoir par le qtunite de cette ligne (même logique que page_stock.py)
-                    COALESCE(sb.solde, 0) / NULLIF(COALESCE(u.qtunite, 1), 0) as stock_total
+                    -- ✅ Division par le coefficient hiérarchique (pas seulement qtunite)
+                    -- Gère les hiérarchies multi-niveaux : u3 = 5*u2, u2 = 10*u1
+                    COALESCE(sb.solde, 0) / NULLIF(COALESCE(uc.coeff_hierarchique, 1), 0) as stock_total
                 FROM tb_article a
                 INNER JOIN tb_unite u ON a.idarticle = u.idarticle
                 LEFT JOIN prix_recent pr ON (a.idarticle = pr.idarticle AND u.idunite = pr.idunite)
                 LEFT JOIN solde_base sb ON sb.idarticle = u.idarticle
+                LEFT JOIN unite_coeff uc ON uc.idarticle = u.idarticle AND uc.idunite = u.idunite
                 WHERE a.deleted = 0
                   AND (u.codearticle ILIKE %s OR a.designation ILIKE %s)
                 ORDER BY u.codearticle, u.idunite

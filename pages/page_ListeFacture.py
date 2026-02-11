@@ -5,17 +5,23 @@ import json
 import pandas as pd
 from datetime import datetime
 from tkcalendar import DateEntry # Importation nécessaire
+import os
 
 class PageDetailFacture(ctk.CTkToplevel):
     """Fenêtre affichant les articles d'une facture spécifique"""
     def __init__(self, master, idvente, refvente):
         super().__init__(master)
         self.title(f"Détails Facture : {refvente}")
-        self.geometry("800x500")
+        self.geometry("900x600")
         self.attributes('-topmost', True)
+        self.idvente = idvente
+        self.refvente = refvente
+        self.montant_total = 0
+        self.mode_paiement = "N/A"
         
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=0)
 
         container = ctk.CTkFrame(self)
         container.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
@@ -44,7 +50,45 @@ class PageDetailFacture(ctk.CTkToplevel):
         self.tree.configure(yscrollcommand=scroll.set)
         scroll.pack(side="right", fill="y")
         
+        # --- FOOTER AVEC MONTANT TOTAL ET MODE PAIEMENT ---
+        footer_frame = ctk.CTkFrame(self)
+        footer_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=10)
+        
+        # Gauche : Montant total
+        left_frame = ctk.CTkFrame(footer_frame)
+        left_frame.pack(side="left", fill="x", expand=True)
+        
+        ctk.CTkLabel(left_frame, text="Montant Total:", font=("Segoe UI", 11)).pack(anchor="w")
+        self.lbl_montant = ctk.CTkLabel(left_frame, text="0,00 Ar", font=("Segoe UI", 14, "bold"), text_color="#2ecc71")
+        self.lbl_montant.pack(anchor="w")
+        
+        ctk.CTkLabel(left_frame, text="", font=("Segoe UI", 11)).pack(anchor="w", pady=(10, 0))
+        self.lbl_paiement = ctk.CTkLabel(left_frame, text="", font=("Segoe UI", 12))
+        self.lbl_paiement.pack(anchor="w")
+        
+        # Droite : Bouton Réimpression
+        right_frame = ctk.CTkFrame(footer_frame)
+        right_frame.pack(side="right", fill="both")
+        
+        btn_reimprimer = ctk.CTkButton(
+            right_frame, 
+            text="🖨️  Réimprimer (Duplicata)", 
+            fg_color="#3498db",
+            hover_color="#2980b9",
+            command=self.reimprimer_duplicata,
+            width=200
+        )
+        btn_reimprimer.pack(pady=5)
+        
         self.charger_details(idvente)
+
+    def formater_montant(self, valeur):
+        """Transforme un nombre en format 1.000,00 Ar"""
+        try:
+            n = f"{float(valeur):,.2f}"
+            return n.replace(",", "X").replace(".", ",").replace("X", ".")
+        except:
+            return "0,00"
 
     def charger_details(self, idvente):
         try:
@@ -53,7 +97,21 @@ class PageDetailFacture(ctk.CTkToplevel):
             conn = psycopg2.connect(**config['database'])
             cursor = conn.cursor()
             
-            # Requête SQL corrigée selon votre structure réelle
+            # Récupérer les infos de la facture (montant total, mode paiement)
+            sql_vente = """
+                SELECT v.totmtvente
+                FROM tb_vente v
+                WHERE v.id = %s
+            """
+            cursor.execute(sql_vente, (idvente,))
+            result = cursor.fetchone()
+            if result:
+                self.montant_total = float(result[0]) if result[0] else 0
+                self.mode_paiement = "N/A"  # Mode paiement non disponible dans tb_vente
+                self.lbl_montant.configure(text=f"{self.formater_montant(self.montant_total)} Ar")
+                self.lbl_paiement.configure(text=self.mode_paiement)
+            
+            # Requête SQL pour les détails
             sql = """
                 SELECT 
                     u.codearticle, 
@@ -81,6 +139,291 @@ class PageDetailFacture(ctk.CTkToplevel):
             conn.close()
         except Exception as e:
             messagebox.showerror("Erreur SQL", f"Erreur lors du chargement des détails : {e}")
+
+    def reimprimer_duplicata(self):
+        """Génère un duplicata de la facture"""
+        try:
+            # Importer les fonctions de page_vente pour générer le PDF
+            from pages.page_vente import PageVente
+            
+            with open('config.json') as f:
+                config = json.load(f)
+            conn = psycopg2.connect(**config['database'])
+            cursor = conn.cursor()
+            
+            # Récupérer toutes les infos de la facture
+            sql = """
+                SELECT 
+                    v.refvente, v.dateregistre, v.description, 
+                    u.nomuser, u.prenomuser, 
+                    c.nomcli, c.adressecli, c.contactcli,
+                    v.totmtvente
+                FROM tb_vente v 
+                INNER JOIN tb_users u ON v.iduser = u.iduser 
+                LEFT JOIN tb_client c ON v.idclient = c.idclient 
+                WHERE v.id = %s
+            """
+            cursor.execute(sql, (self.idvente,))
+            result = cursor.fetchone()
+            
+            if not result:
+                messagebox.showerror("Erreur", "Impossible de récupérer les données de la facture")
+                return
+            
+            (refvente, dateregistre, description, nomuser, prenomuser, nomcli, adressecli, contactcli, totmtvente) = result
+            
+            # Récupérer les détails
+            sql_details = """
+                SELECT 
+                    u.codearticle, a.designation, u.designationunite, 
+                    vd.qtvente, vd.prixunit, m.designationmag
+                FROM tb_ventedetail vd 
+                INNER JOIN tb_article a ON vd.idarticle = a.idarticle 
+                INNER JOIN tb_unite u ON vd.idunite = u.idunite
+                INNER JOIN tb_magasin m ON vd.idmag = m.idmag
+                WHERE vd.idvente = %s
+                ORDER BY a.designation
+            """
+            cursor.execute(sql_details, (self.idvente,))
+            details_rows = cursor.fetchall()
+            
+            # Récupérer infos société
+            sql_societe = """
+                SELECT nomsociete, adressesociete, contactsociete, nifsociete, statsociete
+                FROM tb_infosociete LIMIT 1
+            """
+            cursor.execute(sql_societe)
+            societe_result = cursor.fetchone()
+            
+            conn.close()
+            
+            # Préparer les données
+            societe_info = {
+                'nomsociete': societe_result[0] if societe_result else 'N/A',
+                'adressesociete': societe_result[1] if societe_result else 'N/A',
+                'contactsociete': societe_result[2] if societe_result else 'N/A',
+                'nifsociete': societe_result[3] if societe_result else 'N/A',
+                'statsociete': societe_result[4] if societe_result else 'N/A',
+            }
+            
+            data = {
+                'societe': societe_info,
+                'vente': {
+                    'refvente': refvente,
+                    'dateregistre': dateregistre.strftime("%d/%m/%Y %H:%M"),
+                    'description': description,
+                },
+                'utilisateur': {
+                    'nomuser': nomuser,
+                    'prenomuser': prenomuser,
+                },
+                'client': {
+                    'nomcli': nomcli or "Client Divers",
+                    'adressecli': adressecli or "N/A",
+                    'contactcli': contactcli or "N/A",
+                },
+                'details': [
+                    {
+                        'code_article': r[0],
+                        'designation': r[1],
+                        'unite': r[2],
+                        'qte': r[3],
+                        'prixunit': r[4],
+                        'magasin': r[5],
+                        'montant': r[3] * r[4]
+                    }
+                    for r in details_rows
+                ]
+            }
+            
+            # Créer une instance de PageVente pour accéder à la méthode generate_pdf_a5
+            page_vente = PageVente.__new__(PageVente)
+            page_vente.infos_societe = societe_info
+            
+            # Générer le PDF avec "DUPLICATA" dans le titre
+            filename = os.path.expanduser(f"~\\Desktop\\DUPLICATA_Facture_{refvente.replace('/', '-')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
+            
+            # Appeler generate_pdf_a5_duplicata (version modifiée)
+            self.generate_pdf_a5_duplicata(data, filename, page_vente)
+            
+            messagebox.showinfo("Succès", f"Duplicata généré avec succès !\n{filename}")
+            
+            # Ouvrir le fichier
+            if os.path.exists(filename):
+                os.startfile(filename)
+                
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de la génération du duplicata : {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    def generate_pdf_a5_duplicata(self, data, filename, page_vente):
+        """Génère un PDF duplicata avec le label 'DUPLICATA'"""
+        from reportlab.lib.pagesizes import A5
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import mm
+        from reportlab.pdfgen import canvas
+        from reportlab.platypus import Table, TableStyle, Paragraph
+        from pages.page_vente import nombre_en_lettres_fr
+        
+        c = canvas.Canvas(filename, pagesize=A5)
+        width, height = A5
+
+        # ✅ 1. CADRE DU VERSET (Haut de page avec bordure)
+        verset = "Ankino amin'ny Jehovah ny asanao dia ho lavorary izay kasainao. Ohabolana 16:3"
+        c.setLineWidth(1)
+        c.rect(10*mm, height - 15*mm, width - 20*mm, 8*mm)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawCentredString(width/2, height - 12.5*mm, verset)
+
+        # ✅ 2. EN-TÊTE DEUX COLONNES
+        styles = getSampleStyleSheet()
+        style_p = ParagraphStyle('style_p', fontSize=9, leading=11, parent=styles['Normal'])
+
+        societe = data['societe']
+        utilisateur = data['utilisateur']
+        client = data['client']
+        vente = data['vente']
+
+        nomsociete = societe.get('nomsociete', 'N/A')
+        adressesociete = societe.get('adressesociete') or societe.get('adresse', 'N/A')
+        contactsociete = societe.get('contactsociete') or societe.get('tel', 'N/A')
+        nifsociete = societe.get('nifsociete') or societe.get('nif', 'N/A')
+        statsociete = societe.get('statsociete') or societe.get('stat', 'N/A')
+
+        gauche_text = f"<b>{nomsociete}</b><br/>{adressesociete}<br/>TEL: {contactsociete}<br/>NIF: {nifsociete} | STAT: {statsociete}"
+
+        if isinstance(utilisateur, dict):
+            user_name = f"{utilisateur.get('prenomuser', '')} {utilisateur.get('nomuser', '')}"
+        else:
+            user_name = str(utilisateur)
+
+        droite_text = f"<b>Facture N°: {vente['refvente']}</b><br/>{vente['dateregistre']}<br/><b>CLIENT: {client['nomcli']}</b><br/><font size='8'>Op: {user_name}</font>"
+
+        gauche = Paragraph(gauche_text, style_p)
+        droite = Paragraph(droite_text, style_p)
+
+        header_table = Table([[gauche, droite]], colWidths=[64*mm, 64*mm])
+        header_table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ]))
+
+        header_table.wrapOn(c, width, height)
+        header_table.drawOn(c, 10*mm, height - 48*mm)
+
+        # ✅ 3. MARQUEUR DUPLICATA (EN ROUGE - À LA PLACE DE "PROFORMA")
+        c.setFont("Helvetica-Bold", 14)
+        c.setFillColor(colors.HexColor("#D32F2F"))
+        c.drawCentredString(width/2, height - 51*mm, "DUPLICATA")
+        c.setFillColor(colors.HexColor("#000000"))
+
+        # ✅ 4. TABLEAU DES ARTICLES
+        table_top = height - 55*mm
+        table_bottom = 65*mm
+        frame_height = table_top - table_bottom
+
+        row_height = 5.5*mm
+        max_rows = int(frame_height / row_height)
+
+        # Préparer les données du tableau
+        table_data = [['QTE', 'UNITE', 'DESIGNATION', 'PU TTC', 'MONTANT']]
+
+        total_montant = 0
+        num_articles = 0
+        for detail in data['details']:
+            montant = detail.get('montant_ttc', detail.get('montant', 0))
+            total_montant += montant
+            num_articles += 1
+            table_data.append([
+                str(detail.get('qte', '')),
+                str(detail.get('unite', '')),
+                str(detail.get('designation', '')),
+                page_vente.formater_nombre(detail.get('prixunit', 0)) if hasattr(page_vente, 'formater_nombre') else str(detail.get('prixunit', 0)),
+                page_vente.formater_nombre(montant) if hasattr(page_vente, 'formater_nombre') else str(montant)
+            ])
+
+        # Ajouter des lignes vides
+        empty_rows_needed = max_rows - 1 - num_articles - 2
+        for i in range(max(0, empty_rows_needed)):
+            table_data.append(['', '', '', '', ''])
+
+        # Totaux
+        total_formatted = page_vente.formater_nombre(total_montant) if hasattr(page_vente, 'formater_nombre') else str(total_montant)
+        table_data.append(['', '', 'TOTAL Ar:', total_formatted, ''])
+
+        col_widths = [12*mm, 15*mm, 62*mm, 19.5*mm, 19.5*mm]
+
+        # Dessiner le cadre et lignes
+        c.setLineWidth(1)
+        c.rect(10*mm, table_bottom, width - 20*mm, frame_height)
+
+        x_pos = 10*mm
+        for w in col_widths[:-1]:
+            x_pos += w
+            c.line(x_pos, table_top, x_pos, table_bottom)
+
+        # Créer le tableau avec hauteurs proportionnelles
+        actual_row_height = frame_height / len(table_data)
+        row_heights = [actual_row_height] * len(table_data)
+
+        articles_table = Table(table_data, colWidths=col_widths, rowHeights=row_heights)
+        articles_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('FONTSIZE', (0, 1), (-1, -2), 8),
+            ('FONTSIZE', (0, -1), (-1, -1), 9),
+            ('LINEBELOW', (0, 0), (-1, 0), 1, colors.black),
+            ('LINEABOVE', (0, -1), (-1, -1), 1, colors.black),
+            ('ALIGN', (3, 0), (-1, -1), 'RIGHT'),
+            ('ALIGN', (0, 0), (2, 0), 'LEFT'),
+            ('ALIGN', (2, -1), (2, -1), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 1),
+            ('RIGHTPADDING', (3, 0), (-1, -1), 1),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+
+        articles_table.wrapOn(c, width, height)
+        actual_total_height = len(table_data) * actual_row_height
+        articles_table.drawOn(c, 10*mm, table_top - actual_total_height)
+
+        # ✅ 5. TEXTE EN LETTRES
+        montant_lettres = nombre_en_lettres_fr(int(total_montant)).upper()
+        text_y = table_bottom - 18*mm
+        c.setFont("Helvetica-Bold", 10)
+        c.drawCentredString(width/2, text_y, f"ARRETE A LA SOMME DE {montant_lettres}")
+
+        # ✅ 6. MENTION LÉGALE + "DUPLICATA"
+        c.setFont("Helvetica-Oblique", 8)
+        c.drawCentredString(width/2, text_y - 5*mm, "Nous déclinons la responsabilité des marchandises non livrées au-delà de 5 jours")
+        c.drawCentredString(width/2, text_y - 8*mm, "CECI EST UN DUPLICATA DE LA FACTURE")
+
+        # ✅ 7. SIGNATURES
+        sig_y = 15*mm
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(15*mm, sig_y, "Le Client")
+        c.drawCentredString(width/2, sig_y, "Le Caissier")
+        c.drawString(width - 35*mm, sig_y, "Le Magasinier")
+
+        # ✅ SAUVEGARDER
+        try:
+            c.save()
+            print(f"✅ PDF Duplicata généré avec succès : {filename}")
+        except Exception as e:
+            print(f"❌ Erreur PDF Duplicata : {e}")
+            import traceback
+            traceback.print_exc()
+
+
 
 class PageListeFacture(ctk.CTkFrame):
     def __init__(self, parent, session_data=None):

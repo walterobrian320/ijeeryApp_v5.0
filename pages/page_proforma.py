@@ -4,6 +4,134 @@ import psycopg2
 import json
 from datetime import datetime
 from html import escape
+from math import floor
+
+# --- IMPORTS REPORTLAB POUR PDF ---
+from reportlab.lib.pagesizes import A5
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.pdfgen import canvas
+from reportlab.platypus import Table, TableStyle, Paragraph
+
+# ==============================================================================
+# FONCTION UTILITAIRE : CONVERSION NOMBRE EN LETTRES (FRANÇAIS)
+# ==============================================================================
+
+def nombre_en_lettres_fr(montant: float) -> str:
+    """
+    Convertit un montant numérique en sa représentation en lettres en français.
+    Gère les Millions et les Milliers correctement.
+    """
+    
+    if montant is None: return ""
+    
+    try:
+        montant = round(float(montant), 2)
+    except ValueError:
+        return ""
+
+    unites = ["", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf"]
+    dix_a_dixneuf = ["dix", "onze", "douze", "treize", "quatorze", "quinze", "seize"]
+    dizaines = ["", "dix", "vingt", "trente", "quarante", "cinquante", "soixante", "soixante", "quatre-vingt", "quatre-vingt"]
+    
+    def convertir_nombre_simple(n):
+        if n == 0: return ""
+        texte = []
+        
+        # Unités (0-9)
+        if n < 10:
+            texte.append(unites[n])
+        # 10-16
+        elif n < 17:
+            texte.append(dix_a_dixneuf[n - 10])
+        # 17-19
+        elif n < 20:
+            texte.append("dix-" + unites[n - 10])
+        # 20-99 (simplifié)
+        elif n < 100:
+            d = n // 10
+            u = n % 10
+            
+            partie_dizaine = dizaines[d]
+            if (d == 2 or d > 6) and u == 1: # 21, 71, 91 (simplifié)
+                 partie_dizaine += " et"
+            
+            texte.append(partie_dizaine)
+            if u > 0:
+                if d == 7 or d == 9: # 70-79, 90-99
+                    texte.append("-" + convertir_nombre_simple(n - (d * 10)))
+                else:
+                    texte.append("-" + unites[u])
+        
+        return "".join(texte).replace("--", "-") # Corrige double trait d'union
+
+    def convertir_bloc(n):
+        if n == 0: return ""
+        if n < 100: return convertir_nombre_simple(n)
+        
+        texte = []
+        c = n // 100
+        r = n % 100
+        
+        if c == 1: texte.append("cent")
+        else: 
+            texte.append(convertir_nombre_simple(c) + "-cent")
+            if r == 0: texte[-1] += "s" # Quatre-cents
+        
+        if r > 0:
+            texte.append("-" + convertir_bloc(r))
+
+        return "".join(texte).replace("un-cent", "cent") # Corrige 'un-cent' -> 'cent'
+    
+    entier = floor(montant)
+    centimes = int(round((montant - entier) * 100))
+    
+    # ====================================================================
+    # Gestion des blocs Millions, Milliers, Unités
+    # ====================================================================
+    million = entier // 1_000_000
+    mille_reste = (entier % 1_000_000) // 1_000 
+    reste_unites = entier % 1_000 
+    
+    resultat = []
+    
+    # 1. MILLIONS
+    if million > 0:
+        lettres_million = convertir_bloc(million)
+        bloc_million = "million"
+        if million > 1: bloc_million += "s"
+        resultat.append(f"{lettres_million} {bloc_million}")
+    
+    # 2. MILLIERS (0 à 999)
+    if mille_reste > 0:
+        lettres_mille = convertir_bloc(mille_reste)
+        resultat.append(f"{lettres_mille} mille")
+    
+    # 3. UNITÉS (0 à 999)
+    if reste_unites > 0:
+        resultat.append(convertir_bloc(reste_unites))
+    
+    # 4. CAS SPECIAL: ZÉRO
+    if entier == 0 and centimes == 0 and not resultat:
+        resultat.append("zéro")
+
+    
+    # Monnaie
+    result_str = " ".join(resultat).strip().replace("  ", " ").replace("-", " ") 
+    if not result_str: result_str = "zéro"
+    
+    unite_monetaire = "Ariary"
+    result_str += " " + unite_monetaire
+    
+    # Centimes
+    if centimes > 0:
+        centime_lettres = convertir_bloc(centimes)
+        centime_monetaire = "centimes"
+        centime_lettres = centime_lettres.replace("-", " ")
+        result_str += " et " + centime_lettres + " " + centime_monetaire
+
+    return result_str.capitalize().replace(" et-", " et ")
 
 class PageCommandeCli(ctk.CTkFrame):
     def __init__(self, parent, iduser):
@@ -309,7 +437,7 @@ class PageCommandeCli(ctk.CTkFrame):
         btn_nouveau.pack(side="left", padx=10)
         
         btn_imprimer = ctk.CTkButton(frame_boutons, text="🖨️ Imprimer", 
-                                     command=lambda: self.afficher_apercu_impression(self.imprimer_proforma()),
+                                     command=self.imprimer_proforma,
                                      fg_color="#ff6f00", hover_color="#e65100")
         btn_imprimer.pack(side="right", padx=10)
         
@@ -1407,259 +1535,274 @@ class PageCommandeCli(ctk.CTkFrame):
         self.btn_modifier_ligne.configure(state="disabled", text="✏️ Modifier Ligne")
         self.btn_annuler_selection.configure(state="disabled")
 
+    def generate_pdf_a5_proforma(self, data: dict, filename: str):
+        """
+        Génère le PDF de la proforma au format A5 avec le modèle ReportLab.
+        Marque clairement le document comme PROFORMA.
+        """
+        c = canvas.Canvas(filename, pagesize=A5)
+        width, height = A5
+
+        # ✅ 1. EN-TÊTE AVEC VERSET
+        verset = "Ankino amin'ny Jehovah ny asanao dia ho lavorary izay kasainao. Ohabolana 16:3"
+        c.setLineWidth(1)
+        c.rect(10*mm, height - 15*mm, width - 20*mm, 8*mm)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawCentredString(width/2, height - 12.5*mm, verset)
+
+        # ✅ 2. EN-TÊTE DEUX COLONNES
+        styles = getSampleStyleSheet()
+        style_p = ParagraphStyle('style_p', fontSize=9, leading=11, parent=styles['Normal'])
+
+        societe = data['societe']
+        utilisateur = data['utilisateur']
+        client = data['client']
+        proforma = data['proforma']
+
+        # Adapter les clés de données si nécessaire
+        nomsociete = societe.get('nomsociete', 'N/A')
+        adressesociete = societe.get('adressesociete') or societe.get('adresse', 'N/A')
+        contactsociete = societe.get('contactsociete') or societe.get('tel', 'N/A')
+        nifsociete = societe.get('nifsociete') or societe.get('nif', 'N/A')
+        statsociete = societe.get('statsociete') or societe.get('stat', 'N/A')
+
+        gauche_text = f"<b>{nomsociete}</b><br/>{adressesociete}<br/>TEL: {contactsociete}<br/>NIF: {nifsociete} | STAT: {statsociete}"
+
+        # Gérer si utilisateur est un dict ou une string
+        if isinstance(utilisateur, dict):
+            user_name = f"{utilisateur.get('prenomuser', '')} {utilisateur.get('nomuser', '')}"
+        else:
+            user_name = str(utilisateur)
+
+        droite_text = f"<b>Proforma N°: {proforma['refprof']}</b><br/>{proforma['dateprof']}<br/><b>CLIENT: {client['nomcli']}</b><br/><font size='8'>Op: {user_name}</font>"
+
+        gauche = Paragraph(gauche_text, style_p)
+        droite = Paragraph(droite_text, style_p)
+
+        header_table = Table([[gauche, droite]], colWidths=[64*mm, 64*mm])
+        header_table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ]))
+
+        header_table.wrapOn(c, width, height)
+        header_table.drawOn(c, 10*mm, height - 48*mm)
+
+        # ✅ 3. MARQUEUR PROFORMA (APRÈS L'EN-TÊTE, PETIT, EN ROUGE, MINIMAL SPACE)
+        c.setFont("Helvetica-Bold", 14)
+        c.setFillColor(colors.HexColor("#FF6B6B"))
+        c.drawCentredString(width/2, height - 51*mm, "PROFORMA")
+        c.setFillColor(colors.HexColor("#000000"))
+
+        # ✅ 4. TABLEAU DES ARTICLES
+        table_top = height - 55*mm
+        table_bottom = 65*mm
+        frame_height = table_top - table_bottom
+
+        row_height = 5.5*mm
+        max_rows = int(frame_height / row_height)
+
+        # Préparer les données du tableau
+        table_data = [['QTE', 'UNITE', 'DESIGNATION', 'PU TTC', 'MONTANT']]
+
+        total_montant = 0
+        num_articles = 0
+        for detail in data['details']:
+            montant = detail.get('montant_ttc', detail.get('montant', 0))
+            total_montant += montant
+            num_articles += 1
+            table_data.append([
+                str(detail.get('qte', '')),
+                str(detail.get('unite', '')),
+                str(detail.get('designation', '')),
+                self.formater_nombre(detail.get('prixunit', 0)),
+                self.formater_nombre(montant)
+            ])
+
+        # Ajouter des lignes vides
+        empty_rows_needed = max_rows - 1 - num_articles - 2
+        for i in range(max(0, empty_rows_needed)):
+            table_data.append(['', '', '', '', ''])
+
+        # Totaux
+        table_data.append(['', '', 'TOTAL Ar:', self.formater_nombre(total_montant), ''])
+
+        col_widths = [12*mm, 15*mm, 62*mm, 19.5*mm, 19.5*mm]
+
+        # Dessiner le cadre et lignes
+        c.setLineWidth(1)
+        c.rect(10*mm, table_bottom, width - 20*mm, frame_height)
+
+        x_pos = 10*mm
+        for w in col_widths[:-1]:
+            x_pos += w
+            c.line(x_pos, table_top, x_pos, table_bottom)
+
+        # Créer le tableau avec hauteurs proportionnelles
+        actual_row_height = frame_height / len(table_data)
+        row_heights = [actual_row_height] * len(table_data)
+
+        articles_table = Table(table_data, colWidths=col_widths, rowHeights=row_heights)
+        articles_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('FONTSIZE', (0, 1), (-1, -2), 8),
+            ('FONTSIZE', (0, -1), (-1, -1), 9),
+            ('LINEBELOW', (0, 0), (-1, 0), 1, colors.black),
+            ('LINEABOVE', (0, -1), (-1, -1), 1, colors.black),
+            ('ALIGN', (3, 0), (-1, -1), 'RIGHT'),
+            ('ALIGN', (0, 0), (2, 0), 'LEFT'),
+            ('ALIGN', (2, -1), (2, -1), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 1),
+            ('RIGHTPADDING', (3, 0), (-1, -1), 1),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+
+        articles_table.wrapOn(c, width, height)
+        assert actual_row_height, 'actual_row_height must not be None'
+        actual_total_height = len(table_data) * actual_row_height
+        articles_table.drawOn(c, 10*mm, table_top - actual_total_height)
+
+        # ✅ 5. TEXTE EN LETTRES
+        montant_lettres = nombre_en_lettres_fr(int(total_montant)).upper()
+        text_y = table_bottom - 18*mm
+        c.setFont("Helvetica-Bold", 10)
+        c.drawCentredString(width/2, text_y, f"ARRETE A LA SOMME DE {montant_lettres}")
+
+        # ✅ 6. MENTION "BON DE COMMANDE"
+        c.setFont("Helvetica-Oblique", 8)
+        c.drawCentredString(width/2, text_y - 5*mm, "Bon de Commande - Ceci n'est pas une facture")
+
+        # ✅ 7. SIGNATURES
+        sig_y = 15*mm
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(15*mm, sig_y, "Le Client")
+        c.drawCentredString(width/2, sig_y, "Responsable")
+        c.drawString(width - 35*mm, sig_y, "Gestionnaire")
+
+        # ✅ SAUVEGARDER
+        try:
+            c.save()
+            print(f"✅ PDF Proforma généré avec succès : {filename}")
+        except Exception as e:
+            print(f"❌ Erreur PDF Proforma : {e}")
+            import traceback
+            traceback.print_exc()
+
     def imprimer_proforma(self):
-        """Génère le contenu HTML de la proforma"""
+        """Génère et imprime la proforma au format PDF A5"""
         if not self.idprof_charge:
             if not messagebox.askyesno("Attention", "La commande n'est pas encore enregistrée. Voulez-vous l'enregistrer maintenant pour obtenir un bon officiel ?"):
-                return "" # Ne pas continuer si l'enregistrement est refusé
+                return # Ne pas continuer si l'enregistrement est refusé
             
             # Tenter l'enregistrement
             self.enregistrer_proforma()
             # Si l'enregistrement a réussi, self.idprof_charge sera défini
             if not self.idprof_charge:
                 # Cela signifie que enregistrer_proforma a échoué (un message d'erreur a déjà été affiché)
-                return ""
+                return
 
-        # Récupération des infos société et fournisseur (simulé)
+        # Récupération des infos société et client
         conn = self.connect_db()
         if not conn:
-            return ""
-
-        info_societe = None
-        client_info = {"nom": self.entry_client.get(), "contact": "N/A", "adresse": "N/A"} # Info par défaut
+            messagebox.showerror("Erreur", "Impossible de se connecter à la base de données.")
+            return
 
         try:
             cursor = conn.cursor()
             
             # Récupération des infos de la société
-            cursor.execute("SELECT nomsociete, villesociete, adressesociete, contactsociete, nifsociete, statsociete, cifsociete FROM tb_infosociete LIMIT 1")
+            cursor.execute("SELECT nomsociete, adressesociete, contactsociete, nifsociete, statsociete FROM tb_infosociete LIMIT 1")
             row_societe = cursor.fetchone()
-            if row_societe:
-                # Ajout de l'info de l'utilisateur (iduser) pour le Responsable
-                info_societe = (
-                    row_societe[0], # 0: nom
-                    row_societe[1], # 1: ville
-                    "Siège Social:",# 2: libellé
-                    row_societe[2], # 3: adresse
-                    row_societe[3], # 4: tel
-                    row_societe[1], # 5: ville
-                    row_societe[4], # 6: nif
-                    row_societe[5], # 7: stat
-                    row_societe[6]  # 8: cif
-                )
+            societe_info = {
+                'nomsociete': row_societe[0] if row_societe else 'N/A',
+                'adressesociete': row_societe[1] if row_societe else 'N/A',
+                'contactsociete': row_societe[2] if row_societe else 'N/A',
+                'nifsociete': row_societe[3] if row_societe else 'N/A',
+                'statsociete': row_societe[4] if row_societe else 'N/A',
+            }
 
-            # Récupération des infos client détaillées
+            # Récupération des infos client
             idclient = self.client_selectionne_id if self.client_selectionne_id else self.clients.get(self.entry_client.get())
+            client_info = {'nomcli': 'N/A'}
             if idclient:
-                cursor.execute("SELECT nomcli, contactcli, adressecli FROM tb_client WHERE idclient = %s", (idclient,))
-                row_frs = cursor.fetchone()
-                if row_frs:
-                    client_info = {
-                        "nom": row_frs[0],
-                        "contact": row_frs[1] or "N/A",
-                        "adresse": row_frs[2] or "N/A"
-                    }
+                cursor.execute("SELECT nomcli FROM tb_client WHERE idclient = %s", (idclient,))
+                row_client = cursor.fetchone()
+                if row_client:
+                    client_info = {'nomcli': row_client[0]}
 
-            # Récupération du statut mis à jour (le dernier enregistrement est censé l'avoir)
-            cursor.execute("SELECT statut FROM tb_proforma WHERE idprof = %s", (self.idprof_charge,))
-            row_statut = cursor.fetchone()
-            statut_prof = row_statut[0] if row_statut else "⚠️ En attente"
+            # Récupération des infos proforma
+            cursor.execute("SELECT refprof, dateprof FROM tb_proforma WHERE idprof = %s", (self.idprof_charge,))
+            row_proforma = cursor.fetchone()
+            proforma_info = {
+                'refprof': row_proforma[0] if row_proforma else self.entry_ref.get(),
+                'dateprof': row_proforma[1].strftime('%d/%m/%Y') if row_proforma and row_proforma[1] else datetime.now().strftime('%d/%m/%Y'),
+            }
 
+            # Récupération des détails de la proforma
+            cursor.execute("""
+                SELECT pd.qtprof, u.designationunite, a.designation, pd.prixunit, (pd.qtprof * pd.prixunit) as montant
+                FROM tb_proformadetail pd
+                JOIN tb_unite u ON pd.idunite = u.idunite
+                JOIN tb_article a ON pd.idarticle = a.idarticle
+                WHERE pd.idprof = %s
+                ORDER BY pd.id
+            """, (self.idprof_charge,))
+            
+            details = []
+            for row in cursor.fetchall():
+                details.append({
+                    'qte': row[0],
+                    'unite': row[1],
+                    'designation': row[2],
+                    'prixunit': row[3],
+                    'montant_ttc': row[4],
+                })
 
         except Exception as e:
             messagebox.showerror("Erreur", f"Erreur de récupération des données pour l'impression: {str(e)}")
-            info_societe = ("Nom Société", "Ville", "Siège Social:", "Adresse", "Tél", "Ville", "NIF", "STAT", "CIF")
+            return
         finally:
             if 'cursor' in locals() and cursor: cursor.close()
             if conn: conn.close()
-            
-        if not info_societe:
-            info_societe = ("Nom Société", "Ville", "Siège Social:", "Adresse", "Tél", "Ville", "NIF", "STAT", "CIF")
 
-        # Données de la commande
-        ref_commande = self.entry_ref.get()
-        date_commande = datetime.now().strftime("%d/%m/%Y")
-        
-        # Lignes d'articles
-        table_rows = ""
-        total_general = 0.0
-        
-        for i, item in enumerate(self.items_commande):
-            total_ligne = item.get('total', 0.0)
-            total_general += total_ligne
-            
-            table_rows += f"""
-                <tr>
-                    <td>{i+1}</td>
-                    <td>{escape(item.get('designation', 'N/A'))}</td>
-                    <td>{escape(item.get('designationunite', 'N/A'))}</td>
-                    <td>{self.formater_nombre(item.get('qtprof', 0))}</td>
-                    <td>{self.formater_nombre(item.get('qtlivprof', 0))}</td>
-                    <td class="numeric">{self.formater_nombre(item.get('prixunit', 0))}</td>
-                    <td class="numeric">{self.formater_nombre(total_ligne)}</td>
-                </tr>
-            """
+        # Préparer les données pour le PDF
+        data = {
+            'societe': societe_info,
+            'utilisateur': 'Opérateur',
+            'client': client_info,
+            'proforma': proforma_info,
+            'details': details,
+        }
 
-        total_lettres = self.nombre_en_lettres(total_general)
-        
-        html_content = f"""
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>Proforma {escape(ref_commande)}</title>
-    <style>
-        @page {{ size: A4; margin: 10mm; }}
-        body {{ font-family: 'Arial', sans-serif; font-size: 10pt; background: #eee; }}
-        .watermark {{ position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 300px; font-weight: bold; color: rgba(0, 0, 0, 0.05); z-index: -1; pointer-events: none; }}
-        .container {{ width: 100%; max-width: 210mm; margin: 0 auto; background: white; position: relative; z-index: 1; }}
-        .header {{ display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 3px solid #333; }}
-        .header-left {{ flex: 1; }}
-        .header-right {{ flex: 1; text-align: right; }}
-        .logo {{ font-size: 28px; font-weight: bold; color: #2c3e50; margin-bottom: 5px; }}
-        .company-info {{ font-size: 9pt; line-height: 1.3; }}
-        .company-info strong {{ font-weight: bold; }}
-        .title {{ text-align: center; margin: 25px 0; }}
-        .title h1 {{ font-size: 24pt; font-weight: bold; color: #2c3e50; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; }}
-        .info-section {{ display: flex; justify-content: space-between; margin-bottom: 20px; }}
-        .info-box {{ width: 48%; border: 2px solid #333; padding: 12px; background: #f9f9f9; }}
-        .info-box h3 {{ font-size: 12pt; font-weight: bold; margin-bottom: 8px; color: #2c3e50; border-bottom: 2px solid #2c3e50; padding-bottom: 4px; }}
-        .info-box p {{ font-size: 10pt; margin: 3px 0; }}
-        .commande-info {{ display: flex; justify-content: flex-end; margin-bottom: 20px; }}
-        .commande-info-box {{ width: 300px; padding: 10px; border: 1px solid #333; text-align: left; }}
-        
-        table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-        th, td {{ border: 1px solid #ccc; padding: 8px 10px; text-align: left; font-size: 9pt; }}
-        th {{ background-color: #f2f2f2; font-weight: bold; text-transform: uppercase; }}
-        .numeric {{ text-align: right; }}
-        
-        .total-box {{ width: 30%; margin-top: 20px; margin-left: auto; border: 3px solid #333; padding: 10px; }}
-        .total-box p {{ margin: 0; font-size: 11pt; }}
-        .total-box .grand-total {{ font-size: 14pt; font-weight: bold; color: #d32f2f; }}
-        
-        .montant-lettres {{ margin-top: 20px; font-size: 11pt; border-top: 1px solid #ccc; padding-top: 10px; }}
-        
-        .signatures {{ display: flex; justify-content: space-around; margin-top: 50px; }}
-        .signature-box {{ width: 200px; text-align: center; padding-top: 50px; border-top: 1px solid #333; }}
-        .signature-box .title {{ font-weight: bold; margin-top: 5px; }}
-        
-        .statut-prof {{ position: absolute; top: 10px; right: 10px; font-size: 18pt; font-weight: bold; color: green; padding: 5px; border: 3px solid green; border-radius: 5px; }}
-        .statut-prof.pending {{ color: orange; border-color: orange; }}
-        
-        @media print {{
-            body {{ background: none; }}
-            .container {{ box-shadow: none; }}
-            .watermark {{ display: none; }}
-            /* Assurez-vous que les couleurs d'arrière-plan des tags sont conservées */
-            .total-box {{ border-color: #000 !important; }}
-            .header {{ border-color: #000 !important; }}
-        }}
-    </style>
-</head>
-<body>
-    <div class="watermark">PROFORMA</div>
-    <div class="container">
-        <div class="statut-prof {'pending' if statut_prof != '✅ A facturer' else ''}">
-            {escape(statut_prof)}
-        </div>
-        
-        <div class="header">
-            <div class="header-left">
-                <div class="logo">{escape(str(info_societe[0] or ''))}</div>
-                <div class="company-info">
-                    {escape(str(info_societe[2] or ''))} {escape(str(info_societe[3] or ''))}, {escape(str(info_societe[5] or ''))}<br>
-                    <strong>Tél:</strong> {escape(str(info_societe[4] or ''))}<br>
-                    <strong>NIF:</strong> {escape(str(info_societe[6] or ''))} | <strong>STAT:</strong> {escape(str(info_societe[7] or ''))} | <strong>CIF:</strong> {escape(str(info_societe[8] or ''))}
-                </div>
-            </div>
-            <div class="header-right">
-                <div class="company-info" style="text-align: right;">
-                    {escape(str(info_societe[1] or ''))}
-                </div>
-            </div>
-        </div>
-        
-        <div class="title">
-            <h1>FACTURE PROFORMA</h1>
-        </div>
-        
-        <div class="info-section">
-            <div class="info-box">
-                <h3>Client</h3>
-                <p><strong>Nom:</strong> {escape(client_info['nom'])}</p>
-                <p><strong>Adresse:</strong> {escape(client_info['adresse'])}</p>
-                <p><strong>Tél:</strong> {escape(client_info['contact'])}</p>
-            </div>
-            <div class="info-box">
-                <h3>Informations Proforma</h3>
-                <p><strong>Réf:</strong> {escape(ref_commande)}</p>
-                <p><strong>Date:</strong> {escape(date_commande)}</p>
-                <p><strong>Statut:</strong> {escape(statut_prof)}</p>
-            </div>
-        </div>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th>N°</th>
-                    <th>Désignation de l'Article</th>
-                    <th>Unité</th>
-                    <th>Qté Prof.</th>
-                    <th>Qté Livrée</th>
-                    <th class="numeric">Prix Unit. (Ar)</th>
-                    <th class="numeric">Total (Ar)</th>
-                </tr>
-            </thead>
-            <tbody>
-                {table_rows}
-            </tbody>
-        </table>
-        
-        <div class="total-box">
-            <p><strong>Total:</strong> <span class="grand-total">{self.formater_nombre(total_general)} Ar</span></p>
-        </div>
-
-        <div class="montant-lettres">
-            <strong>Montant en lettres:</strong> {total_lettres}
-        </div>
-        
-        <div class="signatures">
-            <div class="signature-box">
-                <div class="title">Le Responsable</div>
-                
-            </div>
-            <div class="signature-box">
-                <div class="title">Signature Client</div>
-                
-            </div>
-        </div>
-    </div>
-</body>
-</html>
-        """
-        
-        return html_content
-    
-    def afficher_apercu_impression(self, html_content):
-        """Affiche l'aperçu avant impression"""
-        if not html_content:
-            return # Ne rien faire si le contenu est vide (après annulation ou échec)
-            
+        # Générer le PDF
         import tempfile
-        import webbrowser
         import os
+        import webbrowser
         
         # Créer un fichier temporaire
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.html', encoding='utf-8') as f:
-            f.write(html_content)
-            temp_path = f.name
+        pdf_filename = os.path.expanduser(f"~\\Desktop\\Proforma_{proforma_info['refprof'].replace('/', '-')}.pdf")
         
-        # Ouvrir dans le navigateur par défaut
-        webbrowser.open('file://' + os.path.abspath(temp_path))
+        # Créer le répertoire s'il n'existe pas
+        os.makedirs(os.path.dirname(pdf_filename), exist_ok=True)
         
-        messagebox.showinfo("Impression", 
-                          "Le bon de commande a été ouvert dans votre navigateur.\n\n"
-                          "Utilisez Ctrl+P ou Cmd+P pour l'imprimer.")
+        try:
+            self.generate_pdf_a5_proforma(data, pdf_filename)
+            messagebox.showinfo("Succès", f"Proforma PDF généré avec succès !\n{pdf_filename}")
+            
+            # Ouvrir le fichier PDF
+            if os.path.exists(pdf_filename):
+                os.startfile(pdf_filename)  # Windows
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de la génération du PDF : {str(e)}")
 
 
 if __name__ == "__main__":

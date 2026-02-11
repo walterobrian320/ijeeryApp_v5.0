@@ -38,7 +38,8 @@ class PageCodeAutorisation(ctk.CTkFrame):
         # Treeview (Tableau)
         self.style = ttk.Style()
         self.style.theme_use("default")
-        self.style.configure("Treeview", background="#2b2b2b", foreground="white", fieldbackground="#2b2b2b", borderwidth=0)
+        self.style.configure("Treeview", background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0, rowheight=22, font=('Segoe UI', 8))
+        self.style.configure("Treeview.Heading", background="#E8E8E8", foreground="#000000", font=('Segoe UI', 8, 'bold'))
         self.style.map("Treeview", background=[('selected', '#1f538d')])
 
         self.tree = ttk.Treeview(self, columns=("ID", "Code", "Username"), show='headings')

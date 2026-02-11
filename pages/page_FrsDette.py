@@ -80,17 +80,17 @@ class PageFrsDette(ctk.CTkFrame):
             text_sold_color = "#A0A0A0" # Gris pour le mode clair
 
         style.configure("Treeview", 
-                        background=bg_color,
-                        foreground=fg_color,
-                        rowheight=25,
-                        fieldbackground=bg_color,
-                        bordercolor=bg_color,
-                        borderwidth=0)
+                        background="#FFFFFF",
+                        foreground="#000000",
+                        rowheight=22,
+                        fieldbackground="#FFFFFF",
+                        borderwidth=0,
+                        font=('Segoe UI', 8))
                         
         style.configure("Treeview.Heading",
-                        background=header_bg,
-                        foreground=fg_color,
-                        font=('Arial', 10, 'bold'))
+                        background="#E8E8E8",
+                        foreground="#000000",
+                        font=('Segoe UI', 8, 'bold'))
         
         style.map('Treeview', 
                   background=[('selected', selected_bg)],

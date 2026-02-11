@@ -368,7 +368,7 @@ if __name__ == "__main__":
     app.geometry("400x600") 
     app.title("Saisie d'Activité (Test)")
 
-    ctk.set_appearance_mode("System")
+    ctk.set_appearance_mode("Light")
     ctk.set_default_color_theme("blue")
     
     db_manager = DatabaseManager()

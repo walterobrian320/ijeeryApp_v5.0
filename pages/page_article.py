@@ -126,7 +126,8 @@ class PageArticle(ctk.CTkFrame):
         tree_container.grid_rowconfigure(0, weight=1)
 
         style = ttk.Style()
-        style.configure("Treeview", rowheight=30)
+        style.configure("Treeview", rowheight=22, background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0, font=('Segoe UI', 8))
+        style.configure("Treeview.Heading", background="#E8E8E8", foreground="#000000", font=('Segoe UI', 8, 'bold'))
         
         self.tree = ttk.Treeview(tree_container, columns=("ID", "Désignation", "Catégorie", "Magasin", "Alerte", "Alerte Dépôt"), show="headings")
         self.tree.heading("ID", text="ID")

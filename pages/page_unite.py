@@ -153,23 +153,30 @@ class PageUnite(ctk.CTkFrame):
         self.frame_treeview.grid(row=5, column=0, columnspan=3, padx=20, pady=(10, 20), sticky="nsew")
         self.frame_treeview.grid_columnconfigure(0, weight=1)
         self.frame_treeview.grid_rowconfigure(0, weight=1)
+        
+        # Configure le style des Treeviews
+        style = ttk.Style()
+        style.theme_use("default")
+        style.configure("Treeview", background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0, rowheight=22, font=('Segoe UI', 8))
+        style.configure("Treeview.Heading", background="#E8E8E8", foreground="#000000", font=('Segoe UI', 8, 'bold'))
 
         # Personnaliser le style du Treeview
         style = ttk.Style()
-        style.theme_use("clam")
+        style.theme_use("default")
         
         style.configure("Treeview", 
-                        background="#f8f9fa", 
-                        foreground="#212529",
-                        rowheight=28,
-                        fieldbackground="#f8f9fa",
-                        font=("Arial", 10))
+                        background="#FFFFFF", 
+                        foreground="#000000",
+                        rowheight=22,
+                        fieldbackground="#FFFFFF",
+                        font=('Segoe UI', 8),
+                        borderwidth=0)
         style.map('Treeview', background=[('selected', '#3b8ed4')])
         
         style.configure("Treeview.Heading", 
-                        background="#3b8ed4", 
-                        foreground="white", 
-                        font=("Arial", 11, "bold"),
+                        background="#E8E8E8", 
+                        foreground="#000000", 
+                        font=('Segoe UI', 8, 'bold'),
                         relief="flat")
 
         # Définition des colonnes

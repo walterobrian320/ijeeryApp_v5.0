@@ -67,16 +67,19 @@ class FenetreRechercheArticle(ctk.CTkToplevel):
         
         # Style
         style = ttk.Style()
-        style.theme_use("clam")
+        style.theme_use("default")
         style.configure("Treeview",
-                       background="#2b2b2b",
-                       foreground="white",
-                       fieldbackground="#2b2b2b",
-                       borderwidth=0)
+                       background="#FFFFFF",
+                       foreground="#000000",
+                       fieldbackground="#FFFFFF",
+                       borderwidth=0,
+                       rowheight=22,
+                       font=('Segoe UI', 8))
         style.configure("Treeview.Heading",
-                       background="#1f538d",
-                       foreground="white",
-                       borderwidth=1)
+                       background="#E8E8E8",
+                       foreground="#000000",
+                       font=('Segoe UI', 8, 'bold'),
+                       borderwidth=0)
         style.map('Treeview', background=[('selected', '#0d47a1')])
         
         # Treeview
@@ -482,10 +485,12 @@ class PageArticleMouvement(ctk.CTkFrame):
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Treeview",
-                       background="#2b2b2b",
-                       foreground="white",
-                       fieldbackground="#2b2b2b",
-                       borderwidth=0)
+                       background="#FFFFFF",
+                       foreground="#000000",
+                       fieldbackground="#FFFFFF",
+                       borderwidth=0,
+                       rowheight=22,
+                       font=('Segoe UI', 8))
         style.configure("Treeview.Heading",
                        background="#1f538d",
                        foreground="white",

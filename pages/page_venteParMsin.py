@@ -216,7 +216,7 @@ class SimpleDialogWithChoice(ctk.CTkToplevel):
 
 
 # --- Configuration de CustomTkinter ---
-ctk.set_appearance_mode("System")
+ctk.set_appearance_mode("Light")
 ctk.set_default_color_theme("blue")
 
 class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel au lieu de CTkFrame
@@ -956,7 +956,8 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         
         style = ttk.Style()
         style.theme_use("clam") 
-        style.configure("Treeview", rowheight=22, font=('Segoe UI', 8), background=self._apply_appearance_mode(ctk.get_appearance_mode()))
+        style.configure("Treeview", rowheight=22, font=('Segoe UI', 8), background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0)
+        style.configure("Treeview.Heading", background="#E8E8E8", foreground="#000000", font=('Segoe UI', 8, 'bold'))
         style.configure("Treeview.Heading", font=('Segoe UI', 8, 'bold'))
 
         # Colonnes AJOUTÉES: "Montant"

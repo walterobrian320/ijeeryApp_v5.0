@@ -79,9 +79,9 @@ def configure_treeview_style(root):
     
     # Configuration générale du Treeview
     style.configure("Treeview", 
-                    background=bg_color,
-                    foreground=text_color,
-                    fieldbackground=bg_color,
+                    background="#FFFFFF",
+                    foreground="#000000",
+                    fieldbackground="#FFFFFF",
                     borderwidth=0,
                     font=('Segoe UI', 8),
                     rowheight=22)
@@ -678,7 +678,7 @@ if __name__ == "__main__":
 
             self.title("Application de Gestion des Articles")
             self.geometry("1100x600")
-            customtkinter.set_appearance_mode("System") # Garder "System" pour un meilleur test
+            customtkinter.set_appearance_mode("Light") # Garder "System" pour un meilleur test
             
             self.grid_rowconfigure(1, weight=1)
             self.grid_columnconfigure(0, weight=1)

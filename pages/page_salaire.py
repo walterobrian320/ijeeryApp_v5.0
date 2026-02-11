@@ -171,18 +171,20 @@ class Salaire(ctk.CTkFrame):  # ou autre base selon votre structure
         self.style = ttk.Style()
         self.style.theme_use("default") # Utiliser le thème par défaut pour pouvoir le modifier
         self.style.configure("Treeview",
-                             fg_color = ctk.ThemeManager.theme["CTkFrame"]["fg_color"],
-                             foreground= ctk.ThemeManager.theme["CTkLabel"]["text_color"],
-                             rowheight=25,
-                             fieldbackground=ctk.ThemeManager.theme["CTkFrame"]["fg_color"])
+                             background="#FFFFFF",
+                             foreground="#000000",
+                             rowheight=22,
+                             fieldbackground="#FFFFFF",
+                             borderwidth=0,
+                             font=('Segoe UI', 8))
         self.style.map("Treeview",
                        background=[('selected', ctk.ThemeManager.theme["CTkButton"]["fg_color"])],
                        foreground=[('selected', ctk.ThemeManager.theme["CTkButton"]["text_color"])])
 
         self.style.configure("Treeview.Heading",
-                             background=ctk.ThemeManager.theme["CTkButton"]["fg_color"],
-                             foreground=ctk.ThemeManager.theme["CTkButton"]["text_color"],
-                             font=('Helvetica', 10, 'bold'))
+                             background="#E8E8E8",
+                             foreground="#000000",
+                             font=('Segoe UI', 8, 'bold'))
         self.style.map("Treeview.Heading",
                        background=[('active', ctk.ThemeManager.theme["CTkButton"]["hover_color"])])
 

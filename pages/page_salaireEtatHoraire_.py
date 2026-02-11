@@ -196,18 +196,18 @@ class PageEtatSalaireHoraire(ctk.CTkFrame):
             ctk_border_color = "#2b2b2b"
 
         self.style.configure("Treeview",
-                             background=ctk_fg_color,
-                             foreground=ctk_text_color,
-                             rowheight=25,
-                             fieldbackground=ctk_fg_color,
-                             bordercolor=ctk_border_color,
-                             borderwidth=1)
+                             background="#FFFFFF",
+                             foreground="#000000",
+                             rowheight=22,
+                             fieldbackground="#FFFFFF",
+                             borderwidth=0,
+                             font=('Segoe UI', 8))
         self.style.map("Treeview",
                        background=[('selected', ctk_button_fg_color)],
                        foreground=[('selected', ctk_button_text_color)])
 
         self.style.configure("Treeview.Heading",
-                             background=ctk_button_fg_color,
+                             background="#E8E8E8",
                              foreground=ctk_button_text_color,
                              font=('Helvetica', 10, 'bold'),
                              relief="flat")

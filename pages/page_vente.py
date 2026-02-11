@@ -190,7 +190,7 @@ class SimpleDialogWithChoice(ctk.CTkToplevel):
 
 
 # --- Configuration de CustomTkinter ---
-ctk.set_appearance_mode("System")
+ctk.set_appearance_mode("Light")
 ctk.set_default_color_theme("blue")
 
 class PageVente(ctk.CTkFrame):
@@ -549,8 +549,9 @@ class PageVente(ctk.CTkFrame):
         
         style = ttk.Style()
         style.theme_use("clam") 
-        style.configure("Treeview", rowheight=30, font=('Arial', 10), background=self._apply_appearance_mode(ctk.get_appearance_mode()))
-        style.configure("Treeview.Heading", font=('Arial', 10, 'bold'))
+        style.configure("Treeview", rowheight=22, font=('Segoe UI', 8), background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0)
+        style.configure("Treeview.Heading", background="#E8E8E8", foreground="#000000", font=('Segoe UI', 8, 'bold'))
+        style.configure("Treeview.Heading", font=('Segoe UI', 8, 'bold'), background="#E8E8E8", foreground="#000000")
 
         # Colonnes AJOUTÉES: "Montant"
         colonnes = ("ID_Article", "ID_Unite", "ID_Magasin", "Code Article", "Désignation", "Magasin", "Unité", "Prix Unitaire", "Quantité Vente", "Montant")
@@ -1248,12 +1249,9 @@ class PageVente(ctk.CTkFrame):
         tree_frame = ctk.CTkFrame(main_frame)
         tree_frame.pack(fill="both", expand=True, pady=(0, 10))
         
-        colonnes = ("ID", "Ref Vente", "Date", "Description", "Montant Total", "Utilisateur", "Nb Lignes")
-        tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
-        
         style = ttk.Style()
-        style.configure("Treeview", rowheight=25, font=('Arial', 10)) 
-        style.configure("Treeview.Heading", font=('Arial', 10, 'bold'))
+        style.configure("Treeview", rowheight=22, font=('Segoe UI', 8), background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0)
+        style.configure("Treeview.Heading", font=('Segoe UI', 8, 'bold'), background="#E8E8E8", foreground="#000000")
 
         tree.heading("ID", text="ID")
         tree.heading("Ref Vente", text="N° Facture")
@@ -2155,12 +2153,9 @@ class PageVente(ctk.CTkFrame):
         tree_frame = ctk.CTkFrame(main_frame)
         tree_frame.pack(fill="both", expand=True, pady=(0, 10))
         
-        colonnes = ("ID", "Ref Proforma", "Date", "Client", "Montant Total", "Nb Lignes")
-        tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
-        
         style = ttk.Style()
-        style.configure("Treeview", rowheight=25, font=('Arial', 10)) 
-        style.configure("Treeview.Heading", font=('Arial', 10, 'bold'))
+        style.configure("Treeview", rowheight=22, font=('Segoe UI', 8), background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0)
+        style.configure("Treeview.Heading", font=('Segoe UI', 8, 'bold'), background="#E8E8E8", foreground="#000000")
 
         tree.heading("ID", text="ID")
         tree.heading("Ref Proforma", text="N° Proforma")

@@ -52,14 +52,18 @@ class PageSuiviStockDepot(ctk.CTkFrame):
         style.theme_use("clam") 
         
         style.configure("Treeview", 
-                        rowheight=35,           # Hauteur des lignes augmentée
-                        font=("Arial", 11),      # Taille de police adaptée
-                        background="#ffffff", 
-                        fieldbackground="#ffffff")
+                        rowheight=22,
+                        font=('Segoe UI', 8),
+                        background="#FFFFFF",
+                        foreground="#000000",
+                        fieldbackground="#FFFFFF",
+                        borderwidth=0)
+                        borderwidth=0)
         
         style.configure("Treeview.Heading", 
-                        font=("Arial", 12, "bold"), 
-                        background="#eeeeee")
+                        font=('Segoe UI', 8, 'bold'), 
+                        background="#E8E8E8",
+                        foreground="#000000")
 
         # Couleurs pour l'alternance (Zebra Stripes)
         style.map("Treeview", background=[('selected', '#1f538d')])

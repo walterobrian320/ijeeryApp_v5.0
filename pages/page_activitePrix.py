@@ -244,7 +244,9 @@ class PageActivitePrix(ctk.CTkFrame):
         ctk.CTkLabel(treeview_frame, text="Prix par Série", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold")).grid(row=0, column=0, pady=(10, 20), sticky="n")
 
         style = ttk.Style()
-        style.theme_use("clam")
+        style.theme_use("default")
+        style.configure("Treeview", background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0, rowheight=22, font=('Segoe UI', 8))
+        style.configure("Treeview.Heading", background="#E8E8E8", foreground="#000000", font=('Segoe UI', 8, 'bold'))
         
         # Couleurs simplifiées pour éviter les erreurs
         bg_color = "#2b2b2b" if ctk.get_appearance_mode() == "Dark" else "#ffffff"
@@ -749,7 +751,7 @@ self.activite_prix_button = ctk.CTkButton(
 
 if __name__ == "__main__":
     # Test standalone (pour le développement)
-    ctk.set_appearance_mode("System")
+    ctk.set_appearance_mode("Light")
     ctk.set_default_color_theme("blue")
 
     try:

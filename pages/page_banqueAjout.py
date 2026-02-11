@@ -141,15 +141,16 @@ class PageBanqueNv(ctk.CTkFrame):
         style = ttk.Style()
         style.theme_use("clam")  # Un thème ttk qui peut mieux s'intégrer
         style.configure("Treeview.Heading", 
-                       font=("Arial", 11, "bold"), 
-                       background="#34495e", 
-                       foreground="white")
+                       font=('Segoe UI', 8, 'bold'), 
+                       background="#E8E8E8", 
+                       foreground="#000000")
         style.configure("Treeview", 
-                       rowheight=25, 
-                       font=("Arial", 10), 
-                       background="#ecf0f1", 
-                       foreground="black", 
-                       fieldbackground="#ecf0f1")
+                       rowheight=22, 
+                       font=('Segoe UI', 8), 
+                       background="#FFFFFF", 
+                       foreground="#000000", 
+                       fieldbackground="#FFFFFF",
+                       borderwidth=0)
         style.map("Treeview", background=[('selected', '#3498db')])
 
         # --- Cadre pour Champ de Saisie (Formulaire) ---
@@ -346,7 +347,7 @@ class PageBanqueNv(ctk.CTkFrame):
 # Point d'entrée de l'application principale
 if __name__ == '__main__':
     # Initialisation de customtkinter
-    ctk.set_appearance_mode("System")
+    ctk.set_appearance_mode("Light")
     ctk.set_default_color_theme("blue")
 
     root = ctk.CTk()

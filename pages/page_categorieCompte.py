@@ -105,7 +105,8 @@ class PageCategorieCompte(ctk.CTkToplevel):  # Changer CTk en CTkToplevel
 
         style = ttk.Style()
         style.theme_use("default")
-        style.configure("Treeview", background="#D3D3D3", foreground="black", rowheight=25, fieldbackground="#D3D3D3")
+        style.configure("Treeview", background="#FFFFFF", foreground="#000000", rowheight=25, fieldbackground="#FFFFFF", borderwidth=0, font=('Segoe UI', 8))
+        style.configure("Treeview.Heading", background="#E8E8E8", foreground="#000000", font=('Segoe UI', 8, 'bold'))
         style.map('Treeview', background=[('selected', '#347083')])
 
         columns = ("idcc", "categoriecompte")

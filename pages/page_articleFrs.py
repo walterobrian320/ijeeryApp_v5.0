@@ -7,7 +7,7 @@ from tkinter import messagebox
 from tkinter import ttk
 
 # Configuration de base pour customtkinter
-ctk.set_appearance_mode("System")  
+ctk.set_appearance_mode("Light")  
 ctk.set_default_color_theme("blue")
 
 # Définition des répertoires pour localiser config.json

@@ -149,15 +149,15 @@ class PageFactureListe(ctk.CTkFrame):
             selected_bg = "#A9A9A9"
 
         style.configure("Treeview", 
-                        background=bg_color,
-                        foreground=fg_color,
-                        rowheight=25,
-                        fieldbackground=bg_color,
-                        bordercolor=bg_color,
-                        borderwidth=0)
+                        background="#FFFFFF",
+                        foreground="#000000",
+                        rowheight=22,
+                        fieldbackground="#FFFFFF",
+                        borderwidth=0,
+                        font=('Segoe UI', 8))
                         
         style.configure("Treeview.Heading",
-                        background=header_bg,
+                        background="#E8E8E8",
                         foreground=fg_color,
                         font=('Arial', 10, 'bold'))
         

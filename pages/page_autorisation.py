@@ -56,14 +56,16 @@ class PageAutorisation(ctk.CTkFrame):
         # Configuration du style pour les Treeview
         style = ttk.Style()
         style.configure("Treeview",
-                       background="#ffffff",
+                       background="#FFFFFF",
                        foreground="#000000",
-                       rowheight=25,
-                       fieldbackground="#ffffff")
+                       rowheight=22,
+                       fieldbackground="#FFFFFF",
+                       borderwidth=0,
+                       font=('Segoe UI', 8))
         style.configure("Treeview.Heading",
-                       background="#2ecc71",
-                       foreground="#ffffff",
-                       relief="flat")
+                       background="#E8E8E8",
+                       foreground="#000000",
+                       font=('Segoe UI', 8, 'bold'))
         style.map("Treeview",
                  background=[('selected', '#2ecc71')],
                  foreground=[('selected', '#ffffff')])

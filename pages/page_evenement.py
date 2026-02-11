@@ -152,19 +152,19 @@ class PageEvenement(ctk.CTkFrame):
         # Ces couleurs peuvent ne pas être parfaites avec votre thème CustomTkinter,
         # vous devrez peut-être les ajuster pour correspondre.
         style.configure("Treeview",
-                        background="#F0F0F0", # Couleur de fond des lignes
-                        foreground="#333333", # Couleur du texte
-                        rowheight=25,
-                        fieldbackground="#F0F0F0", # Couleur de fond du champ
-                        bordercolor="#CCCCCC",
-                        borderwidth=1)
+                        background="#FFFFFF",
+                        foreground="#000000",
+                        rowheight=22,
+                        fieldbackground="#FFFFFF",
+                        borderwidth=0,
+                        font=('Segoe UI', 8))
         style.map('Treeview',
-                  background=[('selected', '#347083')]) # Couleur de sélection
+                  background=[('selected', '#347083')])
 
         style.configure("Treeview.Heading",
-                        font=("Arial", 12, "bold"),
-                        background="#E0E0E0", # Couleur de fond de l'en-tête
-                        foreground="#2c3e50") # Couleur du texte de l'en-tête
+                        font=('Segoe UI', 8, 'bold'),
+                        background="#E8E8E8",
+                        foreground="#000000")
 
         # Création du Treeview
         self.tree = ttk.Treeview(tree_frame, columns=("ID", "Date", "Description"), show="headings")
@@ -305,7 +305,7 @@ if __name__ == "__main__":
     app.geometry("800x600")
 
     # Définir le thème de CustomTkinter (optionnel, mais recommandé)
-    ctk.set_appearance_mode("System")  # Modes: "System" (par défaut), "Dark", "Light"
+    ctk.set_appearance_mode("Light")  # Modes: "System" (par défaut), "Dark", "Light"
     ctk.set_default_color_theme("blue")  # Thèmes: "blue" (par défaut), "dark-blue", "green"
 
     event_page = PageEvenement(app)

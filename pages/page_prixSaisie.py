@@ -149,7 +149,7 @@ class PagePrixSaisie(ctk.CTkFrame):
             borderwidth=0,
             font=('Segoe UI', 10)
         )
-        style.configure("Treeview.Heading", background="#1f538d", foreground="white", font=('Segoe UI', 11, 'bold'))
+        style.configure("Treeview.Heading", background="#E8E8E8", foreground="#000000", font=('Segoe UI', 8, 'bold'))
         style.map('Treeview', background=[('selected', '#1f538d')])
         
         self.tree = ttk.Treeview(

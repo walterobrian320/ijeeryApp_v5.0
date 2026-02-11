@@ -341,7 +341,7 @@ class PageTauxHoraire(ctk.CTkFrame):
 
 if __name__ == "__main__":
     # --- Main Application Window Setup ---
-    ctk.set_appearance_mode("System")  # Modes: "System" (default), "Dark", "Light"
+    ctk.set_appearance_mode("Light")  # Modes: "System" (default), "Dark", "Light"
     ctk.set_default_color_theme("blue")  # Themes: "blue" (default), "green", "dark-blue"
 
     root = ctk.CTk() # Ceci est la vraie fenêtre principale

@@ -784,7 +784,8 @@ class PageCommandeCli(ctk.CTkFrame):
         
         # Style pour les tags
         style = ttk.Style()
-        style.configure("Treeview", rowheight=25)
+        style.configure("Treeview", rowheight=22, background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0, font=('Segoe UI', 8))
+        style.configure("Treeview.Heading", background="#E8E8E8", foreground="#000000", font=('Segoe UI', 8, 'bold'))
         tree.tag_configure('incomplet', background='#ffcccc')  # Rouge clair pour incomplet
         tree.tag_configure('complet', background='#ccffcc')    # Vert clair pour complet
         

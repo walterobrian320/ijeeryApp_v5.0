@@ -192,7 +192,7 @@ class SimpleDialogWithChoice(ctk.CTkToplevel):
 
 
 # --- Configuration de CustomTkinter ---
-ctk.set_appearance_mode("System")
+ctk.set_appearance_mode("Light")
 ctk.set_default_color_theme("blue")
 
 class PageAvoir(ctk.CTkFrame):
@@ -586,7 +586,8 @@ class PageAvoir(ctk.CTkFrame):
         
         style = ttk.Style()
         style.theme_use("clam") 
-        style.configure("Treeview", rowheight=25, font=('Arial', 10), background=self._apply_appearance_mode(ctk.get_appearance_mode()))
+        style.configure("Treeview", rowheight=22, font=('Segoe UI', 8), background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0)
+        style.configure("Treeview.Heading", background="#E8E8E8", foreground="#000000", font=('Segoe UI', 8, 'bold'))
         style.configure("Treeview.Heading", font=('Arial', 10, 'bold'))
 
         # Colonnes AJOUTÉES: "Montant"
@@ -990,8 +991,8 @@ class PageAvoir(ctk.CTkFrame):
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
         
         style = ttk.Style()
-        style.configure("Treeview", rowheight=25, font=('Arial', 10))
-        style.configure("Treeview.Heading", font=('Arial', 10, 'bold'))
+        style.configure("Treeview", rowheight=22, font=('Segoe UI', 8), background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0)
+        style.configure("Treeview.Heading", font=('Segoe UI', 8, 'bold'), background="#E8E8E8", foreground="#000000")
 
         tree.heading("ID_Article", text="ID_Article")
         tree.heading("ID_Unite", text="ID_Unite")
@@ -1440,17 +1441,18 @@ class PageAvoir(ctk.CTkFrame):
         
         # 4. 🛑 CORRECTION 3: Configuration des styles pour le ttk.Treeview (Visibilité)
         style = ttk.Style()
-        style.theme_use("clam") 
+        style.theme_use("default")
         style.configure("Treeview", 
-                        font=('Arial', 10), 
-                        background="#2A2D2E", 
-                        foreground="white",    
-                        fieldbackground="#2A2D2E",
-                        rowheight=25) 
+                        font=('Segoe UI', 8), 
+                        background="#FFFFFF", 
+                        foreground="#000000",    
+                        fieldbackground="#FFFFFF",
+                        borderwidth=0,
+                        rowheight=22)
         style.configure("Treeview.Heading", 
-                        font=('Arial', 10, 'bold'), 
-                        background="#3A3D3E", 
-                        foreground="white", 
+                        font=('Segoe UI', 8, 'bold'), 
+                        background="#E8E8E8", 
+                        foreground="#000000", 
                         relief="flat")
         style.map('Treeview', 
                   background=[('selected', '#1F6AA5')]) 

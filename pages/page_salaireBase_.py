@@ -100,7 +100,7 @@ db_manager = DatabaseManager()
 
 # Set CustomTkinter appearance and theme
 # "System" matches the OS theme (Light/Dark), "Dark" is always dark, "Light" is always light
-ctk.set_appearance_mode("System")
+ctk.set_appearance_mode("Light")
 ctk.set_default_color_theme("blue")  # Themes: "blue" (default), "green", "dark-blue"
 
 class PageSalaireBase(ctk.CTkFrame):
@@ -168,14 +168,16 @@ class PageSalaireBase(ctk.CTkFrame):
         # This is a basic attempt; more comprehensive styling might require a custom theme
         style = ttk.Style()
         # Set background for headings
-        style.configure("Treeview.Heading", background=ctk.ThemeManager.theme["CTkButton"]["fg_color"],
-                        foreground=ctk.ThemeManager.theme["CTkLabel"]["text_color"],
-                        font=('Arial', 10, 'bold'))
+        style.configure("Treeview.Heading", background="#E8E8E8",
+                        foreground="#000000",
+                        font=('Segoe UI', 8, 'bold'))
         # Set background and foreground for rows
-        style.configure("Treeview", background=ctk.ThemeManager.theme["CTkFrame"]["fg_color"],
-                        foreground="#333333", # <-- Change this to a darker color, e.g., "black" or "#333333"
-                        fieldbackground=ctk.ThemeManager.theme["CTkFrame"]["fg_color"],
-                        rowheight=30) # Increase row height for better entry placement
+        style.configure("Treeview", background="#FFFFFF",
+                        foreground="#000000",
+                        fieldbackground="#FFFFFF",
+                        borderwidth=0,
+                        rowheight=22,
+                        font=('Segoe UI', 8))
 
         # Create the Treeview widget
         self.tree = ttk.Treeview(self.tree_frame, columns=("nom", "prenom", "montant"), show="headings")

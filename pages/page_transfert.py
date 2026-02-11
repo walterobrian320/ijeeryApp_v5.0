@@ -288,8 +288,8 @@ class PageTransfert(ctk.CTkFrame):
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
 
         style = ttk.Style()
-        style.configure("Treeview", rowheight=30, font=('Arial', 10))
-        style.configure("Treeview.Heading", font=('Arial', 10, 'bold'))
+        style.configure("Treeview", rowheight=22, font=('Segoe UI', 8), background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0)
+        style.configure("Treeview.Heading", font=('Segoe UI', 8, 'bold'), background="#E8E8E8", foreground="#000000")
 
         tree.heading("ID_Article", text="ID_Article")
         tree.heading("ID_Unite", text="ID_Unite")

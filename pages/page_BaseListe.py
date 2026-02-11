@@ -206,7 +206,7 @@ class PageBaseListe(ctk.CTkFrame):
         self.entry_designationbase.delete(0, tk.END)
 
 if __name__ == "__main__":
-    ctk.set_appearance_mode("System")
+    ctk.set_appearance_mode("Light")
     app = ctk.CTk()
     app.title("Gestion des Bases")
     app.geometry("700x500")

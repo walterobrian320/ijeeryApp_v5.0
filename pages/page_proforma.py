@@ -1176,7 +1176,7 @@ class PageCommandeCli(ctk.CTkFrame):
                     )"""
                     params = [f"%{filtre}%", f"%{filtre}%"]
                 
-                query += " ORDER BY T1.\"codearticle\""
+                query += " ORDER BY T2.\"designation\" ASC, T1.\"codearticle\" ASC"
                 cursor.execute(query, params)
                 resultats = cursor.fetchall()
                 

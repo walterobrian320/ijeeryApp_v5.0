@@ -253,6 +253,9 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         self.details_proforma_a_ajouter: Optional[List[Dict]] = None # NOUVEAU: Stocke temporairement les lignes du proforma
         self.details_proforma_a_ajouter_idprof: Optional[int] = None # NOUVEAU: ID du proforma chargé
         
+        # Charger les paramètres d'impression
+        self.settings = self.load_settings()
+        
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=0)
         self.grid_rowconfigure(1, weight=1)
@@ -287,7 +290,34 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         except psycopg2.Error as e:
             messagebox.showerror("Erreur de Base de Données", f"Impossible de se connecter à la base de données : {e}")
             return None
-        
+    
+    def load_settings(self) -> Dict[str, Any]:
+        """Charge les paramètres d'impression depuis settings.json"""
+        try:
+            with open('settings.json', 'r', encoding='utf-8') as f:
+                settings = json.load(f)
+                print(f"✅ Paramètres d'impression chargés depuis settings.json")
+                return settings
+        except FileNotFoundError:
+            print("⚠️ Fichier settings.json non trouvé, utilisation des paramètres par défaut")
+            return {
+                'Vente_ImpressionConfirmation': 1,
+                'Vente_ImpressionA5': 1,
+                'Vente_ImpressionTicket': 0,
+                'Avoir_ImpressionConfirmation': 1,
+                'Avoir_ImpressionA5': 1,
+                'Avoir_ImpressionTicket': 0
+            }
+        except json.JSONDecodeError:
+            print("⚠️ Erreur dans le format de settings.json, utilisation des paramètres par défaut")
+            return {
+                'Vente_ImpressionConfirmation': 1,
+                'Vente_ImpressionA5': 1,
+                'Vente_ImpressionTicket': 0,
+                'Avoir_ImpressionConfirmation': 1,
+                'Avoir_ImpressionA5': 1,
+                'Avoir_ImpressionTicket': 0
+            }
     
     # --- FONCTIONS DE FORMATAGE ET DE CALCUL DE STOCK ---
     def formater_nombre(self, nombre):
@@ -2442,15 +2472,26 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
             
                 total_general = sum(f['total'] for f in factures_creees)
             
-                messagebox.showinfo("Succès", 
-                    f"{len(factures_creees)} facture(s) créée(s) avec succès:\n\n{message_factures}\n\nTotal général: {self.formater_nombre(total_general)} Ar")
+                # ✅ UTILISER LES PARAMÈTRES D'IMPRESSION
+                show_confirmation = self.settings.get('Vente_ImpressionConfirmation', 1)
+                impression_a5 = self.settings.get('Vente_ImpressionA5', 1)
+                impression_ticket = self.settings.get('Vente_ImpressionTicket', 0)
+                
+                if show_confirmation:
+                    # Afficher la messagebox de confirmation
+                    messagebox.showinfo("Succès", 
+                        f"{len(factures_creees)} facture(s) créée(s) avec succès:\n\n{message_factures}\n\nTotal général: {self.formater_nombre(total_general)} Ar")
+                else:
+                    # Pas de confirmation, impression directe silencieuse
+                    print(f"✅ {len(factures_creees)} facture(s) créée(s) avec succès (impression directe)")
             
                 # --- DÉCLENCHEMENT DE L'IMPRESSION AUTOMATIQUE ---
                 # Pour chaque facture créée, ouvre directement le dialogue de choix
                 # de format (A5 PDF Paysage ou Ticket 80mm) via imprimer_facture_unique()
                 try:
                     for facture in factures_creees:
-                        self.imprimer_facture_unique(facture['idvente'])
+                        if impression_a5 or impression_ticket:
+                            self.imprimer_facture_avec_settings(facture['idvente'], impression_a5, impression_ticket)
                 except Exception as e:
                     messagebox.showerror("Erreur Impression", f"La vente est enregistrée mais l'impression a échoué : {e}")
 
@@ -2570,6 +2611,36 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         ctk.CTkButton(btn_frame, text="✅ Imprimer Sélection", command=imprimer_selectionnee,
                   fg_color="#2e7d32", hover_color="#1b5e20").pack(side="right", padx=5)
 
+    def imprimer_facture_avec_settings(self, idvente: int, imprimer_a5: int, imprimer_ticket: int):
+        """
+        Imprime une facture directement en fonction des paramètres sans dialogue.
+        imprimer_a5: 1 = imprimer A5, 0 = ne pas imprimer
+        imprimer_ticket: 1 = imprimer ticket, 0 = ne pas imprimer
+        """
+        data = self.get_data_facture(idvente)
+        
+        if not data or not data.get('vente'):
+            print(f"❌ Impossible de récupérer les données pour l'ID : {idvente}")
+            return
+        
+        try:
+            # Imprimer A5 si configuré
+            if imprimer_a5 == 1:
+                filename_a5 = f"Facture_{data['vente']['refvente']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                self.generate_pdf_a5(data, filename_a5)
+                self.open_file(filename_a5)
+                print(f"✅ Impression A5 lancée : {filename_a5}")
+            
+            # Imprimer Ticket si configuré
+            if imprimer_ticket == 1:
+                filename_ticket = f"Ticket_{data['vente']['refvente']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                self.generate_ticket_80mm(data, filename_ticket)
+                self.open_file(filename_ticket)
+                print(f"✅ Impression Ticket lancée : {filename_ticket}")
+        
+        except Exception as e:
+            print(f"❌ Erreur lors de l'impression : {e}")
+            messagebox.showerror("Erreur Impression", f"Erreur lors de l'impression de la facture : {e}")
 
     def imprimer_facture_unique(self, idvente: int):
         """Imprime une facture spécifique."""

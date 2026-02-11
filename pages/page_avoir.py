@@ -217,6 +217,9 @@ class PageAvoir(ctk.CTkFrame):
         self.mode_modification = False
         self.idvente_charge = None
         
+        # Charger les paramètres d'impression
+        self.settings = self.load_settings()
+        
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=0)
         self.grid_rowconfigure(1, weight=1)
@@ -253,6 +256,34 @@ class PageAvoir(ctk.CTkFrame):
         except psycopg2.Error as e:
             messagebox.showerror("Erreur de Base de Données", f"Impossible de se connecter à la base de données : {e}")
             return None
+    
+    def load_settings(self) -> Dict[str, Any]:
+        """Charge les paramètres d'impression depuis settings.json"""
+        try:
+            with open('settings.json', 'r', encoding='utf-8') as f:
+                settings = json.load(f)
+                print(f"✅ Paramètres d'impression chargés depuis settings.json")
+                return settings
+        except FileNotFoundError:
+            print("⚠️ Fichier settings.json non trouvé, utilisation des paramètres par défaut")
+            return {
+                'Vente_ImpressionConfirmation': 1,
+                'Vente_ImpressionA5': 1,
+                'Vente_ImpressionTicket': 0,
+                'Avoir_ImpressionConfirmation': 1,
+                'Avoir_ImpressionA5': 1,
+                'Avoir_ImpressionTicket': 0
+            }
+        except json.JSONDecodeError:
+            print("⚠️ Erreur dans le format de settings.json, utilisation des paramètres par défaut")
+            return {
+                'Vente_ImpressionConfirmation': 1,
+                'Vente_ImpressionA5': 1,
+                'Vente_ImpressionTicket': 0,
+                'Avoir_ImpressionConfirmation': 1,
+                'Avoir_ImpressionA5': 1,
+                'Avoir_ImpressionTicket': 0
+            }
     
     # --- FONCTIONS DE FORMATAGE ET DE CALCUL DE STOCK ---
     def formater_nombre(self, nombre):
@@ -2031,12 +2062,18 @@ class PageAvoir(ctk.CTkFrame):
 
             conn.commit()
     
-            messagebox.showinfo(
-                "Succès", 
-                f"Avoir N°{ref_avoir} enregistré avec succès.\n"
-                f"Montant total: {self.formater_nombre(montant_total_avoir)}\n"
-                f"Paiement enregistré dans tb_pmtavoir."
-            )
+            # ✅ UTILISER LES PARAMÈTRES D'IMPRESSION POUR LES AVOIRS
+            show_confirmation = self.settings.get('Avoir_ImpressionConfirmation', 1)
+            
+            if show_confirmation:
+                messagebox.showinfo(
+                    "Succès", 
+                    f"Avoir N°{ref_avoir} enregistré avec succès.\n"
+                    f"Montant total: {self.formater_nombre(montant_total_avoir)}\n"
+                    f"Paiement enregistré dans tb_pmtavoir."
+                )
+            else:
+                print(f"✅ Avoir N°{ref_avoir} enregistré avec succès (impression directe)")
     
             # Mettre à jour l'interface
             self.derniere_idvente_enregistree = id_avoir
@@ -2044,7 +2081,10 @@ class PageAvoir(ctk.CTkFrame):
             self.btn_enregistrer.configure(state="disabled", text="✔️ Avoir Enregistré")
     
             # 🖨️ LANCER L'IMPRESSION AUTOMATIQUE DE L'AVOIR EN A5
-            self.imprimer_avoir_automatique(id_avoir)
+            impression_a5 = self.settings.get('Avoir_ImpressionA5', 1)
+            impression_ticket = self.settings.get('Avoir_ImpressionTicket', 0)
+            if impression_a5 or impression_ticket:
+                self.imprimer_avoir_avec_settings(id_avoir, impression_a5, impression_ticket)
     
         except Exception as e:
             if conn: 
@@ -2056,6 +2096,37 @@ class PageAvoir(ctk.CTkFrame):
                 cur.close()
             if conn: 
                 conn.close()
+
+    def imprimer_avoir_avec_settings(self, idavoir: int, imprimer_a5: int, imprimer_ticket: int):
+        """
+        Lance l'impression de l'avoir directement en fonction des paramètres.
+        imprimer_a5: 1 = imprimer A5, 0 = ne pas imprimer
+        imprimer_ticket: 1 = imprimer ticket, 0 = ne pas imprimer
+        """
+        data = self.get_data_avoir(idavoir)
+        if not data:
+            print("⚠️ Impossible de récupérer les données de l'avoir pour l'impression.")
+            return
+
+        try:
+            # Imprimer A5 si configuré
+            if imprimer_a5 == 1:
+                filename_a5 = f"Avoir_{data['avoir']['refavoir']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                self.generate_pdf_a5_avoir(data, filename_a5)
+                self.open_file(filename_a5)
+                print(f"✅ Impression A5 lancée : {filename_a5}")
+            
+            # Imprimer Ticket si configuré
+            if imprimer_ticket == 1:
+                filename_ticket = f"Ticket_Avoir_{data['avoir']['refavoir']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                self.generate_ticket_80mm(data, filename_ticket)
+                self.open_file(filename_ticket)
+                print(f"✅ Impression Ticket lancée : {filename_ticket}")
+        
+        except Exception as e:
+            print(f"❌ Erreur lors de l'impression : {e}")
+            messagebox.showerror("Erreur d'impression", f"Erreur lors de l'impression de l'avoir : {e}")
+            traceback.print_exc()
 
     def imprimer_avoir_automatique(self, idavoir: int):
         """

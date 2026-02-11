@@ -275,6 +275,10 @@ class PageStock(ctk.CTkFrame):
                 UNION ALL
 
                 -- Inventaires (via codearticle → idunite pour avoir qtunite)
+                -- ⚠️ FIX: Ne compter les inventaires qu'UNE SEULE FOIS par article
+                -- (sélectionner uniquement l'unité de base pour chaque article)
+                -- Cela évite le double-comptage quand il y a plusieurs inventaires
+                -- pour différentes variantes d'unité du même article
                 SELECT
                     u.idarticle,
                     i.idmag,
@@ -283,6 +287,14 @@ class PageStock(ctk.CTkFrame):
                     'inventaire' as type_mouvement
                 FROM tb_inventaire i
                 INNER JOIN tb_unite u ON i.codearticle = u.codearticle
+                WHERE u.idunite IN (
+                    -- Sélectionner UNIQUEMENT l'unité de base (plus petit qtunite)
+                    -- pour chaque idarticle (DISTINCT ON nécessite PostgreSQL)
+                    SELECT DISTINCT ON (idarticle) idunite
+                    FROM tb_unite
+                    WHERE deleted = 0
+                    ORDER BY idarticle, qtunite ASC
+                )
 
                 UNION ALL
 

@@ -47,7 +47,7 @@ class PagePrixListe(ctk.CTkFrame):
         self.create_treeview()
 
         # Label compteur
-        self.lbl_count = ctk.CTkLabel(self, text="Nombre d'articles: 0", font=("Arial", 12))
+        self.lbl_count = ctk.CTkLabel(self, text="Nombre d'articles: 0", font=("Segoe UI", 11))
         self.lbl_count.grid(row=2, column=0, pady=10, sticky="w", padx=20)
 
         # Chargement initial asynchrone pour ne pas bloquer l'interface
@@ -67,14 +67,14 @@ class PagePrixListe(ctk.CTkFrame):
         search_frame.grid(row=0, column=0, pady=20, padx=20, sticky="ew")
         search_frame.grid_columnconfigure(1, weight=1)
 
-        lbl_search = ctk.CTkLabel(search_frame, text="Rechercher:", font=("Arial", 14, "bold"))
+        lbl_search = ctk.CTkLabel(search_frame, text="Rechercher:", font=("Segoe UI", 12, "bold"))
         lbl_search.grid(row=0, column=0, padx=(0, 10))
 
         self.entry_search = ctk.CTkEntry(
             search_frame,
             placeholder_text="Code Article, Nom, Unité ou Prix...",
-            height=35,
-            font=("Arial", 12)
+            height=34,
+            font=("Segoe UI", 11)
         )
         self.entry_search.grid(row=0, column=1, sticky="ew", padx=(0, 10))
         self.entry_search.bind("<KeyRelease>", self.search_data)
@@ -83,8 +83,8 @@ class PagePrixListe(ctk.CTkFrame):
             search_frame,
             text="🔍 Rechercher",
             command=self.search_data,
-            height=35,
-            font=("Arial", 12)
+            height=34,
+            font=("Segoe UI", 11)
         )
         btn_search.grid(row=0, column=2)
 
@@ -132,15 +132,15 @@ class PagePrixListe(ctk.CTkFrame):
             "Treeview",
             background="white",
             foreground="black",
-            rowheight=30,
+            rowheight=24,
             fieldbackground="white",
-            font=("Arial", 11)
+            font=("Segoe UI", 10)
         )
         style.configure(
             "Treeview.Heading",
             background="#1f538d",
             foreground="white",
-            font=("Arial", 12, "bold")
+            font=("Segoe UI", 11, "bold")
         )
         style.map("Treeview", background=[("selected", "#1f538d")])
 
@@ -395,7 +395,7 @@ class PagePrixListe(ctk.CTkFrame):
             lbl_loading = ctk.CTkLabel(
                 content_frame, 
                 text=f"Chargement de la saisie des prix...\nArticle: {code_article}",
-                font=("Arial", 12)
+                font=("Segoe UI", 11)
             )
             lbl_loading.pack(pady=(10, 20))
             

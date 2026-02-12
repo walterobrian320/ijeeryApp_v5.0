@@ -101,6 +101,15 @@ class PagePmtFacture(ctk.CTkToplevel):
             messagebox.showerror("Erreur", f"Erreur de connexion : {e}")
             return None
 
+    def charger_settings(self):
+        """Charge les paramètres depuis settings.json"""
+        try:
+            with open('settings.json', 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"⚠️ Impossible de charger settings.json : {e}")
+            return {}
+
     def charger_modes_paiement(self):
         conn = self.connect_db()
         if not conn: return ["Espèces"]
@@ -418,8 +427,17 @@ class PagePmtFacture(ctk.CTkToplevel):
                 except Exception:
                     continue
 
-            self._generer_ticket_pdf(info_soc, username, articles_pdf, montant_saisi, nom_mode_pmt, refpmt, date_echeance)
-            messagebox.showinfo("Succès", f"Paiement enregistré avec succès!\nRéférence: {refpmt}")
+            # Charger le paramètre d'impression depuis settings.json
+            settings = self.charger_settings()
+            imprimer_ticket = settings.get('ClientAPayer_ImpressionTicket', 1)
+            
+            print(f"📋 ClientAPayer_ImpressionTicket = {imprimer_ticket}")
+            
+            self._generer_ticket_pdf(info_soc, username, articles_pdf, montant_saisi, nom_mode_pmt, refpmt, date_echeance, imprimer_ticket)
+            
+            # Message de confirmation
+            msg_impression = " (impression lancée)" if imprimer_ticket == 1 else " (sans impression)"
+            messagebox.showinfo("Succès", f"Paiement enregistré avec succès!{msg_impression}\nRéférence: {refpmt}")
             self.destroy()
 
         except Exception as e:
@@ -457,7 +475,7 @@ class PagePmtFacture(ctk.CTkToplevel):
         
         return lignes if lignes else [""]
 
-    def _generer_ticket_pdf(self, info_soc, username, articles, montant_paye, mode_paiement, refpmt, date_echeance=None):
+    def _generer_ticket_pdf(self, info_soc, username, articles, montant_paye, mode_paiement, refpmt, date_echeance=None, imprimer_ticket=1):
         """Génère un ticket de paiement PDF au format 80mm"""
         try:
             # Création fichier temporaire
@@ -618,11 +636,18 @@ class PagePmtFacture(ctk.CTkToplevel):
             # Sauvegarder et ouvrir
             c.save()
             
-            # Ouvrir le PDF
-            if os.name == 'nt':  # Windows
-                os.startfile(filename)
-            elif os.name == 'posix':  # Linux/Mac
-                subprocess.call(['xdg-open', filename])
+            # Ouvrir le PDF seulement si l'impression est activée
+            if imprimer_ticket == 1:
+                try:
+                    if os.name == 'nt':  # Windows
+                        os.startfile(filename)
+                    elif os.name == 'posix':  # Linux/Mac
+                        subprocess.call(['xdg-open', filename])
+                    print(f"✅ Ticket de caisse ouvert : {filename}")
+                except Exception as e:
+                    print(f"⚠️ Erreur lors de l'ouverture du PDF : {e}")
+            else:
+                print(f"📄 Ticket de caisse généré (impression désactivée) : {filename}")
             
         except Exception as e:
             messagebox.showerror("Erreur PDF", f"Erreur lors de la génération du PDF : {e}")

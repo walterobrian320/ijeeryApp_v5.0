@@ -1305,7 +1305,7 @@ class PageVente(ctk.CTkFrame):
                     SELECT 
                         v.id, v.refvente, v.dateregistre, v.description, c.nomcli, 
                         (u.nomuser || ' ' || u.prenomuser) as utilisateur,
-                        COALESCE(SUM(vd.qtvente * vd.prixunit), 0) as total_montant,
+                        COALESCE(v.totmtvente, 0) as total_montant,
                         COUNT(vd.id) as nb_lignes
                     FROM 
                         tb_vente v

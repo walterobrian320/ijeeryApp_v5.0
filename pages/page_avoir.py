@@ -1498,7 +1498,7 @@ class PageAvoir(ctk.CTkFrame):
                 sql = """
                     SELECT 
                         v.id, v.refvente, v.dateregistre, c.nomcli, 
-                        (SELECT SUM(vd.qtvente * vd.prixunit) FROM tb_ventedetail vd WHERE vd.idvente = v.id) AS montant_total,
+                        COALESCE(v.totmtvente, 0) AS montant_total,
                         v.description, u.nomuser
                     FROM tb_vente v
                     LEFT JOIN tb_client c ON v.idclient = c.idclient

@@ -288,6 +288,13 @@ class PageFactureListe(ctk.CTkFrame):
             "idcli": row_data["ID Client"]
         }
         
+        # 🔍 DEBUG: Afficher les montants
+        print(f"\n💰 CAISSE - Facture {paiement_data['refvente']}")
+        print(f"  Montant Total Initial (tb_vente.totmtvente): {row_data['Montant Total']:.0f} Ar")
+        print(f"  Montant Payé: {row_data['Payé']:.0f} Ar")
+        print(f"  Solde (à payer): {solde:.0f} Ar")
+        print(f"  → Valeur affichée en caisse: {paiement_data['montant_total']} Ar\n")
+        
         if paiement_data['idcli'] is None:
              messagebox.showerror("Erreur", "ID du Client manquant. Impossible d'ouvrir la page de paiement.")
              return
@@ -363,11 +370,7 @@ class PageFactureListe(ctk.CTkFrame):
                     v.refvente,
                     v.dateregistre,
                     v.description,
-                    COALESCE((
-                        SELECT SUM(vd.qtvente * vd.prixunit) 
-                        FROM tb_ventedetail vd 
-                        WHERE vd.idvente = v.id
-                    ), 0) AS montant_total,
+                    COALESCE(v.totmtvente, 0) AS montant_total,
                     v.statut,
                     COALESCE((
                         SELECT SUM(p.mtpaye) 
@@ -495,11 +498,7 @@ class PageFactureListe(ctk.CTkFrame):
                     v.refvente,
                     v.dateregistre,
                     v.description,
-                    COALESCE((
-                        SELECT SUM(vd.qtvente * vd.prixunit) 
-                        FROM tb_ventedetail vd 
-                        WHERE vd.idvente = v.id
-                    ), 0) AS montant_total,
+                    COALESCE(v.totmtvente, 0) AS montant_total,
                     v.statut,
                     COALESCE((
                         SELECT SUM(p.mtpaye) 
@@ -618,11 +617,7 @@ class PageFactureListe(ctk.CTkFrame):
                     v.refvente,
                     v.dateregistre,
                     v.description,
-                    COALESCE((
-                        SELECT SUM(vd.qtvente * vd.prixunit) 
-                        FROM tb_ventedetail vd 
-                        WHERE vd.idvente = v.id
-                    ), 0) AS montant_total,
+                    COALESCE(v.totmtvente, 0) AS montant_total,
                     v.statut,
                     COALESCE((
                         SELECT SUM(p.mtpaye) 

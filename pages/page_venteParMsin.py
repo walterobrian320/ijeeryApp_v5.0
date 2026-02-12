@@ -957,7 +957,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         style.configure("Treeview.Heading", font=('Segoe UI', 8, 'bold'))
 
         # Colonnes AJOUTÉES: "Montant"
-        colonnes = ("ID_Article", "ID_Unite", "ID_Magasin", "Code Article", "Désignation", "Magasin", "Unité", "Remise (%)", "Prix Unitaire", "Quantité Vente", "Montant")
+        colonnes = ("ID_Article", "ID_Unite", "ID_Magasin", "Code Article", "Désignation", "Magasin", "Unité", "Remise (Ar)", "Prix Unitaire", "Quantité Vente", "Montant")
         self.tree_details = ttk.Treeview(tree_frame, columns=colonnes, show='headings')
         
         for col in colonnes:
@@ -1665,32 +1665,31 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
 
     def format_detail_for_treeview(self, detail):
         """Formate le dictionnaire de détail en tuple pour l'affichage dans le Treeview."""
-        remise = float(detail.get('remise', 0))  # ✅ Conversion en float
-        qtvente = float(detail['qtvente'])  # ✅ Conversion en float
-        prixunit = float(detail['prixunit'])  # ✅ Conversion en float
-    
-        # Si une remise est spécifiée (> 0), elle remplace le prix unitaire
-        if remise > 0:
-            prix_final = remise
-        else:
-            prix_final = prixunit
-            
-        montant_ht = qtvente * prixunit
-        montant_ttc = qtvente * prix_final
+        # Remise stockée est la remise unitaire en Ariary.
+        remise_unitaire = float(detail.get('remise', 0))
+        qtvente = float(detail.get('qtvente', detail.get('qte', 0)))
+        prixunit = float(detail.get('prixunit', 0))
 
+        montant_ht = qtvente * prixunit
+        montant_remise_total = remise_unitaire * qtvente
+        montant_net = montant_ht - montant_remise_total
+        if montant_net < 0:
+            montant_net = 0
+
+        # Afficher la remise au Treeview comme remise unitaire, mais conserver
+        # les montants calculés (total remise et montant net) dans le dict
         return (
-            detail['idarticle'],
-            detail['idunite'],
-            detail['idmag'],
+            detail.get('idarticle', ''),
+            detail.get('idunite', ''),
+            detail.get('idmag', ''),
             detail.get('code_article', 'N/A'),
-            detail['nom_article'],
-            detail['designationmag'],
-            detail['nom_unite'],
-            self.formater_nombre(remise),
+            detail.get('nom_article', ''),
+            detail.get('designationmag', ''),
+            detail.get('nom_unite', ''),
+            self.formater_nombre(remise_unitaire),
             self.formater_nombre(prixunit),
             self.formater_nombre(qtvente),
-            self.formater_nombre(montant_ht),
-            self.formater_nombre(montant_ttc)
+            self.formater_nombre(montant_net)
         )
     def charger_details_treeview(self):
         """Charge ou recharge les détails de vente dans le Treeview."""
@@ -1704,19 +1703,10 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
 
     def calculer_totaux(self):
         """Calcule et affiche le total général et le total en lettres."""
-        total_general = 0
+        total_general = 0.0
         for d in self.detail_vente:
-            remise = float(d.get('remise', 0))  # ✅ Conversion en float
-            qtvente = float(d['qtvente'])  # ✅ Conversion en float
-            prixunit = float(d['prixunit'])  # ✅ Conversion en float
-            
-            # Si une remise est spécifiée (> 0), elle remplace le prix unitaire
-            if remise > 0:
-                prix_final = remise
-            else:
-                prix_final = prixunit
-                
-            montant_ttc = qtvente * prix_final
+            montant_ttc = float(d.get('montant_ttc', d.get('montant', 0)))
+            # montant_ttc here is the net amount after absolute remise
             total_general += montant_ttc
 
         # Affichage du total général
@@ -1797,6 +1787,17 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
             'designationmag': magasin_selectionne_nom,
             'idmag': idmag 
         }
+
+        # Calculer montants (remise unitaire appliquée à la quantité)
+        montant_ht = qtvente * prixunit
+        montant_remise = remise * qtvente
+        montant_ttc = montant_ht - montant_remise
+        if montant_ttc < 0:
+            montant_ttc = 0
+
+        nouveau_detail['montant_ht'] = montant_ht
+        nouveau_detail['montant_remise'] = montant_remise
+        nouveau_detail['montant_ttc'] = montant_ttc
 
         if self.index_ligne_selectionnee is not None:
             self.detail_vente[self.index_ligne_selectionnee] = nouveau_detail
@@ -2226,7 +2227,9 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                         qtvente = float(d['qtvente'])
                         prixunit = float(d['prixunit'])
                         remise = float(d.get('remise', 0))
-                        montant_ligne = qtvente * prixunit * (1 - remise / 100)
+                        montant_ligne = qtvente * prixunit - (remise * qtvente)
+                        if montant_ligne < 0:
+                            montant_ligne = 0
                         total_general_vente += montant_ligne
                     
                     # 🚫 BLOCAGE SI DÉPASSEMENT DU CRÉDIT
@@ -2294,8 +2297,24 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                         qtvente = float(d['qtvente'])
                         prixunit = float(d['prixunit'])
                         remise = float(d.get('remise', 0))
-                        montant_ligne = qtvente * prixunit * (1 - remise / 100)
+                        montant_ligne = qtvente * prixunit - (remise * qtvente)
+                        if montant_ligne < 0:
+                            montant_ligne = 0
                         total_magasin += montant_ligne
+                    
+                    # 🔍 DEBUG: Afficher les détails du calcul pour chaque ligne
+                    print(f"\n🧮 Calcul Total Magasin: {details_mag[0]['designationmag']}")
+                    for d in details_mag:
+                        qtvente = float(d['qtvente'])
+                        prixunit = float(d['prixunit'])
+                        remise = float(d.get('remise', 0))
+                        montant_ht = qtvente * prixunit
+                        montant_remise_ligne = remise * qtvente
+                        montant_net = montant_ht - montant_remise_ligne
+                        print(f"  Article: {d.get('nom_article', 'N/A')}")
+                        print(f"    Qt={qtvente}, PU={prixunit:.0f}, Remise/U={remise:.0f}")
+                        print(f"    Montant HT={montant_ht:.0f}, Total Remise={montant_remise_ligne:.0f}, Net={montant_net:.0f}")
+                    print(f"📊 TOTAL FINAL À INSÉRER en tb_vente.totmtvente: {total_magasin:.0f} Ar\n")
         
                     # Récupérer le nom du magasin
                     nom_magasin = details_mag[0]['designationmag']
@@ -2687,16 +2706,12 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                 # Capturer le premier magasin pour l'ajouter à la description
                 if premier_magasin is None:
                     premier_magasin = magasin
-            
-                # Si une remise est spécifiée (> 0), elle remplace le prix unitaire
-                if remise > 0:
-                    prix_final = remise
-                else:
-                    prix_final = prixunit
-                    
+                # Interpréter la remise comme remise unitaire (Ar) appliquée à la quantité
                 montant_ht = qte * prixunit
-                montant_ttc = qte * prix_final
-                montant_remise = montant_ht - montant_ttc
+                montant_remise = remise * qte
+                montant_ttc = montant_ht - montant_remise
+                if montant_ttc < 0:
+                    montant_ttc = 0
             
                 data['details'].append({
                     'code_article': code_article,

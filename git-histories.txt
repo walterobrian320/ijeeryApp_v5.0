@@ -1,2 +1,3 @@
 8c34516 | Fix: sync stock display in vente search (exclude EN_ATTENTE) 
 0374cf9 | UI: hide 'Statut' column in client-a-payer; change pending color to #FFBE76 
+27a0843 | UI: add Statut column and status filter (default VALIDEE) in Liste Facture

@@ -291,7 +291,7 @@ class PageFactureListe(ctk.CTkFrame):
         # 🔍 DEBUG: Afficher les montants
         print(f"\n💰 CAISSE - Facture {paiement_data['refvente']}")
         print(f"  Montant Total Initial (tb_vente.totmtvente): {row_data['Montant Total']:.0f} Ar")
-        print(f"  Montant Payé: {row_data['Payé']:.0f} Ar")
+        print(f"  Montant Payé: {row_data['Total Payé']:.0f} Ar")
         print(f"  Solde (à payer): {solde:.0f} Ar")
         print(f"  → Valeur affichée en caisse: {paiement_data['montant_total']} Ar\n")
         
@@ -452,7 +452,8 @@ class PageFactureListe(ctk.CTkFrame):
                     "Client": client,
                     "ID Client": idclient,
                     "User": user,
-                    "Qté Lignes": nb_lignes
+                    "Qté Lignes": nb_lignes,
+                    "Statut": statut
                 })
             
             self.data_df = pd.DataFrame(data_list)

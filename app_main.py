@@ -8,6 +8,7 @@ import time
 import subprocess
 import tkinter as tk
 from datetime import datetime
+from typing import Optional
 import psycopg2
 from psycopg2 import OperationalError
 import importlib.util
@@ -572,39 +573,25 @@ class App(ctk.CTk):
 
     def open_vente_window(self):
         """
-        Ouvre une nouvelle fenêtre indépendante PageVenteParMsin.
-        ✅ Corrige l'attribut id_user_connecte
-        ✅ Force la fenêtre au premier plan
+        Ouvre une nouvelle fenêtre avec gestion par tabs (à la place de multiples fenêtres indépendantes).
+        ✅ Utilise VenteTabManager pour gérer les tabs
+        ✅ Max 10 tabs, +/X buttons pour ajouter/fermer des tabs
         """
-        try:
-            from pages.page_venteParMsin import PageVenteParMsin
-            from datetime import datetime
-        
-            # Créer la nouvelle fenêtre
-            nouvelle_fenetre = PageVenteParMsin(
+        # Récupérer ou créer le manager de tabs unique
+        if not hasattr(self, '_vente_tab_manager') or self._vente_tab_manager is None or not self._vente_tab_manager.winfo_exists():
+            self._vente_tab_manager = VenteTabManager(
                 master=self,
-                id_user_connecte=self.id_user_connecte  # ✅ Utilise le bon attribut
+                id_user_connecte=self.id_user_connecte,
+                app_reference=self
             )
-        
-            # ✅ FORCER LA FENÊTRE AU PREMIER PLAN
-            nouvelle_fenetre.lift()  # Amène au-dessus des autres fenêtres
-            nouvelle_fenetre.focus_force()  # Donne le focus
-            nouvelle_fenetre.attributes('-topmost', True)  # Temporairement au-dessus
-            nouvelle_fenetre.after(100, lambda: nouvelle_fenetre.attributes('-topmost', False))  # Puis normal
-        
-            print(f"✅ Nouvelle fenêtre de vente ouverte pour l'utilisateur {self.id_user_connecte}")
-        
-        except Exception as e:
-            from tkinter import messagebox
-            messagebox.showerror(
-                "Erreur", 
-                f"Impossible d'ouvrir la fenêtre de vente:\n{str(e)}"
-            )
-            print(f"❌ Erreur open_vente_window: {e}")
-            import traceback
-            traceback.print_exc()
+            self._vente_tab_manager.lift()
+            self._vente_tab_manager.focus_force()
+        else:
+            # Le manager existe déjà, ajouter un nouveau tab
+            self._vente_tab_manager.add_new_tab()
+            self._vente_tab_manager.lift()
+            self._vente_tab_manager.focus_force()
 
-    
     def create_menu_buttons(self):
         """Dynamically creates main menu buttons based on user authorization."""
         # Clear existing buttons before creating new ones (important for toggle_sidebar)
@@ -1581,6 +1568,212 @@ class App(ctk.CTk):
         if hasattr(self, 'btn_examen_blanc') and self.btn_examen_blanc.winfo_ismapped():
             self._repack_main_buttons_after_submenu(self.btn_examen_blanc, self.examen_blanc_submenu_frame)
             self.show_examen_blanc_submenu()
+
+   
+# ==============================================================================
+# VenteTabManager: Gère les tabs pour les multiples fenêtres de vente
+# ==============================================================================
+class VenteTabManager(ctk.CTkToplevel):
+    """
+    Fenêtre indépendante qui gère plusieurs tabs CTkTabview contenant chacun une PageVenteParMsin.
+    - Max 10 tabs
+    - +/X buttons pour ajouter/fermer des tabs
+    """
+    def __init__(self, master=None, id_user_connecte: Optional[int] = None, app_reference=None) -> None:
+        super().__init__(master)
+        
+        self.title("Gestion des Ventes - Fenêtres Tabées")
+        self.geometry("1350x850")
+        self.id_user_connecte = id_user_connecte
+        self.app_reference = app_reference
+        self.tab_count = 0
+        self.max_tabs = 10
+        self.tab_list = []  # Liste des (tab_widget, page_vente_frame)
+        
+        # Après 100ms, amener la fenêtre au premier plan
+        self.after(100, self.lift)
+        
+        # --- Header avec boutons manageurs des tabs ---
+        # Place native CTkTabview header at the top; action buttons placed absolute top-right
+        # Création des boutons d'action (placés en absolu plus bas)
+        self.btn_close_tab = ctk.CTkButton(
+            self,
+            text="✕",
+            width=32,
+            height=28,
+            font=("Arial", 12, "bold"),
+            fg_color="#d32f2f",
+            hover_color="#b71c1c",
+            text_color="white",
+            command=self.close_current_tab
+        )
+
+        self.btn_add_tab = ctk.CTkButton(
+            self,
+            text="+",
+            width=32,
+            height=28,
+            font=("Arial", 12, "bold"),
+            fg_color="green",
+            hover_color="darkgreen",
+            command=self.add_new_tab
+        )
+
+        # Position absolue en haut à droite — placement effectué après création du TabView
+        # (pour éviter d'être recouvert par le widget TabView)
+        
+        # --- Tab View ---
+        # Placer le TabView en ligne 0 pour que ses onglets natifs apparaissent en haut
+        self.tabview = ctk.CTkTabview(self, width=1300, height=750)
+        self.tabview.grid(row=0, column=0, sticky="nsew", padx=0, pady=(6,0))
+        
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+        
+        # Après création du TabView, placer/monter les boutons d'action et aligner les onglets natifs
+        try:
+            self.btn_add_tab.place(relx=1.0, x=-6, y=6, anchor='ne')
+            self.btn_close_tab.place(relx=1.0, x=-44, y=6, anchor='ne')
+            # S'assurer qu'ils sont au-dessus
+            self.btn_add_tab.lift()
+            self.btn_close_tab.lift()
+        except Exception:
+            self.btn_add_tab.pack(side='top', anchor='ne', padx=2, pady=2)
+            self.btn_close_tab.pack(side='top', anchor='ne', padx=2, pady=2)
+
+        # Aligner la barre d'onglets native à gauche
+        self.after(50, self._align_native_tabs_left)
+
+        # Ajouter le premier tab
+        self.add_new_tab()
+        
+    def add_new_tab(self):
+        """Ajoute un nouveau tab avec une nouvelle instance de PageVenteParMsin."""
+        if self.tab_count >= self.max_tabs:
+            from tkinter import messagebox
+            messagebox.showwarning(
+                "Limite atteinte",
+                f"Nombre maximum de {self.max_tabs} tabs atteint. Fermez un tab pour en ouvrir un nouveau."
+            )
+            return
+        
+        self.tab_count += 1
+        tab_name = f"Vente({self.tab_count})"
+        
+        # Créer le tab dans le tabview
+        new_tab = self.tabview.add(tab_name)
+        
+        # === DIRECTEMENT PageVenteParMsin (pas de wrapper ni header) ===
+        from pages.page_venteParMsin import PageVenteParMsin
+        
+        page_vente_frame = PageVenteParMsin(
+            master=new_tab,
+            id_user_connecte=self.id_user_connecte
+        )
+        page_vente_frame.pack(fill="both", expand=True, padx=0, pady=0)
+        
+        # Stocker la référence au tab et au frame
+        tab_info = {
+            'tab_name': tab_name,
+            'tab_widget': new_tab,
+            'page_frame': page_vente_frame
+        }
+        self.tab_list.append(tab_info)
+
+        # (Utilisation des onglets natifs du CTkTabview — pas de boutons personnalisés à gauche)
+        
+        # Cacher le bouton + si on a atteint la limite
+        if self.tab_count >= self.max_tabs:
+            self.btn_add_tab.configure(state="disabled")
+        
+        # Sélectionner le nouveau tab (onglet natif)
+        self.tabview.set(tab_name)
+        # Mettre à jour le label du header (noop)
+        self._update_header_label()
+
+    # (removed custom left-tab helpers; using native CTkTabview tabs)
+    
+    def _update_header_label(self):
+        """No-op: on n'affiche plus de texte dans l'en-tête (les onglets natifs du TabView sont visibles)."""
+        return
+    
+    def close_current_tab(self):
+        """Ferme le tab actuellement sélectionné ou ferme la fenêtre si c'est le dernier."""
+        if len(self.tab_list) <= 1:
+            # Fermer directement la fenêtre au lieu de montrer un message
+            print("✅ Fermeture de la fenêtre Vente (dernier tab)")
+            self.destroy()
+            return
+        
+        # Récupérer le tab actuel
+        current_tab_name = self.tabview.get()
+        self.close_tab(current_tab_name)
+    
+    def close_tab(self, tab_name):
+        """Ferme un tab spécifique par son nom."""
+        if len(self.tab_list) <= 1:
+            # Si on tente de fermer le dernier tab, fermer directement la fenêtre.
+            try:
+                self.destroy()
+            except Exception:
+                pass
+            return
+        
+        # Chercher le tab à fermer
+        tabs_to_remove = [t for t in self.tab_list if t['tab_name'] == tab_name]
+        if tabs_to_remove:
+            tab_info = tabs_to_remove[0]
+            try:
+                self.tabview.delete(tab_name)
+                # (pas de bouton d'accès rapide personnalisé à détruire)
+
+                self.tab_list.remove(tab_info)
+                self.tab_count -= 1
+
+                # Si des tabs restent, sélectionner le dernier et mettre à jour la surbrillance
+                if self.tab_list:
+                    new_active = self.tab_list[-1]['tab_name']
+                    try:
+                        self.tabview.set(new_active)
+                    except Exception:
+                        pass
+                
+                # Réactiver le bouton + si on n'a pas atteint la limite
+                if self.tab_count < self.max_tabs:
+                    self.btn_add_tab.configure(state="normal")
+                
+                print(f"✅ Tab '{tab_name}' fermé avec succès")
+            except Exception as e:
+                print(f"❌ Erreur lors de la fermeture du tab: {e}")
+
+    def _align_native_tabs_left(self):
+        """Tente d'aligner la barre d'onglets native du `CTkTabview` à gauche.
+
+        Selon la version interne de customtkinter, le header peut être contenu
+        dans différents widgets internes. On parcourt les enfants pour trouver
+        celui contenant des boutons d'onglets puis on réajuste son placement.
+        """
+        try:
+            # Recherche d'un widget interne ressemblant à la barre d'onglets
+            for child in list(self.tabview.winfo_children()):
+                try:
+                    inner = child.winfo_children()
+                    # heuristique : contient plusieurs boutons/labels => header
+                    btn_like = [c for c in inner if 'Button' in str(type(c)) or 'CTkButton' in str(type(c)) or 'Segmented' in str(type(c))]
+                    if len(btn_like) >= 1:
+                        try:
+                            # tenter de repositionner vers la gauche
+                            child.pack_configure(anchor='w')
+                            child.pack_configure(side='top', fill='x')
+                        except Exception:
+                            try:
+                                child.grid_configure(sticky='w')
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
    
 # Main execution block

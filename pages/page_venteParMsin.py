@@ -219,24 +219,20 @@ class SimpleDialogWithChoice(ctk.CTkToplevel):
 ctk.set_appearance_mode("Light")
 ctk.set_default_color_theme("blue")
 
-class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel au lieu de CTkFrame
+class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour support des tabs
     """
-    Fenêtre de gestion des ventes de stock ouvrant dans une fenêtre indépendante.
+    Frame de gestion des ventes de stock - peut être utilisé comme frame dans l'app principale
+    ou dans les tabs du gestionnaire de ventes.
     """
     def __init__(self, master=None, id_user_connecte: Optional[int] = None) -> None:
-        super().__init__(master) # Initialisation de la fenêtre Toplevel
+        super().__init__(master) # Initialisation du Frame
         
-        # --- Configuration de la fenêtre indépendante ---
-        self.title("Gestion de Vente - Fenêtre Indépendante")
-        self.geometry("1300x800")
-        self.after(100, self.lift) # Amener la fenêtre au premier plan
         if id_user_connecte is None:
             messagebox.showerror("Erreur", "Aucun utilisateur connecté. Veuillez vous reconnecter.")
             self.id_user_connecte = None
         else:
             self.id_user_connecte = id_user_connecte
-            print(f"✅ Utilisateur connecté - ID: {self.id_user_connecte}")
-        self.id_user_connecte = id_user_connecte 
+            print(f"✅ Utilisateur connecté - ID: {self.id_user_connecte}") 
         self.conn: Optional[psycopg2.connection] = None
         self.article_selectionne = None
         self.detail_vente = []
@@ -810,30 +806,30 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
     
         # --- Frame principale d'en-tête (Lot 1) ---
         header_frame = ctk.CTkFrame(self)
-        header_frame.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        header_frame.grid(row=0, column=0, padx=2, pady=2, sticky="ew")
         header_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7), weight=1)
     
         # Référence
-        ctk.CTkLabel(header_frame, text="N° Facture:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(header_frame, text="N° Facture:").grid(row=0, column=0, padx=2, pady=2, sticky="w")
         self.entry_ref_vente = ctk.CTkEntry(header_frame, width=150, font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"))
-        self.entry_ref_vente.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+        self.entry_ref_vente.grid(row=0, column=1, padx=2, pady=2, sticky="w")
         self.entry_ref_vente.configure(state="readonly")
     
         # Date
-        ctk.CTkLabel(header_frame, text="Date Sortie:").grid(row=0, column=2, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(header_frame, text="Date Sortie:").grid(row=0, column=2, padx=2, pady=2, sticky="w")
         self.entry_date_vente = ctk.CTkEntry(header_frame, width=150)
-        self.entry_date_vente.grid(row=0, column=3, padx=5, pady=5, sticky="w")
+        self.entry_date_vente.grid(row=0, column=3, padx=2, pady=2, sticky="w")
         self.entry_date_vente.insert(0, datetime.now().strftime("%d/%m/%Y"))
     
         # Magasin
-        ctk.CTkLabel(header_frame, text="Magasin de:").grid(row=0, column=4, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(header_frame, text="Magasin de:").grid(row=0, column=4, padx=2, pady=2, sticky="w")
         self.combo_magasin = ctk.CTkComboBox(header_frame, width=150, values=["Chargement..."])
-        self.combo_magasin.grid(row=0, column=5, padx=5, pady=5, sticky="w")
+        self.combo_magasin.grid(row=0, column=5, padx=2, pady=2, sticky="w")
     
          # Client
         # Champ Entry pour client
         self.entry_client = ctk.CTkEntry(header_frame, width=150, placeholder_text="Client...")
-        self.entry_client.grid(row=0, column=7, padx=5, pady=5, sticky="w")
+        self.entry_client.grid(row=0, column=7, padx=2, pady=2, sticky="w")
 
         # Bouton loupe
         self.btn_search_client = ctk.CTkButton(
@@ -842,65 +838,65 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         width=40,
         command=self.open_recherche_client
         )
-        self.btn_search_client.grid(row=0, column=8, padx=2, pady=5, sticky="w")
+        self.btn_search_client.grid(row=0, column=8, padx=1, pady=2, sticky="w")
 
 
         # NOUVEAU: Bouton Charger Proforma
         self.btn_charger_proforma = ctk.CTkButton(header_frame, text="📜 Proforma", 
                                     command=self.open_recherche_proforma, width=130,
                                     fg_color="#388e3c", hover_color="#2e7d32")
-        self.btn_charger_proforma.grid(row=1, column=6, padx=5, pady=5, sticky="ew") # Col 6
+        self.btn_charger_proforma.grid(row=1, column=6, padx=2, pady=2, sticky="ew") # Col 6
         
         # Bouton Charger facture (Position ajustée)
         # btn_charger_bs = ctk.CTkButton(header_frame, text="📂 Charger Facture", 
                                     # command=self.ouvrir_recherche_sortie, width=130,
                                     #fg_color="#1976d2", hover_color="#1565c0")
-        # btn_charger_bs.grid(row=1, column=7, padx=5, pady=5, sticky="ew") # Col 7 (Position d'origine)
+        # btn_charger_bs.grid(row=1, column=7, padx=2, pady=2, sticky="ew") # Col 7 (Position d'origine)
     
         # Désignation (Colspan ajusté)
-        ctk.CTkLabel(header_frame, text="Désignation:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(header_frame, text="Désignation:").grid(row=1, column=0, padx=2, pady=2, sticky="w")
         self.entry_designation = ctk.CTkEntry(header_frame, width=750)
-        self.entry_designation.grid(row=1, column=1, columnspan=5, padx=5, pady=5, sticky="ew") # Colspan 5 (1 à 5)
+        self.entry_designation.grid(row=1, column=1, columnspan=5, padx=2, pady=2, sticky="ew") # Colspan 5 (1 à 5)
 
         # --- Frame d'ajout de Détail (Lot 2) ---
         detail_frame = ctk.CTkFrame(self)
-        detail_frame.grid(row=1, column=0, padx=2, pady=(0, 15), sticky="ew")
+        detail_frame.grid(row=1, column=0, padx=0, pady=(0, 5), sticky="ew")
         detail_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6), weight=1)
         
         # Article
-        ctk.CTkLabel(detail_frame, text="Article:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(detail_frame, text="Article:").grid(row=0, column=0, padx=2, pady=2, sticky="w")
         self.entry_article = ctk.CTkEntry(detail_frame, width=300)
-        self.entry_article.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+        self.entry_article.grid(row=1, column=0, padx=2, pady=2, sticky="ew")
         self.entry_article.configure(state="readonly")
         
         self.btn_recherche_article = ctk.CTkButton(detail_frame, text="🔎 Rechercher", command=self.open_recherche_article)
-        self.btn_recherche_article.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+        self.btn_recherche_article.grid(row=1, column=1, padx=2, pady=2, sticky="w")
         
         # Quantité
-        ctk.CTkLabel(detail_frame, text="Quantité Vente:").grid(row=0, column=2, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(detail_frame, text="Quantité Vente:").grid(row=0, column=2, padx=2, pady=2, sticky="w")
         self.entry_qtvente = ctk.CTkEntry(detail_frame, width=100)
-        self.entry_qtvente.grid(row=1, column=2, padx=5, pady=5, sticky="ew")
+        self.entry_qtvente.grid(row=1, column=2, padx=2, pady=2, sticky="ew")
         # ✅ Raccourci clavier : Entrée pour ajouter l'article
         self.entry_qtvente.bind("<Return>", lambda e: self.valider_detail())
         
         # Unité
-        ctk.CTkLabel(detail_frame, text="Unité:").grid(row=0, column=3, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(detail_frame, text="Unité:").grid(row=0, column=3, padx=2, pady=2, sticky="w")
         self.entry_unite = ctk.CTkEntry(detail_frame, width=100)
-        self.entry_unite.grid(row=1, column=3, padx=5, pady=5, sticky="ew")
+        self.entry_unite.grid(row=1, column=3, padx=2, pady=2, sticky="ew")
         self.entry_unite.configure(state="readonly")
 
         # Remise (Nouveau champ - montant en Ariary au lieu de pourcentage)
-        ctk.CTkLabel(detail_frame, text="Remise (Ar):").grid(row=0, column=4, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(detail_frame, text="Remise (Ar):").grid(row=0, column=4, padx=2, pady=2, sticky="w")
         self.entry_remise = ctk.CTkEntry(detail_frame, width=80)
-        self.entry_remise.grid(row=1, column=4, padx=5, pady=5, sticky="ew")
+        self.entry_remise.grid(row=1, column=4, padx=2, pady=2, sticky="ew")
         self.entry_remise.insert(0, "0") # Valeur par défaut
         self.entry_remise.configure(state="disabled") # Désactivé par défaut
         
         # Prix Unitaire (Décalé à la colonne 5)
-        ctk.CTkLabel(detail_frame, text="Prix Unitaire:").grid(row=0, column=5, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(detail_frame, text="Prix Unitaire:").grid(row=0, column=5, padx=2, pady=2, sticky="w")
         self.entry_prixunit = ctk.CTkEntry(detail_frame, width=100)
         self.entry_prixunit.configure(state="readonly")
-        self.entry_prixunit.grid(row=1, column=5, padx=5, pady=5, sticky="ew")
+        self.entry_prixunit.grid(row=1, column=5, padx=2, pady=2, sticky="ew")
 
         
         
@@ -911,7 +907,7 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
 
         self.btn_annuler_mod = ctk.CTkButton(detail_frame, text="✖️ Annuler Modif.", command=self.reset_detail_form, 
                                             fg_color="#d32f2f", hover_color="#b71c1c", state="disabled")
-        self.btn_annuler_mod.grid(row=1, column=7, padx=5, pady=5, sticky="w")
+        self.btn_annuler_mod.grid(row=1, column=7, padx=2, pady=2, sticky="w")
         
         # Dans create_widgets (vers la ligne 180-200)
         self.notif_stock_depot = ctk.CTkLabel(
@@ -930,7 +926,7 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         self.btn_suivi_depot = ctk.CTkButton(header_frame, text="🏪 Suivi Dépôt", 
                                      command=self.ouvrir_suivi_depot,
                                      fg_color="#607D8B", hover_color="#455A64")
-        self.btn_suivi_depot.grid(row=0, column=9, padx=5, pady=5) # Ajustez la colonne selon votre grille
+        self.btn_suivi_depot.grid(row=0, column=9, padx=2, pady=2) # Ajustez la colonne selon votre grille
 
         # Lancer la vérification en arrière-plan
         self.verifier_alerte_stock_silencieuse()
@@ -938,19 +934,19 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         # ---- Lot 2.1 Frame_Ajout
         
         frame_ajout = ctk.CTkFrame(self)
-        frame_ajout.grid(row=2, column=0, padx=2, pady=(0, 15), sticky="ew")
+        frame_ajout.grid(row=2, column=0, padx=0, pady=(0, 5), sticky="ew")
         frame_ajout.grid_columnconfigure(0, weight=1)
         frame_ajout.grid_rowconfigure(0, weight=1)
         
         # Boutons d'action
         self.btn_ajouter = ctk.CTkButton(frame_ajout, text="➕ Ajouter", command=self.valider_detail, 
                                         fg_color="#2e7d32", hover_color="#1b5e20", width=150)
-        self.btn_ajouter.grid(row=2, column=7, padx=5, pady=5, sticky="w")
+        self.btn_ajouter.grid(row=2, column=7, padx=2, pady=2, sticky="w")
         
 
         # --- Treeview pour les Détails (Lot 3) ---
         tree_frame = ctk.CTkFrame(self)
-        tree_frame.grid(row=3, column=0, padx=5, pady=(0, 10), sticky="nsew")
+        tree_frame.grid(row=3, column=0, padx=0, pady=(0, 5), sticky="nsew")
         tree_frame.grid_columnconfigure(0, weight=1)
         tree_frame.grid_rowconfigure(0, weight=1)
         
@@ -981,8 +977,8 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         scrollbar = ctk.CTkScrollbar(tree_frame, command=self.tree_details.yview)
         self.tree_details.configure(yscrollcommand=scrollbar.set)
         
-        self.tree_details.grid(row=0, column=0, sticky="nsew", padx=(5, 5), pady=5)
-        scrollbar.grid(row=0, column=1, sticky="ns", padx=(0, 5), pady=5)
+        self.tree_details.grid(row=0, column=0, sticky="nsew", padx=(2, 2), pady=1)
+        scrollbar.grid(row=0, column=1, sticky="ns", padx=(0, 2), pady=1)
         
         # Bindings
         self.tree_details.bind('<Double-1>', self.modifier_detail)
@@ -991,24 +987,24 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
         # --- NOUVEAU: Frame des Totaux (Lot 4) ---
         # --------------------------------------------------------------------------
         totals_frame = ctk.CTkFrame(self)
-        totals_frame.grid(row=4, column=0, padx=10, pady=(0, 10), sticky="ew")
+        totals_frame.grid(row=4, column=0, padx=2, pady=(0, 2), sticky="ew")
         totals_frame.grid_columnconfigure(0, weight=1) # Pour le total en lettres
         totals_frame.grid_columnconfigure(1, weight=0) # Pour le total général (à droite)
 
         # Total en Lettres (Côté gauche)
-        ctk.CTkLabel(totals_frame, text="Total en Lettres:", font=ctk.CTkFont(family="Segoe UI", weight="bold")).grid(row=0, column=0, padx=5, pady=5, sticky="nw")
+        ctk.CTkLabel(totals_frame, text="Total en Lettres:", font=ctk.CTkFont(family="Segoe UI", weight="bold")).grid(row=0, column=0, padx=2, pady=2, sticky="nw")
         self.label_total_lettres = ctk.CTkLabel(totals_frame, text="Zéro Ariary", wraplength=700, justify="left", 
                                                 font=ctk.CTkFont(family="Segoe UI", slant="italic"))
-        self.label_total_lettres.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+        self.label_total_lettres.grid(row=1, column=0, padx=2, pady=2, sticky="ew")
         
         # Total Général (Côté droit)
         right_total_frame = ctk.CTkFrame(totals_frame, fg_color="transparent")
-        right_total_frame.grid(row=0, column=1, rowspan=1, padx=5, pady=5, sticky="ne")
+        right_total_frame.grid(row=0, column=1, rowspan=1, padx=2, pady=2, sticky="ne")
         
-        ctk.CTkLabel(right_total_frame, text="TOTAL GÉNÉRAL:", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"), fg_color="transparent").pack(side="left", padx=5, pady=5)
+        ctk.CTkLabel(right_total_frame, text="TOTAL GÉNÉRAL:", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"), fg_color="transparent").pack(side="left", padx=2, pady=2)
         self.label_total_general = ctk.CTkLabel(right_total_frame, text=self.formater_nombre(0.0), 
                                                font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"), text_color="#d32f2f")
-        self.label_total_general.pack(side="right", padx=5, pady=5)
+        self.label_total_general.pack(side="right", padx=2, pady=2)
         
         # Montant en FMG (sous le TOTAL GÉNÉRAL)
         fmg_frame = ctk.CTkFrame(totals_frame, fg_color="transparent")

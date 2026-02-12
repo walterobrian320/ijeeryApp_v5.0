@@ -2662,9 +2662,10 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                 'dateregistre': dateregistre.strftime("%d/%m/%Y %H:%M"),
                 'description': description,
             }
+            # Normaliser les valeurs utilisateur pour éviter d'afficher 'None' dans les PDF
             data['utilisateur'] = {
-                'nomuser': nomuser,
-                'prenomuser': prenomuser,
+                'nomuser': nomuser or '',
+                'prenomuser': prenomuser or '',
             }
             data['client'] = {
                 'nomcli': nomcli or "Client Divers",
@@ -2728,7 +2729,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
             
             # Ajouter le magasin à la description de la vente
             if premier_magasin:
-                description_avec_depot = f"Dépôt {premier_magasin}"
+                description_avec_depot = f"Magasin {premier_magasin}"
                 # Ajouter la description seulement si elle existe, n'est pas vide, 
                 # et ne contient pas déjà le nom du dépôt
                 if description and description.strip() and premier_magasin not in description:
@@ -2737,6 +2738,8 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                     if description_clean:
                         description_avec_depot = f"{description_avec_depot} - {description_clean}"
                 data['vente']['description'] = description_avec_depot
+            # Ajouter le magasin séparément pour l'impression
+            data['magasin'] = premier_magasin or ''
     
             print(f"✅ Données complètes récupérées avec succès")
             print(f"{'='*60}\n")
@@ -2790,24 +2793,40 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         utilisateur = data['utilisateur']
         client = data['client']
         vente = data['vente']
-        magasin = data.get('magasin', 'MAGASIN')
+        magasin = data.get('magasin', '')
 
         # Adapter les clés de données si nécessaire
         nomsociete = societe.get('nomsociete', 'N/A')
         adressesociete = societe.get('adressesociete') or societe.get('adresse', 'N/A')
+        villesociete = societe.get('villesociete') or ''
         contactsociete = societe.get('contactsociete') or societe.get('tel', 'N/A')
         nifsociete = societe.get('nifsociete') or societe.get('nif', 'N/A')
         statsociete = societe.get('statsociete') or societe.get('stat', 'N/A')
 
-        gauche_text = f"<b>{nomsociete}</b><br/>{adressesociete}<br/>TEL: {contactsociete}<br/>NIF: {nifsociete} <br/>STAT: {statsociete}"
+        # Insérer la ville juste en dessous de l'adresse si disponible
+        villes_line = f"{villesociete}<br/>" if villesociete else ""
 
-        # Gérer si utilisateur est un dict ou une string
+        gauche_text = f"<b>{nomsociete}</b><br/>{adressesociete}<br/>{villes_line}TEL: {contactsociete}<br/>NIF: {nifsociete} <br/>STAT: {statsociete}"
+
+        # Gérer si utilisateur est un dict ou une string et éviter d'afficher 'None'
         if isinstance(utilisateur, dict):
-            user_name = f"{utilisateur.get('prenomuser', '')} {utilisateur.get('nomuser', '')}"
+            pren = utilisateur.get('prenomuser') or ''
+            nomu = utilisateur.get('nomuser') or ''
+            user_name = f"{pren} {nomu}".strip()
         else:
-            user_name = str(utilisateur)
+            user_name = str(utilisateur) if utilisateur is not None else ''
 
-        droite_text = f"<b>Facture N°: {vente['refvente']}</b><br/>{vente['dateregistre']}<br/><b>CLIENT: {client['nomcli']}</b><br/><br/><font size='8'>Op: {user_name}</font>"
+        # Affichage: titre magasin en gras à la place du label client, puis
+        # le nom du client en italique juste en dessous (vide si absent)
+        magasin_display = magasin or ''
+        client_display = client.get('nomcli') or ''
+        droite_text = (
+            f"<b>Facture N°: {vente['refvente']}</b><br/>"
+            f"{vente['dateregistre']}<br/>"
+            f"<b>Magasin {magasin_display}</b><br/><br/>"
+            f"<i>Client: {client_display}</i><br/>"
+            f"<font size='7'>Op: {user_name}</font>"
+        )
 
         gauche = Paragraph(gauche_text, style_p)
         droite = Paragraph(droite_text, style_p)
@@ -2988,6 +3007,8 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         # --- EN-TÊTE SOCIÉTÉ ---
         elements.append(Paragraph(f"<b>{societe.get('nomsociete', 'NOM SOCIÉTÉ')}</b>", style_center_bold))
         elements.append(Paragraph(societe.get('adressesociete', 'N/A'), style_center))
+        # Ajouter la ville de la société si disponible
+        elements.append(Paragraph(societe.get('villesociete', ''), style_center))
         elements.append(Paragraph(f"Tél: {societe.get('contactsociete', 'N/A')}", style_center))
         elements.append(Spacer(1, 3 * mm))
         

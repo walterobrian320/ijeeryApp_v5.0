@@ -297,9 +297,13 @@ class PagePmtFacture(ctk.CTkToplevel):
             username = res_user[0] if res_user else "Inconnu"
 
             # 5. Requête avec JOINS et CALCUL du montant (qtvente * prixunit)
+            # On récupère aussi idarticle, idunite et idmag pour mise à jour stock
             query_articles = """
                 SELECT 
-                    u.codearticle, 
+                    vd.idarticle,
+                    vd.idunite,
+                    v.idmag,
+                    COALESCE(u.codearticle, '') as codearticle,
                     a.designation, 
                     u.designationunite, 
                     vd.qtvente, 
@@ -340,20 +344,81 @@ class PagePmtFacture(ctk.CTkToplevel):
             )
             cursor.execute(query_pmt, params_pmt)
 
-            # --- AJOUT : MISE À JOUR DE TB_VENTE ---
-            query_update_vente = """
-                UPDATE tb_vente 
-                SET idmode = %s 
-                WHERE refvente = %s
-            """
-            cursor.execute(query_update_vente, (id_mode_selectionne, self.refvente))
-            # ---------------------------------------
-            
-            conn.commit()
-            
-            # 7. Génération PDF (après l'insertion pour avoir toutes les données)
-            self._generer_ticket_pdf(info_soc, username, articles, montant_saisi, nom_mode_pmt, refpmt, date_echeance)
-            
+            # --- MISE A JOUR ATOMIQUE : payment + statut + stock + log ---
+            try:
+                # 1) Mettre à jour tb_pmtfacture (déjà inséré), puis tb_vente.statut = 'VALIDEE'
+                query_update_vente = """
+                    UPDATE tb_vente 
+                    SET idmode = %s, statut = 'VALIDEE'
+                    WHERE refvente = %s
+                """
+                cursor.execute(query_update_vente, (id_mode_selectionne, self.refvente))
+
+                # 2) Mettre à jour le stock et journaliser
+                for det in articles:
+                    idarticle = det[0]
+                    idunite = det[1]
+                    idmag = det[2]
+                    codearticle = det[3] or ''
+                    qtvente = float(det[6] or 0)
+
+                    code_key = str(codearticle) if codearticle else str(idarticle)
+
+                    # Verrouiller la ligne de stock correspondante pour éviter race conditions
+                    cursor.execute("SELECT qtstock FROM tb_stock WHERE codearticle = %s AND idmag = %s FOR UPDATE", (code_key, idmag))
+                    res_stock = cursor.fetchone()
+                    ancien_stock = float(res_stock[0]) if res_stock and res_stock[0] is not None else 0.0
+
+                    nouveau_stock = ancien_stock - qtvente
+
+                    # Vérification disponibilité (empêche validation si stock insuffisant)
+                    if ancien_stock < qtvente:
+                        conn.rollback()
+                        messagebox.showerror("Stock insuffisant", f"Stock insuffisant pour l'article {codearticle or idarticle} (mag {idmag}). Ancien: {ancien_stock}, demandé: {qtvente}")
+                        return
+
+                    if res_stock:
+                        cursor.execute("UPDATE tb_stock SET qtstock = %s WHERE codearticle = %s AND idmag = %s", (nouveau_stock, code_key, idmag))
+                    else:
+                        cursor.execute("INSERT INTO tb_stock (codearticle, idmag, qtstock, qtalert, deleted) VALUES (%s, %s, %s, 0, 0)", (code_key, idmag, nouveau_stock))
+
+                    # Insérer le log de stock
+                    try:
+                        cursor.execute("SELECT setval(pg_get_serial_sequence('tb_log_stock', 'id'), COALESCE((SELECT MAX(id) FROM tb_log_stock), 0) + 1, false);")
+                    except Exception:
+                        pass
+
+                    cursor.execute(
+                        """
+                        INSERT INTO tb_log_stock (codearticle, idmag, ancien_stock, nouveau_stock, iduser, type_action, date_action) 
+                        VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                        """,
+                        (code_key, idmag, ancien_stock, nouveau_stock, self.iduser, f"VENTE {self.refvente}")
+                    )
+
+                # Commit global (paiement + update vente + stock + log)
+                conn.commit()
+
+            except Exception as e:
+                conn.rollback()
+                messagebox.showerror("Erreur Stock", f"Erreur lors de la mise à jour du stock : {e}")
+                return
+
+            # 7. Préparer et générer le PDF (articles normalisés)
+            articles_pdf = []
+            for det in articles:
+                try:
+                    code = det[3]
+                    designation = det[4]
+                    unite = det[5]
+                    qte = det[6]
+                    prix_unit = det[7]
+                    montant = det[8]
+                    articles_pdf.append((code, designation, unite, qte, prix_unit, montant))
+                except Exception:
+                    continue
+
+            self._generer_ticket_pdf(info_soc, username, articles_pdf, montant_saisi, nom_mode_pmt, refpmt, date_echeance)
             messagebox.showinfo("Succès", f"Paiement enregistré avec succès!\nRéférence: {refpmt}")
             self.destroy()
 

@@ -341,9 +341,10 @@ class PageVente(ctk.CTkFrame):
                 SELECT 
                     (SELECT COALESCE(SUM(quantite), 0) FROM tb_entree_stock 
                      WHERE idarticle = %s AND idunite = %s AND idmagasin = %s) -
-                    (SELECT COALESCE(SUM(quantite), 0) FROM tb_ligne_vente lv
-                     JOIN tb_vente v ON lv.idvente = v.idvente
-                     WHERE lv.idarticle = %s AND lv.idunite = %s AND v.idmagasin = %s)
+                                        (SELECT COALESCE(SUM(quantite), 0) FROM tb_ligne_vente lv
+                                         JOIN tb_vente v ON lv.idvente = v.idvente
+                                         WHERE lv.idarticle = %s AND lv.idunite = %s AND v.idmagasin = %s
+                                             AND v.statut = 'VALIDEE')
             """
                 cursor.execute(query, (id_art, id_uni, id_mag, id_art, id_uni, id_mag))
                 res = cursor.fetchone()
@@ -1605,11 +1606,11 @@ class PageVente(ctk.CTkFrame):
                 else:
                     # Mode Ajout
                     sql_vente = """
-                        INSERT INTO tb_vente (refvente, dateregistre, description, iduser, idclient, totmtvente, deleted) 
-                        VALUES (%s, %s, %s, %s, %s, %s, 0) 
+                        INSERT INTO tb_vente (refvente, dateregistre, description, iduser, idclient, totmtvente, statut, deleted) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, 0) 
                         RETURNING id
                     """
-                    params = (ref_vente, date_vente, description, self.id_user_connecte, idclient, total_general)
+                    params = (ref_vente, date_vente, description, self.id_user_connecte, idclient, total_general, 'EN_ATTENTE')
                     print(f"➕ INSERT avec params: {params}")
                     cursor.execute(sql_vente, params)
                     idvente = cursor.fetchone()[0]

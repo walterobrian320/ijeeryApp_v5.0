@@ -549,7 +549,7 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
                 receptions = cursor.fetchone()[0] or 0
 
                 # --- Ventes ---
-                q_ven = "SELECT COALESCE(SUM(qtvente), 0) FROM tb_ventedetail vd INNER JOIN tb_vente v ON vd.idvente = v.id WHERE vd.idarticle = %s AND vd.idunite = %s AND v.deleted = 0"
+                q_ven = "SELECT COALESCE(SUM(qtvente), 0) FROM tb_ventedetail vd INNER JOIN tb_vente v ON vd.idvente = v.id WHERE vd.idarticle = %s AND vd.idunite = %s AND v.deleted = 0 AND v.statut = 'VALIDEE'"
                 p_ven = [idarticle, idu_boucle]
                 if idmag:
                     q_ven += " AND v.idmag = %s"
@@ -1513,7 +1513,7 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
                     FROM tb_livraisonfrs lf INNER JOIN tb_unite u ON lf.idarticle = u.idarticle AND lf.idunite = u.idunite WHERE lf.deleted = 0
                     UNION ALL
                     SELECT vd.idarticle, COALESCE(u.qtunite, 1), vd.qtvente, 'vente'
-                    FROM tb_ventedetail vd INNER JOIN tb_vente v ON vd.idvente = v.id AND v.deleted = 0 INNER JOIN tb_unite u ON vd.idarticle = u.idarticle AND vd.idunite = u.idunite WHERE vd.deleted = 0
+                    FROM tb_ventedetail vd INNER JOIN tb_vente v ON vd.idvente = v.id AND v.deleted = 0 AND v.statut = 'VALIDEE' INNER JOIN tb_unite u ON vd.idarticle = u.idarticle AND vd.idunite = u.idunite WHERE vd.deleted = 0
                     UNION ALL
                     SELECT t.idarticle, COALESCE(u.qtunite, 1), t.qttransfert, 'transfert_in'
                     FROM tb_transfertdetail t INNER JOIN tb_unite u ON t.idarticle = u.idarticle AND t.idunite = u.idunite WHERE t.deleted = 0
@@ -2329,12 +2329,12 @@ class PageVenteParMsin(ctk.CTkToplevel): # MODIFICATION : Hérite de CTkToplevel
                 
                     # Créer la facture pour ce magasin
                     sql_vente = """
-                        INSERT INTO tb_vente (refvente, dateregistre, description, iduser, idclient, totmtvente, idmag, deleted) 
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, 0) 
+                        INSERT INTO tb_vente (refvente, dateregistre, description, iduser, idclient, totmtvente, idmag, statut, deleted) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0) 
                         RETURNING id
                     """
                     desc_with_mag = f"{description} - {nom_magasin}"
-                    params = (ref_facture_mag, date_vente, desc_with_mag, self.id_user_connecte, idclient, total_magasin, idmag)
+                    params = (ref_facture_mag, date_vente, desc_with_mag, self.id_user_connecte, idclient, total_magasin, idmag, 'EN_ATTENTE')
                 
                     print(f"➕ INSERT Facture pour magasin {nom_magasin}: {ref_facture_mag}")
                     cursor.execute(sql_vente, params)

@@ -165,7 +165,7 @@ class PageFactureListe(ctk.CTkFrame):
                   background=[('selected', selected_bg)],
                   foreground=[('selected', fg_color)])
 
-        columns = ("N° Facture", "Date", "Description", "Montant Total", "Client", "User", "Qté Lignes")
+        columns = ("N° Facture", "Date", "Description", "Montant Total", "Statut", "Client", "User", "Qté Lignes")
         self.tree = ttk.Treeview(self.tree_frame, columns=columns, show="headings") 
 
         # Définir le tag pour la coloration orange des dettes
@@ -179,6 +179,7 @@ class PageFactureListe(ctk.CTkFrame):
         self.tree.heading("Date", text="Date")
         self.tree.heading("Description", text="Description")
         self.tree.heading("Montant Total", text="Montant Total")
+        self.tree.heading("Statut", text="Statut")
         self.tree.heading("Client", text="Client")
         self.tree.heading("User", text="User")
         self.tree.heading("Qté Lignes", text="Qté Lignes")
@@ -188,6 +189,7 @@ class PageFactureListe(ctk.CTkFrame):
         self.tree.column("Date", width=150, anchor=ctk.CENTER)
         self.tree.column("Description", width=150, anchor=ctk.CENTER)
         self.tree.column("Montant Total", width=100, anchor=ctk.CENTER)
+        self.tree.column("Statut", width=100, anchor=ctk.CENTER)
         self.tree.column("Client", width=150, anchor=ctk.E)
         self.tree.column("User", width=100, anchor=ctk.E)
         self.tree.column("Qté Lignes", width=50, anchor=ctk.E)
@@ -268,7 +270,13 @@ class PageFactureListe(ctk.CTkFrame):
         row_data = self.data_df.iloc[item_index]
         
         solde = row_data['Solde'] 
-        
+        statut = row_data.get('Statut', 'EN_ATTENTE')
+
+        # N'autoriser le paiement que si la facture est en attente
+        if statut != 'EN_ATTENTE':
+            messagebox.showinfo("Information", f"Cette facture n'est pas en attente (statut: {statut}).")
+            return
+
         if solde <= 0.01:
             messagebox.showinfo("Information", "Cette Facture est déjà entièrement payée (Solde nul).")
             return
@@ -362,6 +370,7 @@ class PageFactureListe(ctk.CTkFrame):
                         FROM tb_ventedetail vd 
                         WHERE vd.idvente = v.id
                     ), 0) AS montant_total,
+                    v.statut,
                     COALESCE((
                         SELECT SUM(p.mtpaye) 
                         FROM tb_pmtfacture p 
@@ -395,13 +404,14 @@ class PageFactureListe(ctk.CTkFrame):
                 refvente = row[0]
                 date = row[1].strftime("%d/%m/%Y %H:%M:%S") if row[1] else ""
                 description = row[2] or ""
-                premier_magasin = row[9] or ""
                 montant_total = float(row[3] or 0)
-                paye = float(row[4] or 0)
-                client = row[5] or ""
-                idclient = row[6]
-                user = row[7] or ""
-                nb_lignes = row[8] or 0
+                statut = row[4] or 'EN_ATTENTE'
+                paye = float(row[5] or 0)
+                client = row[6] or ""
+                idclient = row[7]
+                user = row[8] or ""
+                nb_lignes = row[9] or 0
+                premier_magasin = row[10] or ""
                 
                 # Construire la description avec le dépôt
                 if premier_magasin:
@@ -492,6 +502,7 @@ class PageFactureListe(ctk.CTkFrame):
                         FROM tb_ventedetail vd 
                         WHERE vd.idvente = v.id
                     ), 0) AS montant_total,
+                    v.statut,
                     COALESCE((
                         SELECT SUM(p.mtpaye) 
                         FROM tb_pmtfacture p 
@@ -524,13 +535,14 @@ class PageFactureListe(ctk.CTkFrame):
                 refvente = row[0]
                 date = row[1].strftime("%d/%m/%Y %H:%M:%S") if row[1] else ""
                 description = row[2] or ""
-                premier_magasin = row[9] or ""
                 montant_total = float(row[3] or 0)
-                paye = float(row[4] or 0)
-                client = row[5] or ""
-                idclient = row[6]
-                user = row[7] or ""
-                nb_lignes = row[8] or 0
+                statut = row[4] or 'EN_ATTENTE'
+                paye = float(row[5] or 0)
+                client = row[6] or ""
+                idclient = row[7]
+                user = row[8] or ""
+                nb_lignes = row[9] or 0
+                premier_magasin = row[10] or ""
                 
                 # Construire la description avec le dépôt
                 if premier_magasin:
@@ -555,6 +567,7 @@ class PageFactureListe(ctk.CTkFrame):
                     date,
                     description,
                     self.format_currency(montant_total),
+                    statut,
                     client,
                     user,
                     nb_lignes
@@ -565,6 +578,7 @@ class PageFactureListe(ctk.CTkFrame):
                     "Date": date,
                     "Description": description,
                     "Montant Total": montant_total,
+                    "Statut": statut,
                     "Total Payé": paye,
                     "Solde": solde,
                     "Client": client,
@@ -612,6 +626,7 @@ class PageFactureListe(ctk.CTkFrame):
                         FROM tb_ventedetail vd 
                         WHERE vd.idvente = v.id
                     ), 0) AS montant_total,
+                    v.statut,
                     COALESCE((
                         SELECT SUM(p.mtpaye) 
                         FROM tb_pmtfacture p 
@@ -652,11 +667,12 @@ class PageFactureListe(ctk.CTkFrame):
                 date = row[1].strftime("%d/%m/%Y") if row[1] else ""
                 description = row[2] or ""
                 montant_total = float(row[3] or 0)
-                paye = float(row[4] or 0)
-                client = row[5] or ""
-                idclient = row[6]
-                user = row[7] or ""
-                nb_lignes = row[8] or 0
+                statut = row[4] or 'EN_ATTENTE'
+                paye = float(row[5] or 0)
+                client = row[6] or ""
+                idclient = row[7]
+                user = row[8] or ""
+                nb_lignes = row[9] or 0
                 
                 solde = montant_total - paye
                 
@@ -672,6 +688,7 @@ class PageFactureListe(ctk.CTkFrame):
                     date,
                     description,
                     self.format_currency(montant_total),
+                    statut,
                     client,
                     user,
                     nb_lignes
@@ -682,6 +699,7 @@ class PageFactureListe(ctk.CTkFrame):
                     "Date": date,
                     "Description": description,
                     "Montant Total": montant_total,
+                    "Statut": statut,
                     "Total Payé": paye,
                     "Solde": solde,
                     "Client": client,

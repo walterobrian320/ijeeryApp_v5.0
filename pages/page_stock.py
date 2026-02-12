@@ -230,7 +230,7 @@ class PageStock(ctk.CTkFrame):
                     vd.qtvente as quantite,
                     'vente' as type_mouvement
                 FROM tb_ventedetail vd
-                INNER JOIN tb_vente v ON vd.idvente = v.id AND v.deleted = 0
+                INNER JOIN tb_vente v ON vd.idvente = v.id AND v.deleted = 0 AND v.statut = 'VALIDEE'
                 INNER JOIN tb_unite u ON vd.idarticle = u.idarticle AND vd.idunite = u.idunite
                 WHERE vd.deleted = 0
 

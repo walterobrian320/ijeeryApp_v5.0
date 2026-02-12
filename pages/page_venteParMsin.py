@@ -2781,9 +2781,9 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         # ✅ 1. CADRE DU VERSET (Haut de page avec bordure)
         verset = "Ankino amin'ny Jehovah ny asanao dia ho lavorary izay kasainao. Ohabolana 16:3"
         c.setLineWidth(1)
-        c.rect(10*mm, height - 15*mm, width - 20*mm, 8*mm)
+        c.rect(10*mm, height - 13*mm, width - 20*mm, 8*mm)
         c.setFont("Helvetica-Bold", 9)
-        c.drawCentredString(width/2, height - 12.5*mm, verset)
+        c.drawCentredString(width/2, height - 10.5*mm, verset)
 
         # ✅ 2. EN-TÊTE DEUX COLONNES
         styles = getSampleStyleSheet()
@@ -2806,7 +2806,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         # Insérer la ville juste en dessous de l'adresse si disponible
         villes_line = f"{villesociete}<br/>" if villesociete else ""
 
-        gauche_text = f"<b>{nomsociete}</b><br/>{adressesociete}<br/>{villes_line}TEL: {contactsociete}<br/>NIF: {nifsociete} <br/>STAT: {statsociete}"
+        gauche_text = f"<b><font size='11'>{nomsociete}</font></b><br/>{adressesociete}<br/>{villes_line}TEL: {contactsociete}<br/>NIF: {nifsociete} <br/>STAT: {statsociete}"
 
         # Gérer si utilisateur est un dict ou une string et éviter d'afficher 'None'
         if isinstance(utilisateur, dict):
@@ -2844,7 +2844,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         header_table.drawOn(c, 10*mm, height - 42*mm)
 
         # ✅ 3. TABLEAU DES ARTICLES
-        table_top = height - 52*mm
+        table_top = height - 62*mm
         table_bottom = 65*mm
         frame_height = table_top - table_bottom
 

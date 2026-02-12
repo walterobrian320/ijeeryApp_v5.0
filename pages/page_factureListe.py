@@ -241,12 +241,13 @@ class PageFactureListe(ctk.CTkFrame):
         # Label pour le nombre de factures
         self.count_label = ctk.CTkLabel(self.total_frame, text="Nombre de factures: 0", font=ctk.CTkFont(family="Segoe UI", weight="bold"))
         self.count_label.grid(row=0, column=3, padx=10, pady=10, sticky="e")
-
-        # Charger la liste initiale avec statut par défaut (Validée)
-        try:
-            self.load_all_credit()
-        except Exception:
-            pass
+            # Charger la liste initiale avec statut par défaut (Validée)
+            try:
+                self.load_all_credit()
+            except Exception:
+                pass
+        
+        self.load_all_credit()
 
     # --- Méthode de formatage ---
     def format_currency(self, value):

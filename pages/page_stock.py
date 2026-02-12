@@ -390,7 +390,7 @@ class PageStock(ctk.CTkFrame):
                 AND uc.idunite = u.idunite
             WHERE a.deleted = 0
               AND m.deleted = 0
-            ORDER BY u.codearticle, m.idmag
+            ORDER BY a.designation ASC, u.codearticle ASC
             """
             
             cursor.execute(query_optimisee)
@@ -793,7 +793,7 @@ class PageStock(ctk.CTkFrame):
                 FROM tb_article a
                 INNER JOIN tb_unite u ON a.idarticle = u.idarticle
                 WHERE a.deleted = 0
-                ORDER BY u.codearticle
+                ORDER BY a.designation ASC, u.codearticle ASC
             """)
             articles = cursor.fetchall()
         

@@ -183,9 +183,40 @@ class PageArticle(ctk.CTkFrame):
                 cursor = conn.cursor()
                 query = """INSERT INTO tb_article (designation, idca, idmag, alert, alertdepot, deleted) 
                            VALUES (%s, %s, %s, %s, %s, 0)"""
-                cursor.execute(query, (designation, idca, idmag, alert, alertdepot))
-                conn.commit()
-                
+                try:
+                    cursor.execute(query, (designation, idca, idmag, alert, alertdepot))
+                    conn.commit()
+                except psycopg2.IntegrityError as ie:
+                    # Gestion d'une clé dupliquée probable due à une séquence désynchronisée
+                    conn.rollback()
+                    msg = str(ie).lower()
+                    if 'duplicate key' in msg or 'unique' in msg:
+                        try:
+                            # Récupérer le nom de la séquence liée à idarticle
+                            cursor.execute("SELECT pg_get_serial_sequence('tb_article', 'idarticle')")
+                            seq_row = cursor.fetchone()
+                            seq_name = seq_row[0] if seq_row else None
+
+                            # Trouver le max(idarticle) et remettre la séquence à cette valeur
+                            cursor.execute("SELECT COALESCE(MAX(idarticle), 0) FROM tb_article")
+                            max_row = cursor.fetchone()
+                            max_id = int(max_row[0]) if max_row and max_row[0] is not None else 0
+
+                            if seq_name:
+                                # setval(seq, max_id) -> nextval renverra max_id+1
+                                cursor.execute("SELECT setval(%s, %s)", (seq_name, max_id))
+                                conn.commit()
+                                # Réessayer l'insertion une seule fois
+                                cursor.execute(query, (designation, idca, idmag, alert, alertdepot))
+                                conn.commit()
+                            else:
+                                raise ie
+                        except Exception as fix_e:
+                            conn.rollback()
+                            raise fix_e
+                    else:
+                        raise ie
+
                 # --- NOTIFICATION ---
                 messagebox.showinfo("Succès", f"L'article '{designation}' a été ajouté avec succès !")
                 

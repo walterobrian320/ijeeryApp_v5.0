@@ -84,7 +84,8 @@ class PageFactureListe(ctk.CTkFrame):
             fg_color="#1f538d",
             hover_color="#14375e"
         )
-        self.btn_filtrer_date.grid(row=0, column=4, padx=10, pady=10)
+        # status filter will be placed at column 4; move this button to column 5
+        self.btn_filtrer_date.grid(row=0, column=5, padx=10, pady=10)
         
         # Bouton Réinitialiser
         self.btn_reset_date = ctk.CTkButton(
@@ -94,7 +95,26 @@ class PageFactureListe(ctk.CTkFrame):
             fg_color="#666666",
             hover_color="#444444"
         )
-        self.btn_reset_date.grid(row=0, column=5, padx=10, pady=10)
+        self.btn_reset_date.grid(row=0, column=6, padx=10, pady=10)
+
+        # --- Status filter (Tout / Validée / En attente / Annulé) ---
+        status_labels = ["Tout", "Validée", "En attente", "Annulé"]
+        # Mapping display -> DB value
+        self._status_map = {
+            "Tout": None,
+            "Validée": "VALIDEE",
+            "En attente": "EN_ATTENTE",
+            "Annulé": "ANNULEE"
+        }
+        # Default: Validée
+        self.status_option = ctk.CTkOptionMenu(self.date_frame, values=status_labels, command=lambda v: None)
+        self.status_option.set("Validée")
+        self.status_option.grid(row=0, column=4, padx=10, pady=10)
+        self.status_selected = "Validée"
+        # update internal status when changed
+        def _on_status_change(val):
+            self.status_selected = val
+        self.status_option.configure(command=_on_status_change)
         
         # --- 2. Interface de Recherche et Export ---
         self.search_frame = ctk.CTkFrame(self)
@@ -165,7 +185,7 @@ class PageFactureListe(ctk.CTkFrame):
                   background=[('selected', selected_bg)],
                   foreground=[('selected', fg_color)])
 
-        columns = ("N° Facture", "Date", "Description", "Montant Total", "Client", "User", "Qté Lignes")
+        columns = ("N° Facture", "Date", "Description", "Montant Total", "Statut", "Client", "User", "Qté Lignes")
         self.tree = ttk.Treeview(self.tree_frame, columns=columns, show="headings") 
 
         # Définir le tag pour la coloration orange des dettes
@@ -179,6 +199,7 @@ class PageFactureListe(ctk.CTkFrame):
         self.tree.heading("Date", text="Date")
         self.tree.heading("Description", text="Description")
         self.tree.heading("Montant Total", text="Montant Total")
+        self.tree.heading("Statut", text="Statut")
         self.tree.heading("Client", text="Client")
         self.tree.heading("User", text="User")
         self.tree.heading("Qté Lignes", text="Qté Lignes")
@@ -188,6 +209,7 @@ class PageFactureListe(ctk.CTkFrame):
         self.tree.column("Date", width=150, anchor=ctk.CENTER)
         self.tree.column("Description", width=150, anchor=ctk.CENTER)
         self.tree.column("Montant Total", width=100, anchor=ctk.CENTER)
+        self.tree.column("Statut", width=100, anchor=ctk.CENTER)
         self.tree.column("Client", width=150, anchor=ctk.E)
         self.tree.column("User", width=100, anchor=ctk.E)
         self.tree.column("Qté Lignes", width=50, anchor=ctk.E)
@@ -219,6 +241,11 @@ class PageFactureListe(ctk.CTkFrame):
         # Label pour le nombre de factures
         self.count_label = ctk.CTkLabel(self.total_frame, text="Nombre de factures: 0", font=ctk.CTkFont(family="Segoe UI", weight="bold"))
         self.count_label.grid(row=0, column=3, padx=10, pady=10, sticky="e")
+            # Charger la liste initiale avec statut par défaut (Validée)
+            try:
+                self.load_all_credit()
+            except Exception:
+                pass
         
         self.load_all_credit()
 
@@ -389,7 +416,18 @@ class PageFactureListe(ctk.CTkFrame):
                 ORDER BY v.dateregistre DESC, v.refvente DESC
             """
             
-            cursor.execute(query, (date_debut, date_fin))
+            # Apply status filter if not 'Tout'
+            status_db_val = None
+            try:
+                status_db_val = self._status_map.get(self.status_selected, None)
+            except Exception:
+                status_db_val = None
+
+            if status_db_val:
+                query = query.replace("WHERE v.deleted = 0", "WHERE v.deleted = 0 AND v.statut = %s")
+                cursor.execute(query, (date_debut, date_fin, status_db_val))
+            else:
+                cursor.execute(query, (date_debut, date_fin))
             resultats = cursor.fetchall()
             
             data_list = []
@@ -434,6 +472,7 @@ class PageFactureListe(ctk.CTkFrame):
                     date,
                     description,
                     self.format_currency(montant_total),
+                    statut,
                     client,
                     user,
                     nb_lignes
@@ -520,7 +559,18 @@ class PageFactureListe(ctk.CTkFrame):
                 ORDER BY v.dateregistre DESC, v.refvente DESC
             """
             
-            cursor.execute(query)
+            # Apply status filter (default set via option menu)
+            status_db_val = None
+            try:
+                status_db_val = self._status_map.get(self.status_selected, None)
+            except Exception:
+                status_db_val = None
+
+            if status_db_val:
+                query = query.replace("WHERE v.deleted = 0", "WHERE v.deleted = 0 AND v.statut = %s")
+                cursor.execute(query, (status_db_val,))
+            else:
+                cursor.execute(query)
             resultats = cursor.fetchall()
             
             data_list = []
@@ -565,6 +615,7 @@ class PageFactureListe(ctk.CTkFrame):
                     date,
                     description,
                     self.format_currency(montant_total),
+                    statut,
                     client,
                     user,
                     nb_lignes
@@ -650,7 +701,23 @@ class PageFactureListe(ctk.CTkFrame):
             
             query += " ORDER BY v.dateregistre DESC, v.refvente DESC"
             
-            cursor.execute(query, params)
+            # Apply status filter
+            status_db_val = None
+            try:
+                status_db_val = self._status_map.get(self.status_selected, None)
+            except Exception:
+                status_db_val = None
+
+            if status_db_val:
+                # add statut filter to WHERE clause
+                query = query.replace("WHERE v.deleted = 0", "WHERE v.deleted = 0 AND v.statut = %s")
+                if params:
+                    # params expected for LIKE filters
+                    cursor.execute(query, params + [status_db_val])
+                else:
+                    cursor.execute(query, (status_db_val,))
+            else:
+                cursor.execute(query, params)
             resultats = cursor.fetchall()
             
             data_list = []

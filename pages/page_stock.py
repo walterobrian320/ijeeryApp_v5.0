@@ -102,7 +102,8 @@ class PageStock(ctk.CTkFrame):
         if self.tree:
             self.tree.destroy()
         
-        colonnes_fixes = ("Code", "Désignation", "Unité", "Prix")
+        # Ne pas afficher la colonne Prix dans le tableau de stock
+        colonnes_fixes = ("Code", "Désignation", "Unité")
         colonnes_magasins = [mag[1] for mag in self.magasins]
         self.colonnes_dynamiques = colonnes_fixes + tuple(colonnes_magasins) + ("Total",)
         
@@ -425,11 +426,11 @@ class PageStock(ctk.CTkFrame):
             # Insérer dans le Treeview ET stocker dans all_data
             compteur = 0
             for code, data in articles_dict.items():
+                # Ne pas inclure le prix dans les valeurs affichées
                 valeurs = [
-                    code, 
-                    data['designation'], 
-                    data['unite'], 
-                    self.formater_nombre(data['prix'])
+                    code,
+                    data['designation'],
+                    data['unite']
                 ]
             
                 # Ajouter les stocks par magasin

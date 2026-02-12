@@ -321,11 +321,14 @@ class PageInventaire(ctk.CTkToplevel):
 
                     # c) Enregistrement dans tb_inventaire
                     # On utilise qtinventaire (colonne réelle) et RETURNING id
+                    # Troncature sécurisée de l'observation pour éviter les erreurs
+                    # (champ observation potentiellement VARCHAR(50) dans la base)
+                    obs_trim = obs if len(obs) <= 50 else obs[:50]
                     cursor.execute("""
                     INSERT INTO tb_inventaire (codearticle, idmag, qtinventaire, iduser, observation, date)
                     VALUES (%s, %s, %s, %s, %s, NOW())
                     RETURNING id
-                    """, (code_lie, idmag, stock_calcule, self.iduser, obs))
+                    """, (code_lie, idmag, stock_calcule, self.iduser, obs_trim))
                 
                     # Récupération sécurisée du nouvel ID généré (43849, 43850, etc.)
                     resultat = cursor.fetchone()
@@ -341,11 +344,13 @@ class PageInventaire(ctk.CTkToplevel):
                     """)
 
                     # d) Log pour traçabilité dans tb_log_stock
+                    # Préparer une description d'action tronquée pour le log (éviter VARCHAR(50) overflow)
+                    type_action_raw = f"INV AUTO ({designation}): {obs}"
+                    type_action = type_action_raw if len(type_action_raw) <= 50 else type_action_raw[:50]
                     cursor.execute("""
                     INSERT INTO tb_log_stock (codearticle, idmag, ancien_stock, nouveau_stock, iduser, type_action, date_action) 
                     VALUES (%s, %s, %s, %s, %s, %s, NOW())
-                    """, (code_lie, idmag, ancien_stock_unite, stock_calcule, self.iduser, 
-                      f"INV AUTO ({designation}): {obs}"))
+                    """, (code_lie, idmag, ancien_stock_unite, stock_calcule, self.iduser, type_action))
                 
                     unites_mises_a_jour.append(f"{code_lie} → {stock_calcule:.2f}")
 

@@ -2823,7 +2823,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         droite_text = (
             f"<b>Facture N°: {vente['refvente']}</b><br/>"
             f"{vente['dateregistre']}<br/>"
-            f"<b>Magasin {magasin_display}</b><br/><br/>"
+            f"<b>MAGASIN {magasin_display}</b><br/><br/>"
             f"<i>Client: {client_display}</i><br/>"
             f"<font size='7'>Op: {user_name}</font>"
         )
@@ -2844,8 +2844,8 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         header_table.drawOn(c, 10*mm, height - 42*mm)
 
         # ✅ 3. TABLEAU DES ARTICLES
-        table_top = height - 62*mm
-        table_bottom = 65*mm
+        table_top = height - 45*mm
+        table_bottom = 55*mm
         frame_height = table_top - table_bottom
 
         row_height = 5.5*mm

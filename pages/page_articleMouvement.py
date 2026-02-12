@@ -211,7 +211,7 @@ class PageArticleMouvement(ctk.CTkFrame):
         super().__init__(parent)
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)  # Row 2 est le treeview
 
         self.initial_idarticle = initial_idarticle
 
@@ -324,6 +324,146 @@ class PageArticleMouvement(ctk.CTkFrame):
     
         return qte_en_cible
     
+    def calculer_stock_initial(self, conn, idarticle, idunite, date_debut, idmag=None):
+        """
+        Calcule le stock initial AVANT la date de début
+        (Somme de tous les mouvements AVANT cette date pour une unité spécifique)
+        """
+        cursor = conn.cursor()
+        
+        # Requête unifiée plus simple pour tous les mouvements AVANT la date
+        query = """
+            SELECT 
+                COALESCE(SUM(CASE WHEN type_mouv IN ('entree', 'inventaire', 'avoir', 'transfert_entree') 
+                    THEN qt ELSE 0 END), 0) as total_entrees,
+                COALESCE(SUM(CASE WHEN type_mouv IN ('sortie', 'vente', 'transfert_sortie') 
+                    THEN qt ELSE 0 END), 0) as total_sorties
+            FROM (
+                -- Entrées Fournisseurs
+                SELECT lf.qtlivrefrs as qt, 'entree' as type_mouv, lf.dateregistre as date_mouv
+                FROM tb_livraisonfrs lf
+                INNER JOIN tb_unite u ON lf.idunite = u.idunite
+                WHERE u.idunite = %s AND lf.deleted = 0 AND DATE(lf.dateregistre) < %s
+                
+                UNION ALL
+                -- Sorties
+                SELECT sd.qtsortie as qt, 'sortie' as type_mouv, s.dateregistre as date_mouv
+                FROM tb_sortie s
+                INNER JOIN tb_sortiedetail sd ON s.id = sd.idsortie
+                INNER JOIN tb_unite u ON sd.idunite = u.idunite
+                WHERE u.idunite = %s AND s.deleted = 0 AND sd.deleted = 0 AND DATE(s.dateregistre) < %s
+                
+                UNION ALL
+                -- Ventes
+                SELECT vd.qtvente as qt, 'vente' as type_mouv, v.dateregistre as date_mouv
+                FROM tb_vente v
+                INNER JOIN tb_ventedetail vd ON v.id = vd.idvente
+                INNER JOIN tb_unite u ON vd.idunite = u.idunite
+                WHERE u.idunite = %s AND v.deleted = 0 AND vd.deleted = 0 AND DATE(v.dateregistre) < %s
+                
+                UNION ALL
+                -- Transferts Sortie
+                SELECT td.qttransfert as qt, 'transfert_sortie' as type_mouv, t.dateregistre as date_mouv
+                FROM tb_transfert t
+                INNER JOIN tb_transfertdetail td ON t.idtransfert = td.idtransfert
+                INNER JOIN tb_unite u ON td.idunite = u.idunite
+                WHERE u.idunite = %s AND t.deleted = 0 AND td.deleted = 0 AND DATE(t.dateregistre) < %s
+                
+                UNION ALL
+                -- Transferts Entrée
+                SELECT td.qttransfert as qt, 'transfert_entree' as type_mouv, t.dateregistre as date_mouv
+                FROM tb_transfert t
+                INNER JOIN tb_transfertdetail td ON t.idtransfert = td.idtransfert
+                INNER JOIN tb_unite u ON td.idunite = u.idunite
+                WHERE u.idunite = %s AND t.deleted = 0 AND td.deleted = 0 AND DATE(t.dateregistre) < %s
+                
+                UNION ALL
+                -- Inventaires
+                SELECT i.qtinventaire as qt, 'inventaire' as type_mouv, i.date as date_mouv
+                FROM tb_inventaire i
+                INNER JOIN tb_unite u ON i.codearticle = u.codearticle
+                WHERE u.idunite = %s AND DATE(i.date) < %s
+                
+                UNION ALL
+                -- Avoirs
+                SELECT ad.qtavoir as qt, 'avoir' as type_mouv, av.dateavoir as date_mouv
+                FROM tb_avoir av
+                INNER JOIN tb_avoirdetail ad ON av.id = ad.idavoir
+                INNER JOIN tb_unite u ON ad.idunite = u.idunite
+                WHERE u.idunite = %s AND av.deleted = 0 AND DATE(av.dateavoir) < %s
+            ) as mouvements
+        """
+        
+        # 8 paramètres: idunite et date_debut répétés 8 fois
+        params = [idunite, date_debut] * 8
+        
+        try:
+            cursor.execute(query, params)
+            result = cursor.fetchone()
+            cursor.close()
+            
+            total_entrees = float(result[0]) if result and result[0] else 0
+            total_sorties = float(result[1]) if result and result[1] else 0
+            stock_initial = total_entrees - total_sorties
+            
+            return stock_initial
+        except Exception as e:
+            print(f"ERREUR lors du calcul du stock initial: {str(e)}")
+            cursor.close()
+            return 0
+    
+    def filtrer_article_dynamique(self):
+        """Filtre et recherche dynamiquement un article par nom ou code dans le tableau"""
+        recherche = self.entry_recherche_article.get().strip().lower()
+        
+        if not recherche:
+            # Si le champ est vide, réinitialiser
+            self.reset_article_selection()
+            return
+        
+        conn = self.connect_db()
+        if not conn:
+            return
+        
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT idarticle, designation, COALESCE(c.designationcat, 'Sans catégorie')
+                FROM tb_article a
+                LEFT JOIN tb_categoriearticle c ON a.idca = c.idca
+                WHERE a.deleted = 0
+                AND (
+                    LOWER(a.designation) LIKE %s 
+                    OR CAST(a.idarticle AS TEXT) LIKE %s
+                )
+                ORDER BY a.designation
+                LIMIT 1
+            """, (f"%{recherche}%", f"%{recherche}%"))
+            
+            resultat = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if resultat:
+                # Sélectionner le premier résultat trouvé
+                article = {
+                    'idarticle': resultat[0],
+                    'designation': resultat[1],
+                    'categorie': resultat[2]
+                }
+                self.selected_idarticle = article['idarticle']
+                self.selected_article_name = article['designation']
+                # Recharger le tableau avec ce nouvel article sélectionné
+                self.load_mouvements()
+            else:
+                # Aucun résultat
+                self.reset_article_selection()
+        
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de la recherche : {str(e)}")
+            if conn:
+                conn.close()
+    
     def ouvrir_recherche_article(self):
         """Ouvre la fenêtre de recherche d'articles"""
         FenetreRechercheArticle(self, self.on_article_selected)
@@ -333,13 +473,9 @@ class PageArticleMouvement(ctk.CTkFrame):
         self.selected_idarticle = article['idarticle']
         self.selected_article_name = article['designation']
         
-        # Mettre à jour le label
-        self.label_article_selectionne.configure(
-            text=f"Article sélectionné: {article['designation']}"
-        )
-        
-        # Activer le bouton de réinitialisation
-        self.btn_reset_article.configure(state="normal")
+        # Mettre à jour le champ de recherche
+        self.entry_recherche_article.delete(0, "end")
+        self.entry_recherche_article.insert(0, article['designation'])
         
         # Recharger les mouvements
         self.load_mouvements()
@@ -348,127 +484,112 @@ class PageArticleMouvement(ctk.CTkFrame):
         """Réinitialise la sélection d'article"""
         self.selected_idarticle = None
         self.selected_article_name = None
-        
-        self.label_article_selectionne.configure(
-            text="Article sélectionné: Tous les articles"
-        )
-        
-        self.btn_reset_article.configure(state="disabled")
+        self.entry_recherche_article.delete(0, "end")
         
         self.load_mouvements()
     
     def create_widgets(self):
         """Création des widgets de l'interface"""
-        # En-tête
+        # ===== EN-TÊTE AVEC TITRE =====
         header = ctk.CTkFrame(self, fg_color="transparent")
-        header.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
-        header.grid_columnconfigure(1, weight=1)
+        header.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 5))
+        header.grid_columnconfigure(0, weight=1)
         
-        # Titre
         ctk.CTkLabel(
             header, 
             text="📋 Mouvements d'Articles", 
             font=("Arial", 20, "bold")
-        ).grid(row=0, column=0, sticky="w", padx=5)
+        ).pack(side="left")
         
-        # Frame de filtres
+        # ===== FRAME DE FILTRES =====
         filter_frame = ctk.CTkFrame(self)
-        filter_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 10))
-        filter_frame.grid_columnconfigure((0, 1, 2), weight=1)
+        filter_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
+        filter_frame.grid_columnconfigure(0, weight=1)  # Column 0 s'étend
+        filter_frame.grid_columnconfigure((1, 2), weight=0)  # Columns 1, 2 taille fixe
         
-        # Sélection d'article avec bouton loupe
-        article_frame = ctk.CTkFrame(filter_frame, fg_color="transparent")
-        article_frame.grid(row=0, column=0, rowspan=2, padx=5, pady=5, sticky="ew")
-        
-        ctk.CTkLabel(article_frame, text="Article:", font=("Arial", 12, "bold")).pack(anchor="w", pady=(0, 5))
-        
-        btn_frame = ctk.CTkFrame(article_frame, fg_color="transparent")
-        btn_frame.pack(fill="x")
-        
-        ctk.CTkButton(
-            btn_frame,
-            text="🔍 Rechercher un article",
-            command=self.ouvrir_recherche_article,
-            width=180,
-            fg_color="#1976d2"
-        ).pack(side="left", padx=(0, 5))
-        
-        self.btn_reset_article = ctk.CTkButton(
-            btn_frame,
-            text="✕",
-            command=self.reset_article_selection,
-            width=40,
-            fg_color="#d32f2f",
-            state="disabled"
+        # --- ROW 1: Recherche article + Type doc + Magasin ---
+        # Recherche article (colonne 0)
+        ctk.CTkLabel(filter_frame, text="Rechercher article:", font=("Arial", 11, "bold")).grid(
+            row=0, column=0, sticky="w", padx=(5, 0), pady=(0, 3)
         )
-        self.btn_reset_article.pack(side="left")
         
-        self.label_article_selectionne = ctk.CTkLabel(
-            article_frame,
-            text="Article sélectionné: Tous les articles",
-            font=("Arial", 10),
-            text_color="#90caf9"
+        self.entry_recherche_article = ctk.CTkEntry(
+            filter_frame,
+            placeholder_text="Nom ou code article...",
+            height=35,
+            width=250
         )
-        self.label_article_selectionne.pack(anchor="w", pady=(5, 0))
+        self.entry_recherche_article.grid(row=1, column=0, sticky="ew", padx=(5, 10), pady=(0, 10))
+        # On text change: filter current table; on Enter: search DB for exact article
+        self.entry_recherche_article.bind("<KeyRelease>", lambda e: self.filter_tree_by_text())
+        self.entry_recherche_article.bind("<Return>", lambda e: self.filtrer_article_dynamique())
         
-        # Type de document
-        ctk.CTkLabel(filter_frame, text="Type de document:").grid(row=0, column=1, padx=5, pady=5, sticky="w")
+        # Type de document (colonne 1)
+        ctk.CTkLabel(filter_frame, text="Type:", font=("Arial", 11, "bold")).grid(
+            row=0, column=1, sticky="w", padx=5, pady=(0, 3)
+        )
         self.combo_type = ctk.CTkComboBox(
             filter_frame,
             values=["Tous", "Entrée", "Sortie", "Vente", "Transfert", "Inventaire", "Avoir"],
-            command=lambda x: self.load_mouvements(),
-            width=200
+            width=180,
+            height=35
         )
-        self.combo_type.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+        self.combo_type.grid(row=1, column=1, sticky="ew", padx=5, pady=(0, 10))
         self.combo_type.set("Tous")
         
-        # Magasin
-        ctk.CTkLabel(filter_frame, text="Magasin:").grid(row=0, column=2, padx=5, pady=5, sticky="w")
+        # Magasin (colonne 2)
+        ctk.CTkLabel(filter_frame, text="Magasin:", font=("Arial", 11, "bold")).grid(
+            row=0, column=2, sticky="w", padx=5, pady=(0, 3)
+        )
         self.combo_magasin = ctk.CTkComboBox(
             filter_frame,
             values=["Tous les magasins"],
-            command=lambda x: self.load_mouvements(),
-            width=200
+            width=200,
+            height=35
         )
-        self.combo_magasin.grid(row=1, column=2, padx=5, pady=5, sticky="ew")
+        self.combo_magasin.grid(row=1, column=2, sticky="ew", padx=5, pady=(0, 10))
         self.combo_magasin.set("Tous les magasins")
         
-        # Dates
-        date_frame = ctk.CTkFrame(filter_frame)
-        date_frame.grid(row=2, column=0, columnspan=3, pady=10, padx=5, sticky="ew")
-        date_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
+        # --- ROW 2: Dates + Bouton rechercher ---
+        ctk.CTkLabel(filter_frame, text="Date début:", font=("Arial", 11, "bold")).grid(
+            row=2, column=0, sticky="w", padx=(5, 0), pady=(0, 3)
+        )
         
-        ctk.CTkLabel(date_frame, text="Du:").grid(row=0, column=0, padx=5, sticky="e")
         self.date_debut = DateEntry(
-            date_frame,
-            width=12,
+            filter_frame,
+            width=25,
             background='darkblue',
             foreground='white',
             borderwidth=2,
             date_pattern='dd/mm/yyyy'
         )
-        self.date_debut.grid(row=0, column=1, padx=5, sticky="w")
+        self.date_debut.grid(row=3, column=0, sticky="w", padx=(5, 10), pady=(0, 10))
         
-        ctk.CTkLabel(date_frame, text="Au:").grid(row=0, column=2, padx=5, sticky="e")
+        ctk.CTkLabel(filter_frame, text="Date fin:", font=("Arial", 11, "bold")).grid(
+            row=2, column=1, sticky="w", padx=5, pady=(0, 3)
+        )
+        
         self.date_fin = DateEntry(
-            date_frame,
-            width=12,
+            filter_frame,
+            width=25,
             background='darkblue',
             foreground='white',
             borderwidth=2,
             date_pattern='dd/mm/yyyy'
         )
-        self.date_fin.grid(row=0, column=3, padx=5, sticky="w")
+        self.date_fin.grid(row=3, column=1, sticky="w", padx=5, pady=(0, 10))
         
-        # Bouton de recherche
+        # Bouton rechercher (colonne 2, aligné avec les dates)
         ctk.CTkButton(
-            date_frame,
-            text="🔍 Rechercher",
+            filter_frame,
+            text="🔍 Appliquer filtres",
             command=self.load_mouvements,
-            width=150
-        ).grid(row=0, column=4, padx=10)
+            width=160,
+            height=35,
+            fg_color="#2e7d32"
+        ).grid(row=3, column=2, sticky="ew", padx=5, pady=(0, 10))
         
-        # Treeview
+        # ===== TREEVIEW =====
         tree_frame = ctk.CTkFrame(self)
         tree_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=(0, 10))
         tree_frame.grid_rowconfigure(0, weight=1)
@@ -499,7 +620,7 @@ class PageArticleMouvement(ctk.CTkFrame):
                  background=[('selected', '#0d47a1')])
         
         # Treeview
-        columns = ("Date", "Référence", "Type", "Unité", "Entrée", "Sortie", "Solde", "Magasin", "Utilisateur")
+        columns = ("Date", "Référence", "Type", "Désignation", "Unité", "Entrée", "Sortie", "Magasin", "Utilisateur")
         self.tree = ttk.Treeview(
             tree_frame,
             columns=columns,
@@ -515,12 +636,12 @@ class PageArticleMouvement(ctk.CTkFrame):
         # Configuration des colonnes
         column_widths = {
             "Date": 100,
-            "Référence": 150,
+            "Référence": 120,
             "Type": 120,
-            "Unité": 120,
+            "Désignation": 220,
+            "Unité": 100,
             "Entrée": 100,
             "Sortie": 100,
-            "Solde": 120,
             "Magasin": 150,
             "Utilisateur": 120
         }
@@ -562,8 +683,269 @@ class PageArticleMouvement(ctk.CTkFrame):
             cursor.close()
             conn.close()
     
+    def build_mouvements_query(self, date_debut, date_fin, type_doc, idmag):
+        """
+        Construit une requête UNION optimisée pour tous les mouvements
+        Retourne: (query_sql, params)
+        Structure tuple: (date, reference, designation, type, entree, sortie, magasin, username, idunite, codearticle)
+        """
+        queries = []
+        params = []
+        
+        # --- ENTRÉES (Livraisons Fournisseurs) ---
+        if type_doc in ["Tous", "Entrée"]:
+            query_entree = """
+                SELECT 
+                    lf.dateregistre,
+                    lf.reflivfrs,
+                    a.designation,
+                    'Entrée',
+                    COALESCE(lf.qtlivrefrs, 0),
+                    0,
+                    COALESCE(m.designationmag, 'N/A'),
+                    COALESCE(usr.username, 'N/A'),
+                    u.idunite,
+                    u.codearticle
+                FROM tb_livraisonfrs lf
+                INNER JOIN tb_unite u ON lf.idunite = u.idunite
+                INNER JOIN tb_article a ON u.idarticle = a.idarticle
+                LEFT JOIN tb_magasin m ON lf.idmag = m.idmag
+                LEFT JOIN tb_users usr ON lf.iduser = usr.iduser
+                WHERE DATE(lf.dateregistre) BETWEEN %s AND %s
+                AND lf.deleted = 0
+            """
+            query_params = [date_debut, date_fin]
+            
+            if self.selected_idarticle:
+                query_entree += " AND a.idarticle = %s"
+                query_params.append(int(self.selected_idarticle))
+            
+            if idmag:
+                query_entree += " AND lf.idmag = %s"
+                query_params.append(idmag)
+            
+            queries.append(query_entree)
+            params.append(query_params)
+        
+        # --- SORTIES ---
+        if type_doc in ["Tous", "Sortie"]:
+            query_sortie = """
+                SELECT 
+                    s.dateregistre,
+                    s.refsortie,
+                    a.designation,
+                    'Sortie',
+                    0,
+                    COALESCE(sd.qtsortie, 0),
+                    COALESCE(m.designationmag, 'N/A'),
+                    COALESCE(usr.username, 'N/A'),
+                    u.idunite,
+                    u.codearticle
+                FROM tb_sortie s
+                INNER JOIN tb_sortiedetail sd ON s.id = sd.idsortie
+                INNER JOIN tb_unite u ON sd.idunite = u.idunite
+                INNER JOIN tb_article a ON u.idarticle = a.idarticle
+                LEFT JOIN tb_magasin m ON sd.idmag = m.idmag
+                LEFT JOIN tb_users usr ON s.iduser = usr.iduser
+                WHERE DATE(s.dateregistre) BETWEEN %s AND %s
+                AND s.deleted = 0 AND sd.deleted = 0
+            """
+            query_params = [date_debut, date_fin]
+            
+            if self.selected_idarticle:
+                query_sortie += " AND a.idarticle = %s"
+                query_params.append(int(self.selected_idarticle))
+            
+            if idmag:
+                query_sortie += " AND sd.idmag = %s"
+                query_params.append(idmag)
+            
+            queries.append(query_sortie)
+            params.append(query_params)
+        
+        # --- VENTES ---
+        if type_doc in ["Tous", "Vente"]:
+            query_vente = """
+                SELECT 
+                    v.dateregistre,
+                    v.refvente,
+                    a.designation,
+                    'Vente',
+                    0,
+                    COALESCE(vd.qtvente, 0),
+                    COALESCE(m.designationmag, 'N/A'),
+                    COALESCE(usr.username, 'N/A'),
+                    u.idunite,
+                    u.codearticle
+                FROM tb_vente v
+                INNER JOIN tb_ventedetail vd ON v.id = vd.idvente
+                INNER JOIN tb_unite u ON vd.idunite = u.idunite
+                INNER JOIN tb_article a ON u.idarticle = a.idarticle
+                LEFT JOIN tb_magasin m ON vd.idmag = m.idmag
+                LEFT JOIN tb_users usr ON v.iduser = usr.iduser
+                WHERE DATE(v.dateregistre) BETWEEN %s AND %s
+                AND v.deleted = 0 AND vd.deleted = 0
+            """
+            query_params = [date_debut, date_fin]
+            
+            if self.selected_idarticle:
+                query_vente += " AND a.idarticle = %s"
+                query_params.append(int(self.selected_idarticle))
+            
+            if idmag:
+                query_vente += " AND vd.idmag = %s"
+                query_params.append(idmag)
+            
+            queries.append(query_vente)
+            params.append(query_params)
+        
+        # --- TRANSFERTS (Sorties + Entrées) ---
+        if type_doc in ["Tous", "Transfert"]:
+            # Transferts Sortie
+            query_t_sortie = """
+                SELECT 
+                    t.dateregistre,
+                    t.reftransfert,
+                    a.designation,
+                    'Transfert (Sortie)',
+                    0,
+                    COALESCE(td.qttransfert, 0),
+                    COALESCE(m.designationmag, 'N/A'),
+                    COALESCE(usr.username, 'N/A'),
+                    u.idunite,
+                    u.codearticle
+                FROM tb_transfert t
+                INNER JOIN tb_transfertdetail td ON t.idtransfert = td.idtransfert
+                INNER JOIN tb_unite u ON td.idunite = u.idunite
+                INNER JOIN tb_article a ON u.idarticle = a.idarticle
+                LEFT JOIN tb_magasin m ON td.idmagsortie = m.idmag
+                LEFT JOIN tb_users usr ON t.iduser = usr.iduser
+                WHERE DATE(t.dateregistre) BETWEEN %s AND %s
+                AND t.deleted = 0 AND td.deleted = 0
+            """
+            query_params = [date_debut, date_fin]
+            
+            if self.selected_idarticle:
+                query_t_sortie += " AND a.idarticle = %s"
+                query_params.append(int(self.selected_idarticle))
+            
+            if idmag:
+                query_t_sortie += " AND td.idmagsortie = %s"
+                query_params.append(idmag)
+            
+            queries.append(query_t_sortie)
+            params.append(query_params.copy())
+            
+            # Transferts Entrée
+            query_t_entree = """
+                SELECT 
+                    t.dateregistre,
+                    t.reftransfert,
+                    a.designation,
+                    'Transfert (Entrée)',
+                    COALESCE(td.qttransfert, 0),
+                    0,
+                    COALESCE(m.designationmag, 'N/A'),
+                    COALESCE(usr.username, 'N/A'),
+                    u.idunite,
+                    u.codearticle
+                FROM tb_transfert t
+                INNER JOIN tb_transfertdetail td ON t.idtransfert = td.idtransfert
+                INNER JOIN tb_unite u ON td.idunite = u.idunite
+                INNER JOIN tb_article a ON u.idarticle = a.idarticle
+                LEFT JOIN tb_magasin m ON td.idmagentree = m.idmag
+                LEFT JOIN tb_users usr ON t.iduser = usr.iduser
+                WHERE DATE(t.dateregistre) BETWEEN %s AND %s
+                AND t.deleted = 0 AND td.deleted = 0
+            """
+            query_params = [date_debut, date_fin]
+            
+            if self.selected_idarticle:
+                query_t_entree += " AND a.idarticle = %s"
+                query_params.append(int(self.selected_idarticle))
+            
+            if idmag:
+                query_t_entree += " AND td.idmagentree = %s"
+                query_params.append(idmag)
+            
+            queries.append(query_t_entree)
+            params.append(query_params)
+        
+        # --- INVENTAIRES ---
+        if type_doc in ["Tous", "Inventaire"]:
+            query_inv = """
+                SELECT 
+                    i.date,
+                    CONCAT('INV-', i.id),
+                    a.designation,
+                    CONCAT('Inventaire', CASE WHEN i.observation IS NOT NULL AND i.observation != '' 
+                        THEN CONCAT(' (', i.observation, ')') ELSE '' END),
+                    i.qtinventaire,
+                    0,
+                    COALESCE(m.designationmag, 'N/A'),
+                    COALESCE(usr.username, 'N/A'),
+                    u.idunite,
+                    u.codearticle
+                FROM tb_inventaire i
+                INNER JOIN tb_unite u ON i.codearticle = u.codearticle
+                INNER JOIN tb_article a ON u.idarticle = a.idarticle
+                LEFT JOIN tb_magasin m ON i.idmag = m.idmag
+                LEFT JOIN tb_users usr ON i.iduser = usr.iduser
+                WHERE DATE(i.date) BETWEEN %s AND %s
+            """
+            query_params = [date_debut, date_fin]
+            
+            if self.selected_idarticle:
+                query_inv += " AND a.idarticle = %s"
+                query_params.append(int(self.selected_idarticle))
+            
+            if idmag:
+                query_inv += " AND i.idmag = %s"
+                query_params.append(idmag)
+            
+            queries.append(query_inv)
+            params.append(query_params)
+        
+        # --- AVOIRS ---
+        if type_doc in ["Tous", "Avoir"]:
+            query_avoir = """
+                SELECT 
+                    av.dateavoir,
+                    av.refavoir,
+                    a.designation,
+                    'Avoir',
+                    ad.qtavoir,
+                    0,
+                    COALESCE(m.designationmag, 'N/A'),
+                    COALESCE(usr.username, 'N/A'),
+                    u.idunite,
+                    u.codearticle
+                FROM tb_avoir av
+                INNER JOIN tb_avoirdetail ad ON av.id = ad.idavoir
+                INNER JOIN tb_unite u ON ad.idunite = u.idunite
+                INNER JOIN tb_article a ON u.idarticle = a.idarticle
+                LEFT JOIN tb_magasin m ON ad.idmag = m.idmag
+                LEFT JOIN tb_users usr ON av.iduser = usr.iduser
+                WHERE DATE(av.dateavoir) BETWEEN %s AND %s
+                AND av.deleted = 0
+            """
+            query_params = [date_debut, date_fin]
+            
+            if self.selected_idarticle:
+                query_avoir += " AND a.idarticle = %s"
+                query_params.append(int(self.selected_idarticle))
+            
+            if idmag:
+                query_avoir += " AND ad.idmag = %s"
+                query_params.append(idmag)
+            
+            queries.append(query_avoir)
+            params.append(query_params)
+        
+        return queries, params
+    
     def load_mouvements(self):
-        """Charge les mouvements d'articles"""
+        """Charge les mouvements d'articles avec filtres optimisés"""
         conn = self.connect_db()
         if not conn:
             return
@@ -582,7 +964,10 @@ class PageArticleMouvement(ctk.CTkFrame):
             magasin_selection = self.combo_magasin.get()
             idmag = None
             if magasin_selection != "Tous les magasins":
-                idmag = int(magasin_selection.split(" - ")[0])
+                try:
+                    idmag = int(magasin_selection.split(" - ")[0])
+                except ValueError:
+                    idmag = None
             
             cursor = conn.cursor()
             
@@ -591,405 +976,81 @@ class PageArticleMouvement(ctk.CTkFrame):
             if self.selected_idarticle:
                 unites_hierarchy = self.get_unite_hierarchy(conn, int(self.selected_idarticle))
             
+            # Construire et exécuter les requêtes
             mouvements = []
+            queries, params_list = self.build_mouvements_query(date_debut, date_fin, type_doc, idmag)
             
-            # --- REQUÊTE ENTRÉES (Livraisons Fournisseurs) ---
-            if type_doc in ["Tous", "Entrée"]:
-                query_entree = """
-                    SELECT 
-                        lf.dateregistre as date,
-                        lf.reflivfrs as reference,
-                        'Entrée' as type,
-                        COALESCE(lf.qtlivrefrs, 0) as entree,
-                        0 as sortie,
-                        m.designationmag as magasin,
-                        usr.username,
-                        u.idunite
-                    FROM tb_livraisonfrs lf
-                    INNER JOIN tb_unite u ON lf.idunite = u.idunite
-                    INNER JOIN tb_article a ON u.idarticle = a.idarticle
-                    LEFT JOIN tb_magasin m ON lf.idmag = m.idmag
-                    LEFT JOIN tb_users usr ON lf.iduser = usr.iduser
-                    WHERE DATE(lf.dateregistre) BETWEEN %s AND %s
-                    AND lf.deleted = 0
-                """
-                
-                params_entree = [date_debut, date_fin]
-                
-                if self.selected_idarticle:
-                    query_entree += " AND a.idarticle = %s"
-                    params_entree.append(int(self.selected_idarticle))
-                
-                if idmag:
-                    query_entree += " AND lf.idmag = %s"
-                    params_entree.append(idmag)
-                
-                cursor.execute(query_entree, params_entree)
-                mouvements.extend(cursor.fetchall())
-            
-            # --- REQUÊTE SORTIES ---
-            if type_doc in ["Tous", "Sortie"]:
-                query_sortie = """
-                    SELECT 
-                        s.dateregistre as date,
-                        s.refsortie as reference,
-                        'Sortie' as type,
-                        0 as entree,
-                        COALESCE(sd.qtsortie, 0) as sortie,
-                        m.designationmag as magasin,
-                        usr.username,
-                        u.idunite
-                    FROM tb_sortie s
-                    INNER JOIN tb_sortiedetail sd ON s.id = sd.idsortie
-                    INNER JOIN tb_unite u ON sd.idunite = u.idunite
-                    INNER JOIN tb_article a ON u.idarticle = a.idarticle
-                    LEFT JOIN tb_magasin m ON sd.idmag = m.idmag
-                    LEFT JOIN tb_users usr ON s.iduser = usr.iduser
-                    WHERE DATE(s.dateregistre) BETWEEN %s AND %s
-                    AND s.deleted = 0
-                    AND sd.deleted = 0
-                """
-                
-                params_sortie = [date_debut, date_fin]
-                
-                if self.selected_idarticle:
-                    query_sortie += " AND a.idarticle = %s"
-                    params_sortie.append(int(self.selected_idarticle))
-                
-                if idmag:
-                    query_sortie += " AND sd.idmag = %s"
-                    params_sortie.append(idmag)
-                
-                cursor.execute(query_sortie, params_sortie)
-                mouvements.extend(cursor.fetchall())
-            
-            # --- REQUÊTE VENTES (Sortie de stock via vente) ---
-            if type_doc in ["Tous", "Vente"]:
+            for query, params in zip(queries, params_list):
                 try:
-                    query_vente = """
-                        SELECT 
-                            v.dateregistre as date,
-                            v.refvente as reference,
-                            'Vente' as type,
-                            0 as entree,
-                            COALESCE(vd.qtvente, 0) as sortie,
-                            m.designationmag as magasin,
-                            usr.username,
-                            u.idunite
-                        FROM tb_vente v
-                        INNER JOIN tb_ventedetail vd ON v.id = vd.idvente
-                        INNER JOIN tb_unite u ON vd.idunite = u.idunite
-                        INNER JOIN tb_article a ON u.idarticle = a.idarticle
-                        LEFT JOIN tb_magasin m ON vd.idmag = m.idmag
-                        LEFT JOIN tb_users usr ON v.iduser = usr.iduser
-                        WHERE DATE(v.dateregistre) BETWEEN %s AND %s
-                        AND v.deleted = 0
-                        AND vd.deleted = 0
-                    """
-                    
-                    params_vente = [date_debut, date_fin]
-                    
-                    if self.selected_idarticle:
-                        query_vente += " AND a.idarticle = %s"
-                        params_vente.append(int(self.selected_idarticle))
-                    
-                    if idmag:
-                        query_vente += " AND vd.idmag = %s"
-                        params_vente.append(idmag)
-                    
-                    cursor.execute(query_vente, params_vente)
+                    cursor.execute(query, params)
                     mouvements.extend(cursor.fetchall())
-                
                 except Exception as e:
-                    print(f"ERREUR dans requête vente: {str(e)}")
+                    print(f"ERREUR dans requête: {str(e)}")
                     import traceback
                     traceback.print_exc()
-                    messagebox.showerror("Erreur Vente", f"Erreur lors de la récupération des ventes: {str(e)}")
             
-            # --- REQUÊTE TRANSFERTS ---
-            if type_doc in ["Tous", "Transfert"]:
-                try:
-                    # Transferts (Sorties du magasin source)
-                    query_transfert_sortie = """
-                        SELECT 
-                            t.dateregistre as date,
-                            t.reftransfert as reference,
-                            'Transfert (Sortie)' as type,
-                            0 as entree,
-                            COALESCE(td.qttransfert, 0) as sortie,
-                            m.designationmag as magasin,
-                            usr.username,
-                            u.idunite
-                        FROM tb_transfert t
-                        INNER JOIN tb_transfertdetail td ON t.idtransfert = td.idtransfert
-                        INNER JOIN tb_unite u ON td.idunite = u.idunite
-                        INNER JOIN tb_article a ON u.idarticle = a.idarticle
-                        LEFT JOIN tb_magasin m ON td.idmagsortie = m.idmag
-                        LEFT JOIN tb_users usr ON t.iduser = usr.iduser
-                        WHERE DATE(t.dateregistre) BETWEEN %s AND %s
-                        AND t.deleted = 0
-                        AND td.deleted = 0
-                    """
-                    
-                    params_sortie = [date_debut, date_fin]
-                    
-                    if self.selected_idarticle:
-                        query_transfert_sortie += " AND a.idarticle = %s"
-                        params_sortie.append(int(self.selected_idarticle))
-                    
-                    if idmag:
-                        query_transfert_sortie += " AND td.idmagsortie = %s"
-                        params_sortie.append(idmag)
-                    
-                    cursor.execute(query_transfert_sortie, params_sortie)
-                    resultats_sortie = cursor.fetchall()
-                    
-                    # Transferts (Entrées au magasin de destination)
-                    query_entree = """
-                        SELECT 
-                            t.dateregistre as date,
-                            t.reftransfert as reference,
-                            'Transfert (Entrée)' as type,
-                            COALESCE(td.qttransfert, 0) as entree,
-                            0 as sortie,
-                            m.designationmag as magasin,
-                            usr.username,
-                            u.idunite
-                        FROM tb_transfert t
-                        INNER JOIN tb_transfertdetail td ON t.idtransfert = td.idtransfert
-                        INNER JOIN tb_unite u ON td.idunite = u.idunite
-                        INNER JOIN tb_article a ON u.idarticle = a.idarticle
-                        LEFT JOIN tb_magasin m ON td.idmagentree = m.idmag
-                        LEFT JOIN tb_users usr ON t.iduser = usr.iduser
-                        WHERE DATE(t.dateregistre) BETWEEN %s AND %s
-                        AND t.deleted = 0
-                        AND td.deleted = 0
-                    """
-        
-                    params_entree = [date_debut, date_fin]
-        
-                    if self.selected_idarticle:
-                        query_entree += " AND a.idarticle = %s"
-                        params_entree.append(int(self.selected_idarticle))
-        
-                    if idmag:
-                        query_entree += " AND td.idmagentree = %s"
-                        params_entree.append(idmag)
-        
-                    cursor.execute(query_entree, params_entree)
-                    resultats_entree = cursor.fetchall()
-        
-                    mouvements.extend(resultats_sortie)
-                    mouvements.extend(resultats_entree)
-        
-                except Exception as e:
-                    print(f"ERREUR dans requête transfert: {str(e)}")
-                    import traceback
-                    traceback.print_exc()
-                    messagebox.showerror("Erreur Transfert", f"Erreur lors de la récupération des transferts: {str(e)}")
-
-            # --- REQUÊTE INVENTAIRES ---
-            if type_doc in ["Tous", "Inventaire"]:
-                try:
-                    query_inventaire = """
-                        SELECT 
-                            i.date as date,
-                            CONCAT('INV-', i.id) as reference,
-                            CONCAT('Inventaire', CASE WHEN i.observation IS NOT NULL AND i.observation != '' 
-                                THEN CONCAT(' (', i.observation, ')') ELSE '' END) as type,
-                            i.qtinventaire as entree,
-                            0 as sortie,
-                            m.designationmag as magasin,
-                            usr.username,
-                            u.idunite
-                        FROM tb_inventaire i
-                        INNER JOIN tb_unite u ON i.codearticle = u.codearticle
-                        INNER JOIN tb_article a ON u.idarticle = a.idarticle
-                        LEFT JOIN tb_magasin m ON i.idmag = m.idmag
-                        LEFT JOIN tb_users usr ON i.iduser = usr.iduser
-                        WHERE DATE(i.date) BETWEEN %s AND %s
-                    """
-                    
-                    params_inventaire = [date_debut, date_fin]
-                    
-                    if self.selected_idarticle:
-                        query_inventaire += " AND a.idarticle = %s"
-                        params_inventaire.append(int(self.selected_idarticle))
-                    
-                    if idmag:
-                        query_inventaire += " AND i.idmag = %s"
-                        params_inventaire.append(idmag)
-                    
-                    cursor.execute(query_inventaire, params_inventaire)
-                    mouvements.extend(cursor.fetchall())
-                
-                except Exception as e:
-                    print(f"ERREUR dans requête inventaire: {str(e)}")
-                    import traceback
-                    traceback.print_exc()
-                    messagebox.showerror("Erreur Inventaire", f"Erreur lors de la récupération des inventaires: {str(e)}")
-
-            # --- REQUÊTE AVOIRS ---
-            if type_doc in ["Tous", "Avoir"]:
-                try:
-                    query_avoir = """
-                        SELECT 
-                            av.dateavoir as date,
-                            av.refavoir as reference,
-                            'Avoir' as type,
-                            ad.qtavoir as entree,
-                            0 as sortie,
-                            m.designationmag as magasin,
-                            usr.username,
-                            u.idunite
-                        FROM tb_avoir av
-                        INNER JOIN tb_avoirdetail ad ON av.id = ad.idavoir
-                        INNER JOIN tb_unite u ON ad.idunite = u.idunite
-                        INNER JOIN tb_article a ON u.idarticle = a.idarticle
-                        LEFT JOIN tb_magasin m ON ad.idmag = m.idmag
-                        LEFT JOIN tb_users usr ON av.iduser = usr.iduser
-                        WHERE DATE(av.dateavoir) BETWEEN %s AND %s
-                        AND av.deleted = 0
-                    """
-                    
-                    params_avoir = [date_debut, date_fin]
-                    
-                    if self.selected_idarticle:
-                        query_avoir += " AND a.idarticle = %s"
-                        params_avoir.append(int(self.selected_idarticle))
-                    
-                    if idmag:
-                        query_avoir += " AND ad.idmag = %s"
-                        params_avoir.append(idmag)
-                    
-                    cursor.execute(query_avoir, params_avoir)
-                    mouvements.extend(cursor.fetchall())
-                
-                except Exception as e:
-                    print(f"ERREUR dans requête avoir: {str(e)}")
-                    import traceback
-                    traceback.print_exc()
-                    messagebox.showerror("Erreur Avoir", f"Erreur lors de la récupération des avoirs: {str(e)}")
-
-            # Trier les mouvements par date
-            mouvements.sort(key=lambda x: x[0] if x[0] else datetime.min)
+            if not mouvements:
+                self.label_total.configure(text="Aucun mouvement trouvé pour les filtres sélectionnés")
+                cursor.close()
+                conn.close()
+                return
             
-            # Si un article EST sélectionné, propager les mouvements à TOUTES les unités
-            if self.selected_idarticle:
-                # Calculer les facteurs de conversion
-                facteurs_conversion = self.calculer_facteurs_conversion(unites_hierarchy)
-                
-                # Récupérer TOUTES les unités de cet article
-                cursor.execute("""
-                    SELECT idunite, designationunite, niveau, codearticle
-                    FROM tb_unite
-                    WHERE idarticle = %s
-                    ORDER BY niveau DESC
-                """, (int(self.selected_idarticle),))
-                toutes_unites = cursor.fetchall()
-                
-                # Pour chaque unité à afficher
-                for idunite_cible, unite_display, niveau_cible, code_cible in toutes_unites:
-                    # Ajouter une ligne d'en-tête pour identifier l'unité
-                    code_padded = str(code_cible).zfill(10) if code_cible else ""
-                    self.tree.insert("", "end", values=(
-                        "",
-                        f"=== CODE: {code_padded} ===",
-                        f"=== {unite_display} ===",
-                        unite_display,
-                        "",
-                        "",
-                        "",
-                        "",
-                        ""
-                    ), tags=('header',))
-                    
-                    solde_cumule = 0
-                    for mouv in mouvements:
-                        date_format = mouv[0].strftime('%d/%m/%Y') if mouv[0] else ""
-                        reference = mouv[1] or ""
-                        type_doc_display = mouv[2] or ""
-                        entree_originale = float(mouv[3]) if mouv[3] else 0
-                        sortie_originale = float(mouv[4]) if mouv[4] else 0
-                        magasin_display = mouv[5] or ""
-                        username = mouv[6] or ""
-                        idunite_source = mouv[7]
-                        
-                        # CONVERSION vers l'unité cible
-                        entree_convertie = self.convert_to_unite_cible(
-                            entree_originale, 
-                            idunite_source, 
-                            idunite_cible, 
-                            facteurs_conversion
-                        )
-                        
-                        sortie_convertie = self.convert_to_unite_cible(
-                            sortie_originale, 
-                            idunite_source, 
-                            idunite_cible, 
-                            facteurs_conversion
-                        )
-                        
-                        # Calculer le solde cumulé avec les valeurs converties
-                        solde_cumule += entree_convertie - sortie_convertie
-                        
-                        # Insérer dans le treeview
-                        self.tree.insert("", "end", values=(
-                            date_format,
-                            reference,
-                            type_doc_display,
-                            unite_display,
-                            self.formater_nombre(entree_convertie),
-                            self.formater_nombre(sortie_convertie),
-                            self.formater_nombre(solde_cumule),
-                            magasin_display,
-                            username
-                        ))
-                    
-                    # Ligne de séparation entre les unités
-                    if idunite_cible != toutes_unites[-1][0]:
-                        self.tree.insert("", "end", values=("", "", "", "", "", "", "", "", ""), tags=('separator',))
-                
-                # Compter le nombre total de mouvements
-                nb_mouvements = len(mouvements)
-                nb_unites = len(toutes_unites)
-                self.label_total.configure(
-                    text=f"Nombre total de documents: {nb_mouvements} | Affiché pour {nb_unites} unité(s)"
+            # Trier les mouvements: d'abord par codearticle ASC, puis designation ASC, puis date DESC
+            # Utilisation de tris stables successifs
+            try:
+                mouvements.sort(key=lambda x: x[9] or "")  # codearticle ASC
+            except Exception:
+                pass
+
+            try:
+                mouvements.sort(key=lambda x: (x[2].lower() if x[2] else ""))  # designation ASC
+            except Exception:
+                pass
+
+            try:
+                mouvements.sort(key=lambda x: x[0] if x[0] else datetime.min, reverse=True)  # date DESC
+            except Exception:
+                pass
+            
+            # Unified flat display: insert each movement as a single row (no per-unit grouping)
+            rows_to_display = []
+            for mouv in mouvements:
+                date_format = mouv[0].strftime('%d/%m/%Y') if mouv[0] else ""
+                reference = mouv[1] or ""
+                article_designation = mouv[2] or ""
+                type_doc_display = mouv[3] or ""
+                entree = float(mouv[4]) if mouv[4] else 0
+                sortie = float(mouv[5]) if mouv[5] else 0
+                magasin_display = mouv[6] or ""
+                username = mouv[7] or ""
+                idunite = mouv[8]
+
+                # Récupérer la désignation de l'unité
+                cursor.execute("SELECT designationunite FROM tb_unite WHERE idunite = %s", (idunite,))
+                result = cursor.fetchone()
+                unite_display = result[0] if result else ""
+
+                row_values = (
+                    date_format,
+                    reference,
+                    type_doc_display,
+                    article_designation,
+                    unite_display,
+                    self.formater_nombre(entree),
+                    self.formater_nombre(sortie),
+                    magasin_display,
+                    username
                 )
-            
-            else:
-                # Affichage normal sans conversion (pas d'article sélectionné)
-                solde_cumule = 0
-                for mouv in mouvements:
-                    date_format = mouv[0].strftime('%d/%m/%Y') if mouv[0] else ""
-                    reference = mouv[1] or ""
-                    type_doc_display = mouv[2] or ""
-                    entree = float(mouv[3]) if mouv[3] else 0
-                    sortie = float(mouv[4]) if mouv[4] else 0
-                    magasin_display = mouv[5] or ""
-                    username = mouv[6] or ""
-                    
-                    # Récupérer la désignation de l'unité
-                    idunite = mouv[7]
-                    cursor.execute("SELECT designationunite FROM tb_unite WHERE idunite = %s", (idunite,))
-                    result = cursor.fetchone()
-                    unite_display = result[0] if result else ""
-                    
-                    solde_cumule += entree - sortie
-                    
-                    self.tree.insert("", "end", values=(
-                        date_format,
-                        reference,
-                        type_doc_display,
-                        unite_display,
-                        self.formater_nombre(entree),
-                        self.formater_nombre(sortie),
-                        self.formater_nombre(solde_cumule),
-                        magasin_display,
-                        username
-                    ))
-                
-                self.label_total.configure(text=f"Nombre total de documents: {len(mouvements)}")
+
+                rows_to_display.append(row_values)
+
+            # Insérer toutes les lignes dans le treeview
+            for row in rows_to_display:
+                self.tree.insert("", "end", values=row)
+
+            # Sauvegarder la liste complète pour le filtrage côté client
+            self.full_display_rows = rows_to_display
+            self.label_total.configure(text=f"Nombre total de documents: {len(rows_to_display)}")
             
             cursor.close()
             
@@ -999,6 +1060,37 @@ class PageArticleMouvement(ctk.CTkFrame):
             messagebox.showerror("Erreur", f"Erreur inattendue: {str(e)}")
         finally:
             conn.close()
+
+    def filter_tree_by_text(self, event=None):
+        """Filtre le treeview côté client selon le texte saisi (toutes colonnes)."""
+        search = self.entry_recherche_article.get().strip().lower()
+        rows = getattr(self, 'full_display_rows', [])
+
+        # Vider le treeview
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        if not search:
+            for row in rows:
+                self.tree.insert("", "end", values=row)
+            self.label_total.configure(text=f"Nombre total de documents: {len(rows)}")
+            return
+
+        filtered = []
+        for row in rows:
+            # Vérifier si le texte est présent dans une des colonnes
+            match = False
+            for cell in row:
+                if search in str(cell).lower():
+                    match = True
+                    break
+            if match:
+                filtered.append(row)
+
+        for row in filtered:
+            self.tree.insert("", "end", values=row)
+
+        self.label_total.configure(text=f"Nombre total de documents: {len(filtered)} (filtré)")
 
 
 # Test de la classe (optionnel)

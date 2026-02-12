@@ -239,15 +239,15 @@ class PagePrixListe(ctk.CTkFrame):
                 """
                 pattern = f"%{search_term}%"
                 params = [pattern, pattern, pattern, pattern]
-                cursor.execute(query + " ORDER BY u.codearticle", params)
+                cursor.execute(query + " ORDER BY a.designation ASC, u.codearticle ASC", params)
 
             elif self.code_article:
                 # Filtrer exactement par code article (format 10 chiffres)
                 query += " AND LPAD(u.codearticle::TEXT, 10, '0') = %s"
                 params = [self.code_article.zfill(10)]
-                cursor.execute(query + " ORDER BY u.codearticle", params)
+                cursor.execute(query + " ORDER BY a.designation ASC, u.codearticle ASC", params)
             else:
-                cursor.execute(query + " ORDER BY u.codearticle")
+                cursor.execute(query + " ORDER BY a.designation ASC, u.codearticle ASC")
 
             rows = cursor.fetchall()
 

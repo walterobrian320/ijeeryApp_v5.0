@@ -1,0 +1,1 @@
+8c34516 | Fix: sync stock display in vente search (exclude EN_ATTENTE) 

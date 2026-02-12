@@ -165,11 +165,11 @@ class PageFactureListe(ctk.CTkFrame):
                   background=[('selected', selected_bg)],
                   foreground=[('selected', fg_color)])
 
-        columns = ("N° Facture", "Date", "Description", "Montant Total", "Statut", "Client", "User", "Qté Lignes")
+        columns = ("N° Facture", "Date", "Description", "Montant Total", "Client", "User", "Qté Lignes")
         self.tree = ttk.Treeview(self.tree_frame, columns=columns, show="headings") 
 
         # Définir le tag pour la coloration orange des dettes
-        self.tree.tag_configure('impaye', background='yellow', foreground='black') 
+        self.tree.tag_configure('impaye', background='#FFBE76', foreground='black') 
         
         # --- LIAISON DU DOUBLE-CLIC POUR LE PAIEMENT ---
         self.tree.bind("<Double-1>", self.on_double_click)
@@ -179,7 +179,6 @@ class PageFactureListe(ctk.CTkFrame):
         self.tree.heading("Date", text="Date")
         self.tree.heading("Description", text="Description")
         self.tree.heading("Montant Total", text="Montant Total")
-        self.tree.heading("Statut", text="Statut")
         self.tree.heading("Client", text="Client")
         self.tree.heading("User", text="User")
         self.tree.heading("Qté Lignes", text="Qté Lignes")
@@ -189,7 +188,6 @@ class PageFactureListe(ctk.CTkFrame):
         self.tree.column("Date", width=150, anchor=ctk.CENTER)
         self.tree.column("Description", width=150, anchor=ctk.CENTER)
         self.tree.column("Montant Total", width=100, anchor=ctk.CENTER)
-        self.tree.column("Statut", width=100, anchor=ctk.CENTER)
         self.tree.column("Client", width=150, anchor=ctk.E)
         self.tree.column("User", width=100, anchor=ctk.E)
         self.tree.column("Qté Lignes", width=50, anchor=ctk.E)
@@ -567,7 +565,6 @@ class PageFactureListe(ctk.CTkFrame):
                     date,
                     description,
                     self.format_currency(montant_total),
-                    statut,
                     client,
                     user,
                     nb_lignes
@@ -688,7 +685,6 @@ class PageFactureListe(ctk.CTkFrame):
                     date,
                     description,
                     self.format_currency(montant_total),
-                    statut,
                     client,
                     user,
                     nb_lignes

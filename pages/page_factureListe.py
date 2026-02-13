@@ -171,7 +171,11 @@ class PageFactureListe(ctk.CTkFrame):
         self.tree = ttk.Treeview(self.tree_frame, columns=columns, show="headings") 
 
         # Définir le tag pour la coloration orange des dettes
-        self.tree.tag_configure('impaye', background='#FFBE76', foreground='black') 
+        self.tree.tag_configure('impaye', background='#FFBE76', foreground='black')
+        
+        # Tags pour les couleurs alternées des lignes
+        self.tree.tag_configure('row_white', background='#FFFFFF', foreground='black')
+        self.tree.tag_configure('row_light_gray', background='#F5F5F5', foreground='black') 
         
         # --- LIAISON DU DOUBLE-CLIC POUR LE PAIEMENT ---
         self.tree.bind("<Double-1>", self.on_double_click)
@@ -391,6 +395,7 @@ class PageFactureListe(ctk.CTkFrame):
                 LEFT JOIN tb_client c ON v.idclient = c.idclient
                 WHERE v.deleted = 0
                 AND v.dateregistre BETWEEN %s AND %s
+                AND v.statut IN ('EN_ATTENTE', 'VALIDEE')
                 ORDER BY v.dateregistre DESC, v.refvente DESC
             """
             
@@ -432,7 +437,10 @@ class PageFactureListe(ctk.CTkFrame):
                 total_solde += solde
                 count += 1
                 
-                tag = 'impaye' if solde > 0.01 else ''
+                # Déterminer les tags : couleur alternée + impayé si applicable
+                tags = [('row_white' if count % 2 == 1 else 'row_light_gray')]
+                if solde > 0.01:
+                    tags.append('impaye')
                 
                 self.tree.insert('', 'end', values=(
                     refvente,
@@ -442,7 +450,7 @@ class PageFactureListe(ctk.CTkFrame):
                     client,
                     user,
                     nb_lignes
-                ), tags=(tag,))
+                ), tags=tuple(tags))
                 
                 data_list.append({
                     "N° Facture": refvente,
@@ -486,7 +494,7 @@ class PageFactureListe(ctk.CTkFrame):
             
     # --- Chargement des données ---
     def load_all_credit(self):
-        """Charge tous les crédits clients"""
+        """Charge tous les crédits clients du jour avec filtres par statut"""
         for item in self.tree.get_children():
             self.tree.delete(item)
 
@@ -519,6 +527,8 @@ class PageFactureListe(ctk.CTkFrame):
                 LEFT JOIN tb_users u ON v.iduser = u.iduser
                 LEFT JOIN tb_client c ON v.idclient = c.idclient
                 WHERE v.deleted = 0
+                AND v.dateregistre::DATE = CURRENT_DATE
+                AND v.statut IN ('EN_ATTENTE', 'VALIDEE')
                 ORDER BY v.dateregistre DESC, v.refvente DESC
             """
             
@@ -560,7 +570,10 @@ class PageFactureListe(ctk.CTkFrame):
                 total_solde += solde
                 count += 1
                 
-                tag = 'impaye' if solde > 0.01 else ''
+                # Déterminer les tags : couleur alternée + impayé si applicable
+                tags = [('row_white' if count % 2 == 1 else 'row_light_gray')]
+                if solde > 0.01:
+                    tags.append('impaye')
                 
                 self.tree.insert('', 'end', values=(
                     refvente,
@@ -570,7 +583,7 @@ class PageFactureListe(ctk.CTkFrame):
                     client,
                     user,
                     nb_lignes
-                ), tags=(tag,))
+                ), tags=tuple(tags))
                 
                 data_list.append({
                     "N° Facture": refvente,
@@ -635,6 +648,7 @@ class PageFactureListe(ctk.CTkFrame):
                 LEFT JOIN tb_users u ON v.iduser = u.iduser
                 LEFT JOIN tb_client c ON v.idclient = c.idclient
                 WHERE v.deleted = 0
+                AND v.statut IN ('EN_ATTENTE', 'VALIDEE')
             """
             
             params = []
@@ -676,7 +690,10 @@ class PageFactureListe(ctk.CTkFrame):
                 total_solde += solde
                 count += 1
                 
-                tag = 'impaye' if solde > 0.01 else ''
+                # Déterminer les tags : couleur alternée + impayé si applicable
+                tags = [('row_white' if count % 2 == 1 else 'row_light_gray')]
+                if solde > 0.01:
+                    tags.append('impaye')
                 
                 self.tree.insert('', 'end', values=(
                     refvente,
@@ -686,7 +703,7 @@ class PageFactureListe(ctk.CTkFrame):
                     client,
                     user,
                     nb_lignes
-                ), tags=(tag,))
+                ), tags=tuple(tags))
                 
                 data_list.append({
                     "N° Facture": refvente,

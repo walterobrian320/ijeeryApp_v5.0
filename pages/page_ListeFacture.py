@@ -11,13 +11,15 @@ from resource_utils import get_config_path, safe_file_read
 
 class PageDetailFacture(ctk.CTkToplevel):
     """Fenêtre affichant les articles d'une facture spécifique"""
-    def __init__(self, master, idvente, refvente):
+    def __init__(self, master, idvente, refvente, statut="EN_ATTENTE", parent_page=None):
         super().__init__(master)
         self.title(f"Détails Facture : {refvente}")
         self.geometry("900x600")
         self.attributes('-topmost', True)
         self.idvente = idvente
         self.refvente = refvente
+        self.statut = statut
+        self.parent_page = parent_page
         self.montant_total = 0
         self.mode_paiement = "N/A"
         
@@ -64,19 +66,37 @@ class PageDetailFacture(ctk.CTkToplevel):
         self.lbl_montant = ctk.CTkLabel(left_frame, text="0,00 Ar", font=("Segoe UI", 14, "bold"), text_color="#2ecc71")
         self.lbl_montant.pack(anchor="w")
         
-        # Droite : Bouton Réimpression
+        # Droite : Boutons (conditionnels selon statut)
         right_frame = ctk.CTkFrame(footer_frame)
         right_frame.pack(side="right", fill="both")
         
-        btn_reimprimer = ctk.CTkButton(
-            right_frame, 
-            text="🖨️  Réimprimer (Duplicata)", 
-            fg_color="#3498db",
-            hover_color="#2980b9",
-            command=self.reimprimer_duplicata,
-            width=200
-        )
-        btn_reimprimer.pack(pady=5)
+        # Bouton Réimpression : VISIBLE UNIQUEMENT SI VALIDÉE
+        if self.statut == "VALIDEE":
+            self.btn_reimprimer = ctk.CTkButton(
+                right_frame, 
+                text="🖨️  Réimprimer (Duplicata)", 
+                fg_color="#3498db",
+                hover_color="#2980b9",
+                command=self.reimprimer_duplicata,
+                width=200
+            )
+            self.btn_reimprimer.pack(pady=5)
+        
+        # Bouton Annuler : VISIBLE UNIQUEMENT SI EN ATTENTE
+        if self.statut == "EN_ATTENTE":
+            self.btn_annuler = ctk.CTkButton(
+                right_frame, 
+                text="❌ Annuler Facture", 
+                fg_color="#e74c3c",
+                hover_color="#c0392b",
+                command=self.annuler_facture,
+                width=200
+            )
+            self.btn_annuler.pack(pady=5)
+        
+        # Si ANNULÉ : message informatif
+        if self.statut == "ANNULE":
+            ctk.CTkLabel(right_frame, text="⚠️ Facture Annulée", text_color="#e74c3c", font=("Segoe UI", 11, "bold")).pack(pady=5)
         
         self.charger_details(idvente)
 
@@ -252,6 +272,42 @@ class PageDetailFacture(ctk.CTkToplevel):
             messagebox.showerror("Erreur", f"Erreur lors de la génération du duplicata : {str(e)}")
             import traceback
             traceback.print_exc()
+
+    def annuler_facture(self):
+        """Annule la facture (change le statut à 'ANNULE')"""
+        if messagebox.askyesno("Confirmation", f"Voulez-vous annuler la facture {self.refvente} ?"):
+            try:
+                with open(get_config_path('config.json')) as f:
+                    config = json.load(f)
+                conn = psycopg2.connect(**config['database'])
+                cursor = conn.cursor()
+                
+                # Mettre à jour le statut à 'ANNULE'
+                sql = "UPDATE tb_vente SET statut = %s WHERE refvente = %s"
+                cursor.execute(sql, ("ANNULE", self.refvente))
+                conn.commit()
+                
+                messagebox.showinfo("Succès", f"La facture {self.refvente} a été annulée.")
+                
+                # Mettre à jour le statut local et masquer le bouton
+                self.statut = "ANNULE"
+                if hasattr(self, 'btn_annuler'):
+                    self.btn_annuler.pack_forget()
+                
+                # Recharger les données dans la page parent
+                if self.parent_page:
+                    self.parent_page.charger_donnees()
+                
+                # Fermer la fenêtre
+                self.destroy()
+                
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Erreur lors de l'annulation : {str(e)}")
+                import traceback
+                traceback.print_exc()
+            finally:
+                if 'conn' in locals():
+                    conn.close()
 
     def generate_pdf_a5_duplicata(self, data, filename, page_vente):
         """Génère un PDF duplicata avec le label 'DUPLICATA'"""
@@ -461,6 +517,18 @@ class PageListeFacture(ctk.CTkFrame):
                                  foreground='white', borderwidth=2, date_pattern='dd/mm/yyyy')
         self.date_fin.pack(side="left", padx=5)
 
+        # 4. Filtre Statut (SELECT)
+        ctk.CTkLabel(search_frame, text="Statut:").pack(side="left", padx=2)
+        self.combo_statut = ctk.CTkComboBox(
+            search_frame,
+            values=["Tout", "VALIDEE", "EN_ATTENTE", "ANNULE"],
+            state="readonly",
+            width=120
+        )
+        self.combo_statut.set("VALIDEE")  # Par défaut
+        self.combo_statut.pack(side="left", padx=5)
+        self.combo_statut.bind("<<ComboboxSelected>>", lambda e: self.charger_donnees())
+
         # Boutons
         ctk.CTkButton(search_frame, text="🔍 Filtrer", width=80, 
                       command=self.charger_donnees).pack(side="left", padx=5)
@@ -474,12 +542,16 @@ class PageListeFacture(ctk.CTkFrame):
         table_frame = ctk.CTkFrame(self)
         table_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=5)
         
-        columns = ("date", "n_facture", "client", "montant", "user")
+        columns = ("date", "n_facture", "client", "montant", "statut", "user")
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
         
+        # Configurer les colonnes avec largeurs appropriées
+        col_widths = {"date": 150, "n_facture": 100, "client": 150, "montant": 100, "statut": 100, "user": 100}
         for col in columns:
             self.tree.heading(col, text=col.replace("_", " ").title())
-            self.tree.column(col, anchor="center" if col != "client" else "w")
+            width = col_widths.get(col, 80)
+            anchor = "center" if col in ["date", "montant", "statut", "user"] else "w"
+            self.tree.column(col, width=width, anchor=anchor)
 
         self.tree.pack(side="left", fill="both", expand=True)
         self.tree.bind("<Double-1>", self.on_double_click)
@@ -489,7 +561,7 @@ class PageListeFacture(ctk.CTkFrame):
         footer_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
         self.lbl_count = ctk.CTkLabel(footer_frame, text="Factures: 0")
         self.lbl_count.pack(side="left", padx=20)
-        self.lbl_total_mt = ctk.CTkLabel(footer_frame, text="Total: 0", font=("Arial", 16, "bold"), text_color="#2ecc71")
+        self.lbl_total_mt = ctk.CTkLabel(footer_frame, text="Total: 0 Ar", font=("Arial", 16, "bold"), text_color="#2ecc71")
         self.lbl_total_mt.pack(side="right", padx=20)
 
     def formater_montant(self, valeur):
@@ -508,34 +580,44 @@ class PageListeFacture(ctk.CTkFrame):
         val = self.entry_search.get().strip()
         d1 = self.date_debut.get_date()
         d2 = self.date_fin.get_date()
+        statut_filtre = self.combo_statut.get()
         
         conn = self.connect_db()
         if not conn: return
         
         try:
             cursor = conn.cursor()
-            # SQL incluant le filtre de date
+            # SQL incluant le filtre de date et statut
             sql = """
-                SELECT v.dateregistre, v.refvente, COALESCE(c.nomcli, 'Client Divers'), v.totmtvente, u.username, v.id
+                SELECT v.dateregistre, v.refvente, COALESCE(c.nomcli, 'Client Divers'), v.totmtvente, v.statut, u.username, v.id
                 FROM tb_vente v
                 LEFT JOIN tb_client c ON v.idclient = c.idclient
                 LEFT JOIN tb_users u ON v.iduser = u.iduser
                 WHERE (v.refvente ILIKE %s OR c.nomcli ILIKE %s)
                 AND v.dateregistre::date BETWEEN %s AND %s
-                ORDER BY v.dateregistre DESC, v.id DESC
             """
-            cursor.execute(sql, (f"%{val}%", f"%{val}%", d1, d2))
+            params = [f"%{val}%", f"%{val}%", d1, d2]
+            
+            # Ajouter filtre statut si différent de "Tout"
+            if statut_filtre != "Tout":
+                sql += " AND v.statut = %s"
+                params.append(statut_filtre)
+            
+            sql += " ORDER BY v.dateregistre DESC, v.id DESC"
+            
+            cursor.execute(sql, params)
             rows = cursor.fetchall()
             
             total = 0
             for r in rows:
                 mt_format = self.formater_montant(r[3]) # Utilisation de la fonction
-                self.tree.insert("", "end", iid=str(r[5]), values=(
+                self.tree.insert("", "end", iid=str(r[6]), values=(
                     r[0].strftime("%d/%m/%Y %H:%M:%S"), 
                     r[1], 
                     r[2], 
                     mt_format, 
-                    r[4]
+                    r[4],  # Statut
+                    r[5]   # User
                 ))
                 total += float(r[3])
         
@@ -552,9 +634,10 @@ class PageListeFacture(ctk.CTkFrame):
         # Récupérer les infos de la ligne
         values = self.tree.item(selected_item)['values']
         ref_facture = values[1]
+        statut = values[4]  # Statut de la facture
         
         # Ouvrir la fenêtre de détails
-        PageDetailFacture(self, selected_item, ref_facture)
+        PageDetailFacture(self, selected_item, ref_facture, statut, parent_page=self)
 
     def exporter_excel(self):
         lignes = []

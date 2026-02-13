@@ -8,7 +8,8 @@ from typing import Optional, Dict, Any, List
 import traceback 
 import os
 import sys # Ajouté pour open_file sur Linux/macOS
-import textwrap # Ajouté pour le formatage du ticket de caissefrom resource_utils import get_config_path, safe_file_read
+import textwrap # Ajouté pour le formatage du ticket de caisse
+from resource_utils import get_config_path, safe_file_read
 
 
 # --- NOUVELLES IMPORTATIONS POUR L'IMPRESSION ---

@@ -13,13 +13,11 @@ import subprocess
 # Importation de la classe ConfigDataBase
 # Assurez-vous que configDataBase.py est dans le même dossier
 from configDataBase import ConfigDataBase 
+from resource_utils import get_resource_path, get_config_path, get_session_path, safe_file_read
 
 def resource_path(relative_path):
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
+    """DEPRECATED: Utiliser get_resource_path() depuis resource_utils.py"""
+    return get_resource_path(relative_path)
 
 # Configuration globale de customtkinter
 ctk.set_appearance_mode("light")
@@ -27,21 +25,6 @@ ctk.set_default_color_theme("blue")
 
 # Ajouter le repertoire parent au chemin Python
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-def safe_file_read(file_path):
-    """Lit un fichier en essayant plusieurs encodages"""
-    encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252', 'iso-8859-1']
-    
-    for encoding in encodings:
-        try:
-            with open(file_path, 'r', encoding=encoding) as f:
-                content = f.read()
-            print(f"Fichier {file_path} lu avec l'encodage: {encoding}")
-            return content, encoding
-        except UnicodeDecodeError:
-            continue
-    
-    raise ValueError(f"Impossible de lire le fichier {file_path}")
 
 class LoginWindow(ctk.CTk):
     def __init__(self):
@@ -114,16 +97,18 @@ class LoginWindow(ctk.CTk):
         }
         
         try:
-            with open("session.json", "w", encoding='utf-8') as f:
+            session_path = get_session_path()
+            with open(session_path, "w", encoding='utf-8') as f:
                 json.dump(session_data, f, indent=4, ensure_ascii=False)
-            print("Session sauvegardee avec succes")
+            print(f"✓ Session sauvegardée avec succès: {session_path}")
         except Exception as e:
             messagebox.showerror("Erreur", f"Erreur lors de la sauvegarde de la session : {e}")
 
     def connect_db(self):
         try:
-            # Lecture robuste du fichier config
-            config_content, encoding = safe_file_read('config.json')
+            # Lecture robuste du fichier config avec chemin absolu
+            config_path = get_config_path('config.json')
+            config_content, encoding = safe_file_read(config_path)
             config = json.loads(config_content)
             db_config = config['database']
 
@@ -139,7 +124,7 @@ class LoginWindow(ctk.CTk):
             messagebox.showerror("Erreur de connexion", f"Erreur : {err}")
             return None
         except FileNotFoundError:
-            messagebox.showerror("Erreur", "Fichier config.json introuvable")
+            messagebox.showerror("Erreur", f"Fichier config.json introuvable à: {get_config_path('config.json')}")
             return None
         except KeyError as err:
             messagebox.showerror("Erreur", f"Cle manquante dans config.json : {err}")

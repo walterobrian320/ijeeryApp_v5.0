@@ -471,6 +471,7 @@ class PageCaisse(ctk.CTkFrame):
         # Mise à jour des cadres documents
         for doc, label in self.cadres_docs.items():
             montant = self.montants_docs.get(doc, 0)
+            
             label.configure(text=self.format_montant_court(montant))
         
         # Mise à jour des cadres modes de paiement

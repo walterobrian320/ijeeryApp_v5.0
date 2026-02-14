@@ -317,11 +317,9 @@ class PageFactureListe(ctk.CTkFrame):
         """Recharge les données en respectant le filtre actif"""
         if self.filtre_actif and self.date_debut_filtre and self.date_fin_filtre:
             # Réappliquer le filtre de dates
-            self.date_debut.set_date(self.date_debut_filtre)
-            self.date_fin.set_date(self.date_fin_filtre)
             self.filter_by_date()
         else:
-            # Charger toutes les données
+            # Charger les données du jour
             self.load_all_credit()
 
     # --- Connexion DB ---
@@ -394,7 +392,7 @@ class PageFactureListe(ctk.CTkFrame):
                 LEFT JOIN tb_users u ON v.iduser = u.iduser
                 LEFT JOIN tb_client c ON v.idclient = c.idclient
                 WHERE v.deleted = 0
-                AND v.dateregistre BETWEEN %s AND %s
+                AND v.dateregistre::DATE BETWEEN %s AND %s
                 AND v.statut IN ('EN_ATTENTE', 'VALIDEE')
                 ORDER BY v.dateregistre DESC, v.refvente DESC
             """
@@ -482,8 +480,7 @@ class PageFactureListe(ctk.CTkFrame):
                 conn.close()
     
     def reset_date_filter(self):
-        """Réinitialise le filtre de dates à aujourd'hui et recharge toutes les données"""
-        # Désactiver le filtre
+        """Réinitialise le filtre de dates à aujourd'hui et recharge les données du jour"""
         self.filtre_actif = False
         self.date_debut_filtre = None
         self.date_fin_filtre = None

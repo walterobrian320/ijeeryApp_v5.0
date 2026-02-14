@@ -41,6 +41,22 @@ class PageCaisse(ctk.CTkFrame):
         # Variables pour les filtres actifs
         self.filtre_doc_actif = None
         self.filtre_mode_actif = None
+        
+        # 🔑 CRUCIAL: Mapping entre noms UI (cadres) et noms BD exactes
+        # Clé: Nom du cadre UI | Valeur: Nom exact en BD
+        self.mode_ui_to_bd = {
+            "Espèces": None,      # Sera rempli depuis la BD
+            "Crédit": None,
+            "Chèque": None,
+            "Virement": None,
+            "Any maka vola": None,
+            "Mvola": None,
+            "Airtel Money": None,
+            "Orange Money": None
+        }
+        
+        # Mapping inverse pour retrouver l'ID rapidement
+        self.mode_bd_to_id = {}
 
         # Connexion à la base de données
         self.conn = self.connect_db()
@@ -127,6 +143,14 @@ class PageCaisse(ctk.CTkFrame):
         self.frame_tree.grid_rowconfigure(0, weight=1)
         self.frame_tree.grid_columnconfigure(0, weight=1)
 
+        # Styles pour lignes alternées (meilleure lisibilité)
+        try:
+            # Tags 'odd' et 'even' utilisés lors de l'insertion des lignes
+            self.tree.tag_configure('odd', background='#ffffff')
+            self.tree.tag_configure('even', background='#f2f2f2')
+        except Exception:
+            # Certains environnements peuvent ne pas supporter tag_configure ; ignorer silencieusement
+            pass
         # ---- BOTTOM (Totaux et Boutons d'action) ----
         self.frame_bottom_container = ctk.CTkFrame(self, fg_color="#f5f5f5")
         self.frame_bottom_container.pack(pady=10, fill="x", padx=10, side="bottom")
@@ -262,57 +286,66 @@ class PageCaisse(ctk.CTkFrame):
         return self.format_montant(v)
 
     def charger_modes_paiement(self):
+        """Charge les modes de paiement et crée un mapping UI ↔ BD"""
         try:
             self.cursor.execute("SELECT idmode, modedepaiement FROM tb_modepaiement ORDER BY modedepaiement")
             rows = self.cursor.fetchall()
-            noms = ["Tous"]
             
-            # Mapping exact des noms en base
+            print("\n" + "="*80)
+            print("🔄 CHARGEMENT DES MODES DE PAIEMENT")
+            print("="*80)
+            
+            # D'abord, afficher ce qu'on a en base
+            print("\n📊 Modes en base de données:")
             for r in rows:
-                self.modes_paiement_dict[r[1]] = r[0]
-                noms.append(r[1])
+                idmode, modedepaiement = r
+                print(f"   ID {idmode}: '{modedepaiement}'")
             
-            # 🔍 Créer aussi des mappings avec variations possibles
-            # Car les noms des cadres peuvent être légèrement différents
+            # Créer le mapping inverse : BD → ID
             for r in rows:
-                nom_base = r[1]
-                id_mode = r[0]
-                
-                # Normaliser : enlever accents, espaces, mettre en minuscules
-                nom_normalise = nom_base.lower().strip()
-                
-                # Mapper aussi les variantes courantes
-                if "espèce" in nom_normalise or "espece" in nom_normalise:
-                    self.modes_paiement_dict["Espèces"] = id_mode
-                    self.modes_paiement_dict["Espèce"] = id_mode
-                elif "crédit" in nom_normalise or "credit" in nom_normalise:
-                    self.modes_paiement_dict["Crédit"] = id_mode
-                    self.modes_paiement_dict["Credit"] = id_mode
-                elif "chèque" in nom_normalise or "cheque" in nom_normalise:
-                    self.modes_paiement_dict["Chèque"] = id_mode
-                    self.modes_paiement_dict["Cheque"] = id_mode
-                elif "virement" in nom_normalise:
-                    self.modes_paiement_dict["Virement"] = id_mode
-                elif "mvola" in nom_normalise:
-                    self.modes_paiement_dict["Mvola"] = id_mode
-                elif "orange" in nom_normalise and "money" in nom_normalise:
-                    self.modes_paiement_dict["Orange Money"] = id_mode
-                elif "airtel" in nom_normalise and "money" in nom_normalise:
-                    self.modes_paiement_dict["Airtel Money"] = id_mode
-                elif "any" in nom_normalise and "maka" in nom_normalise:
-                    self.modes_paiement_dict["Any maka vola"] = id_mode
+                idmode, modedepaiement = r
+                self.mode_bd_to_id[modedepaiement] = idmode
             
-            # self.combo_mode.configure(values=noms)  # Commenté car pas de ComboBox
+            # Définir les mappages UI → BD avec TOUS les alias possibles
+            print("\n🔗 Mappage UI → BD:")
             
-            # 🔍 DEBUG - Afficher le dictionnaire créé
-            print("\n📋 Modes de paiement chargés:")
-            for nom, id_val in sorted(self.modes_paiement_dict.items()):
-                print(f"   '{nom}' → ID {id_val}")
-            print()
+            alias_mapping = {
+                "Espèces": ["Espèces", "Espece"],
+                "Crédit": ["Crédit", "Credit"],
+                "Chèque": ["Chèque", "Cheque", "Chèque bancaire"],
+                "Virement": ["Virement", "Virement bancaire"],
+                "Any maka vola": ["Any maka vola", "Any Maka Vola"],
+                "Mvola": ["Mvola", "MVOLA"],
+                "Airtel Money": ["Airtel Money", "Airtel money"],
+                "Orange Money": ["Orange Money", "Orange money"]
+            }
+            
+            # Pour chaque cadre UI, chercher le mode BD correspondant
+            for nom_ui, alias_list in alias_mapping.items():
+                found = False
+                for alias in alias_list:
+                    for nom_bd, idmode in self.mode_bd_to_id.items():
+                        if nom_bd.lower().strip() == alias.lower().strip():
+                            self.mode_ui_to_bd[nom_ui] = nom_bd
+                            self.modes_paiement_dict[nom_ui] = idmode
+                            print(f"   '{nom_ui}' → '{nom_bd}' (ID: {idmode})")
+                            found = True
+                            break
+                    if found:
+                        break
+                
+                if not found:
+                    print(f"   ⚠️  '{nom_ui}' → NON TROUVÉ en BD")
+            
+            print("\n📋 Dictionnaires finaux:")
+            print(f"   mode_ui_to_bd = {self.mode_ui_to_bd}")
+            print(f"   modes_paiement_dict = {self.modes_paiement_dict}")
+            print("="*80 + "\n")
             
         except Exception as e:
             print(f"❌ Erreur lors du chargement des modes: {e}")
-            pass
+            import traceback
+            traceback.print_exc()
 
     def calculer_montants_categories(self, date_d, date_f):
         """Calcule les soldes (Encaissement - Décaissement) pour chaque catégorie et mode de paiement"""
@@ -441,23 +474,37 @@ class PageCaisse(ctk.CTkFrame):
             label.configure(text=self.format_montant_court(montant))
         
         # Mise à jour des cadres modes de paiement
-        for mode, label in self.cadres_modes.items():
-            montant = self.montants_modes.get(mode, 0)
+        # ⚠️ CRUCIAL: Convertir les noms UI en noms BD pour chercher les montants
+        for mode_ui, label in self.cadres_modes.items():
+            mode_bd = self.mode_ui_to_bd.get(mode_ui)
+            if mode_bd:
+                montant = self.montants_modes.get(mode_bd, 0)
+            else:
+                montant = 0
             label.configure(text=self.format_montant_court(montant))
 
     def appliquer_filtres(self, _=None):
         # Utiliser les filtres actifs au lieu des ComboBox
-        mode_nom = self.filtre_mode_actif
-        mode_id = self.modes_paiement_dict.get(mode_nom) if mode_nom else None
+        mode_nom_ui = self.filtre_mode_actif  # C'est le nom du cadre UI
+        
+        # Chercher l'ID du mode en utilisant le mapping
+        mode_id = None
+        if mode_nom_ui:
+            # mode_nom_ui est le nom du cadre (ex: "Espèces")
+            # On cherche le mode_bd correspondant dans le mapping
+            mode_bd = self.mode_ui_to_bd.get(mode_nom_ui)
+            if mode_bd:
+                mode_id = self.mode_bd_to_id.get(mode_bd)
+        
         type_doc = self.filtre_doc_actif if self.filtre_doc_actif else "Tous"
         
         # 🔍 DEBUG - Afficher les filtres actifs
         print(f"\n{'='*60}")
         print(f"🔍 FILTRES ACTIFS:")
-        print(f"   Type document : {type_doc}")
-        print(f"   Mode paiement : {mode_nom}")
-        print(f"   Mode ID       : {mode_id}")
-        print(f"   Dict modes    : {self.modes_paiement_dict}")
+        print(f"   Type document        : {type_doc}")
+        print(f"   Mode (UI)            : {mode_nom_ui}")
+        print(f"   Mode (BD)            : {self.mode_ui_to_bd.get(mode_nom_ui) if mode_nom_ui else None}")
+        print(f"   Mode ID              : {mode_id}")
         print(f"{'='*60}\n")
         
         date_d = self.entry_debut.get_date()
@@ -476,7 +523,12 @@ class PageCaisse(ctk.CTkFrame):
         for item in self.tree.get_children(): self.tree.delete(item)
         all_ops = []
 
-        sql_mode = " AND t1.idmode = %s" if mode_id else ""
+        # Construire la clause WHERE pour le mode
+        sql_mode = ""
+        mode_params = []
+        if mode_id is not None:
+            sql_mode = " AND t1.idmode = %s"
+            mode_params = [mode_id]
 
         try:
             # ==================================================================
@@ -499,7 +551,7 @@ class PageCaisse(ctk.CTkFrame):
                     LEFT JOIN tb_users t3 ON t1.iduser = t3.iduser
                     WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL {sql_mode}
                 """
-                params = [d_str, f_str] + ([mode_id] if mode_id else [])
+                params = [d_str, f_str] + mode_params
                 try:
                     self.cursor.execute(query_pmtfacture, params)
                     all_ops.extend(self.cursor.fetchall())
@@ -518,7 +570,7 @@ class PageCaisse(ctk.CTkFrame):
                     LEFT JOIN tb_users t3 ON t1.iduser = t3.iduser
                     WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL {sql_mode}
                 """
-                params = [d_str, f_str] + ([mode_id] if mode_id else [])
+                params = [d_str, f_str] + mode_params
                 try:
                     self.cursor.execute(query_pmtcredit, params)
                     all_ops.extend(self.cursor.fetchall())
@@ -537,7 +589,7 @@ class PageCaisse(ctk.CTkFrame):
                     LEFT JOIN tb_users t3 ON t1.iduser = t3.iduser
                     WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL {sql_mode}
                 """
-                params = [d_str, f_str] + ([mode_id] if mode_id else [])
+                params = [d_str, f_str] + mode_params
                 try:
                     self.cursor.execute(query_avoir, params)
                     all_ops.extend(self.cursor.fetchall())
@@ -556,7 +608,7 @@ class PageCaisse(ctk.CTkFrame):
                     LEFT JOIN tb_users t3 ON t1.iduser = t3.iduser
                     WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL {sql_mode}
                 """
-                params = [d_str, f_str] + ([mode_id] if mode_id else [])
+                params = [d_str, f_str] + mode_params
                 try:
                     self.cursor.execute(query_pmtcom, params)
                     all_ops.extend(self.cursor.fetchall())
@@ -575,7 +627,7 @@ class PageCaisse(ctk.CTkFrame):
                     LEFT JOIN tb_users t3 ON t1.iduser = t3.iduser
                     WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL {sql_mode}
                 """
-                params = [d_str, f_str] + ([mode_id] if mode_id else [])
+                params = [d_str, f_str] + mode_params
                 try:
                     self.cursor.execute(query_enc, params)
                     all_ops.extend(self.cursor.fetchall())
@@ -594,7 +646,7 @@ class PageCaisse(ctk.CTkFrame):
                     LEFT JOIN tb_users t3 ON t1.iduser = t3.iduser
                     WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL {sql_mode}
                 """
-                params = [d_str, f_str] + ([mode_id] if mode_id else [])
+                params = [d_str, f_str] + mode_params
                 try:
                     self.cursor.execute(query_dec, params)
                     all_ops.extend(self.cursor.fetchall())
@@ -614,7 +666,7 @@ class PageCaisse(ctk.CTkFrame):
                     LEFT JOIN tb_users t3 ON t1.iduser = t3.iduser
                     WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL {sql_mode}
                 """
-                params = [d_str, f_str] + ([mode_id] if mode_id else [])
+                params = [d_str, f_str] + mode_params
                 try:
                     self.cursor.execute(query_avpers, params)
                     all_ops.extend(self.cursor.fetchall())
@@ -632,7 +684,7 @@ class PageCaisse(ctk.CTkFrame):
                     LEFT JOIN tb_users t3 ON t1.iduser = t3.iduser
                     WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL {sql_mode}
                 """
-                params = [d_str, f_str] + ([mode_id] if mode_id else [])
+                params = [d_str, f_str] + mode_params
                 try:
                     self.cursor.execute(query_avspec, params)
                     all_ops.extend(self.cursor.fetchall())
@@ -650,7 +702,7 @@ class PageCaisse(ctk.CTkFrame):
                     LEFT JOIN tb_users t3 ON t1.iduser = t3.iduser
                     WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL {sql_mode}
                 """
-                params = [d_str, f_str] + ([mode_id] if mode_id else [])
+                params = [d_str, f_str] + mode_params
                 try:
                     self.cursor.execute(query_sal, params)
                     all_ops.extend(self.cursor.fetchall())
@@ -690,24 +742,32 @@ class PageCaisse(ctk.CTkFrame):
             self.total_enc_periode = 0
             self.total_dec_periode = 0
 
-            for r in all_ops:
+            for i, r in enumerate(all_ops):
                 dt, ref, obs, mt, typ, mod, usr = r
                 enc = float(mt) if typ == 1 else 0
                 dec = float(mt) if typ == 2 else 0
                 self.total_enc_periode += enc
                 self.total_dec_periode += dec
-        
+
                 # Gérer datetime et date
                 if isinstance(dt, datetime):
                     date_str = dt.strftime("%d/%m/%Y %H:%M:%S")
                 else:  # C'est un objet date
                     date_str = dt.strftime("%d/%m/%Y 00:00:00")
-                
+
                 vals = (date_str, str(ref), str(obs), 
                     self.format_montant(enc) if enc else "", 
                     self.format_montant(dec) if dec else "", 
                     mod, usr)
-                self.tree.insert("", "end", values=vals)
+
+                # Alternance des lignes pour lisibilité
+                tag = 'even' if (i % 2) else 'odd'
+                try:
+                    self.tree.insert("", "end", values=vals, tags=(tag,))
+                except TypeError:
+                    # Certains environnements/test runners peuvent rejeter tags ; utiliser insertion simple
+                    self.tree.insert("", "end", values=vals)
+
                 self.donnees_pour_pdf.append(list(vals))
 
             self.label_total_enc.configure(text=f"Total Encaissement: {self.format_montant(self.total_enc_periode)} Ar")

@@ -1457,6 +1457,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         ctk.CTkLabel(search_frame, text="🔍 Rechercher:").pack(side="left", padx=5)
         entry_search = ctk.CTkEntry(search_frame, placeholder_text="Code ou désignation...", width=300)
         entry_search.pack(side="left", padx=5, fill="x", expand=True)
+        fenetre_recherche.after(100, entry_search.focus_set)  # Focus automatique sur la barre de recherche (après affichage)
 
         # Treeview
         tree_frame = ctk.CTkFrame(main_frame)
@@ -1501,49 +1502,60 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                 cursor = conn.cursor()
                 filtre_like = f"%{filtre}%"
             
-                # ✅ SQL CORRIGÉ : même logique réservoir que page_stock.py
-                # Les articles liés (même idarticle, unités différentes) sont reliés
-                # via qtunite. Le stock affiché pour chaque ligne est :
-                #   solde_base (réservoir commun) / qtunite de cette ligne.
+                # ✅ SQL - même logique que page_stock.py pour calcul cohérent du stock
                 query = """
                 WITH mouvements_bruts AS (
+                    -- Réceptions
                     SELECT lf.idarticle, COALESCE(u.qtunite, 1) as qtunite_source, lf.qtlivrefrs as quantite, 'reception' as type_mouvement
                     FROM tb_livraisonfrs lf INNER JOIN tb_unite u ON lf.idarticle = u.idarticle AND lf.idunite = u.idunite WHERE lf.deleted = 0
                     UNION ALL
+                    -- Ventes validées
                     SELECT vd.idarticle, COALESCE(u.qtunite, 1), vd.qtvente, 'vente'
-                    FROM tb_ventedetail vd INNER JOIN tb_vente v ON vd.idvente = v.id AND v.deleted = 0 AND v.statut = 'VALIDEE' INNER JOIN tb_unite u ON vd.idarticle = u.idarticle AND vd.idunite = u.idunite WHERE vd.deleted = 0
+                    FROM tb_ventedetail vd INNER JOIN tb_vente v ON vd.idvente = v.id AND v.deleted = 0 AND v.statut = 'VALIDEE' 
+                    INNER JOIN tb_unite u ON vd.idarticle = u.idarticle AND vd.idunite = u.idunite WHERE vd.deleted = 0
                     UNION ALL
+                    -- Transferts entrants
                     SELECT t.idarticle, COALESCE(u.qtunite, 1), t.qttransfert, 'transfert_in'
                     FROM tb_transfertdetail t INNER JOIN tb_unite u ON t.idarticle = u.idarticle AND t.idunite = u.idunite WHERE t.deleted = 0
                     UNION ALL
+                    -- Transferts sortants
                     SELECT t.idarticle, COALESCE(u.qtunite, 1), t.qttransfert, 'transfert_out'
                     FROM tb_transfertdetail t INNER JOIN tb_unite u ON t.idarticle = u.idarticle AND t.idunite = u.idunite WHERE t.deleted = 0
                     UNION ALL
+                    -- Sorties
+                    SELECT sd.idarticle, COALESCE(u.qtunite, 1), sd.qtsortie, 'sortie'
+                    FROM tb_sortiedetail sd INNER JOIN tb_unite u ON sd.idarticle = u.idarticle AND sd.idunite = u.idunite WHERE sd.deleted = 0
+                    UNION ALL
+                    -- Inventaires (une seule fois par article = unité de base)
                     SELECT u.idarticle, COALESCE(u.qtunite, 1), i.qtinventaire, 'inventaire'
                     FROM tb_inventaire i INNER JOIN tb_unite u ON i.codearticle = u.codearticle
                     WHERE u.idunite IN (SELECT DISTINCT ON (idarticle) idunite FROM tb_unite WHERE deleted = 0 ORDER BY idarticle, qtunite ASC)
+                    UNION ALL
+                    -- Avoirs (augmentent le stock = retour marchandises)
+                    SELECT ad.idarticle, COALESCE(u.qtunite, 1), ad.qtavoir, 'avoir'
+                    FROM tb_avoir a INNER JOIN tb_avoirdetail ad ON a.id = ad.idavoir
+                    INNER JOIN tb_unite u ON ad.idarticle = u.idarticle AND ad.idunite = u.idunite
+                    WHERE a.deleted = 0 AND ad.deleted = 0
                 ),
                 solde_base AS (
-                    SELECT idarticle, SUM(CASE WHEN type_mouvement IN ('reception','transfert_in','inventaire') THEN quantite * qtunite_source 
-                            ELSE -quantite * qtunite_source END) as solde
+                    SELECT idarticle, 
+                        SUM(CASE WHEN type_mouvement IN ('reception','transfert_in','inventaire','avoir') 
+                                 THEN quantite * qtunite_source 
+                                 ELSE -quantite * qtunite_source END) as solde
                     FROM mouvements_bruts GROUP BY idarticle
                 ),
                 coeff_unite AS (
-                    SELECT idarticle, idunite, designationunite,
+                    SELECT idarticle, idunite, designationunite, qtunite, niveau,
                         exp(sum(ln(NULLIF(CASE WHEN qtunite > 0 THEN qtunite ELSE 1 END, 0))) 
                         OVER (PARTITION BY idarticle ORDER BY niveau ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)) as coeff
                     FROM tb_unite WHERE deleted = 0
-                ),
-                prix_recent AS (
-                    SELECT DISTINCT ON (idarticle, idunite) idarticle, idunite, prix
-                    FROM tb_prix ORDER BY idarticle, idunite, dateregistre DESC, id DESC
                 )
                 SELECT u.idarticle, u.idunite, u.codearticle, a.designation, cu.designationunite,
-                    COALESCE(pr.prix, 0) as prix, COALESCE(sb.solde, 0) / NULLIF(COALESCE(cu.coeff, 1), 0) as stock_total
+                    COALESCE(0, 0) as prix, 
+                    ROUND(COALESCE(sb.solde, 0) / NULLIF(COALESCE(cu.coeff, 1), 0)) as stock_total
                 FROM tb_article a
                 INNER JOIN tb_unite u ON a.idarticle = u.idarticle
                 LEFT JOIN coeff_unite cu ON cu.idarticle = u.idarticle AND cu.idunite = u.idunite
-                LEFT JOIN prix_recent pr ON pr.idarticle = u.idarticle AND pr.idunite = u.idunite
                 LEFT JOIN solde_base sb ON sb.idarticle = u.idarticle
                 WHERE a.deleted = 0 AND (u.codearticle ILIKE %s OR a.designation ILIKE %s)
                 ORDER BY a.designation ASC, u.codearticle ASC
@@ -2422,14 +2434,9 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                 except Exception as e:
                     messagebox.showerror("Erreur Impression", f"La vente est enregistrée mais l'impression a échoué : {e}")
 
-                # Mettre à jour l'interface
+                # Mettre à jour l'interface - Désactiver le bouton jusqu'à 'Nouvelle Facture'
                 self.mode_modification = True
-                self.btn_enregistrer.configure(
-                    text="📄 Modifier les Factures", 
-                    fg_color="#ff9800", 
-                    hover_color="#f57c00",
-                    state="normal"
-                )
+                self.btn_enregistrer.configure(state="disabled")
                 # self.btn_imprimer.configure(state="normal")
                 self.btn_charger_proforma.configure(state="disabled")
 

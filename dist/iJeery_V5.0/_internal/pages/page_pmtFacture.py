@@ -123,6 +123,164 @@ class PagePmtFacture(ctk.CTkToplevel):
             return list(self.liste_modes.keys())
         except: return ["Espèces"]
         finally: conn.close()
+
+    def calculer_stock_article_reel(self, idarticle, idunite_cible, idmag):
+        """
+        ✅ CALCUL CONSOLIDÉ DU STOCK RÉEL :
+        Relie tous les mouvements de toutes les unités (PIECE, CARTON, etc.)
+        d'un même idarticle via le coefficient 'qtunite' de tb_unite.
+        
+        Prend en compte :
+        - Réceptions (tb_livraisonfrs) → +stock
+        - Ventes (tb_ventedetail) → -stock
+        - Sorties (tb_sortiedetail) → -stock
+        - Transferts IN et OUT (tb_transfertdetail) → +/- stock
+        - Inventaires (tb_inventaire) → +stock
+        - Avoirs (tb_avoir/tb_avoirdetail.qtavoir) → +stock (annulation de vente)
+        """
+        conn = self.connect_db()
+        if not conn: return 0.0
+        
+        try:
+            cursor = conn.cursor()
+            
+            print(f"\n{'='*80}")
+            print(f"🔬 DEBUG CALCUL STOCK ARTICLE #{idarticle} - MAGASIN {idmag}")
+            print(f"{'='*80}")
+            
+            # 1. Récupérer TOUTES les unités liées à cet idarticle
+            cursor.execute("""
+                SELECT idunite, codearticle, COALESCE(qtunite, 1) 
+                FROM tb_unite 
+                WHERE idarticle = %s
+            """, (idarticle,))
+            unites_liees = cursor.fetchall()
+            
+            print(f"\n📌 Unités trouvées pour idarticle={idarticle}:")
+            for idu, code, qt_u in unites_liees:
+                print(f"   - idunite={idu}, codearticle='{code}', qtunite={qt_u}")
+            
+            # 2. Identifier le qtunite de l'unité qu'on veut afficher
+            qtunite_affichage = 1
+            codearticle_affichage = ""
+            for idu, code, qt_u in unites_liees:
+                if idu == idunite_cible:
+                    qtunite_affichage = qt_u if qt_u > 0 else 1
+                    codearticle_affichage = code
+                    break
+            
+            print(f"\n🎯 Unité d'affichage:")
+            print(f"   idunite_cible={idunite_cible}, qtunite_affichage={qtunite_affichage}, code='{codearticle_affichage}'")
+
+            total_stock_global_base = 0
+
+            # 3. Sommer les mouvements de chaque variante
+            for det_idx, (idu_boucle, code_boucle, qtunite_boucle) in enumerate(unites_liees, 1):
+                print(f"\n{'─'*80}")
+                print(f"📦 Unité #{det_idx}: idunite={idu_boucle}, code='{code_boucle}', qtunite={qtunite_boucle}")
+                print(f"{'─'*80}")
+                
+                # Réceptions
+                cursor.execute(
+                    "SELECT COALESCE(SUM(qtlivrefrs), 0) FROM tb_livraisonfrs WHERE idarticle = %s AND idunite = %s AND deleted = 0 AND idmag = %s",
+                    (idarticle, idu_boucle, idmag)
+                )
+                receptions = cursor.fetchone()[0] or 0
+                print(f"  📥 Réceptions (tb_livraisonfrs): {receptions}")
+        
+                # Ventes (UNIQUEMENT VALIDÉES - cohérent avec page_stock.py)
+                cursor.execute(
+                    """SELECT COALESCE(SUM(vd.qtvente), 0) 
+                       FROM tb_ventedetail vd 
+                       INNER JOIN tb_vente v ON vd.idvente = v.id 
+                       WHERE vd.idarticle = %s AND vd.idunite = %s AND vd.deleted = 0 
+                       AND v.deleted = 0 AND v.statut = 'VALIDEE' AND v.idmag = %s""",
+                    (idarticle, idu_boucle, idmag)
+                )
+                ventes = cursor.fetchone()[0] or 0
+                print(f"  📤 Ventes (tb_ventedetail - VALIDÉE uniquement): {ventes}")
+        
+                # Sorties
+                cursor.execute(
+                    "SELECT COALESCE(SUM(qtsortie), 0) FROM tb_sortiedetail WHERE idarticle = %s AND idunite = %s AND idmag = %s",
+                    (idarticle, idu_boucle, idmag)
+                )
+                sorties = cursor.fetchone()[0] or 0
+                print(f"  📤 Sorties (tb_sortiedetail): {sorties}")
+        
+                # Transferts IN
+                cursor.execute(
+                    "SELECT COALESCE(SUM(qttransfert), 0) FROM tb_transfertdetail WHERE idarticle = %s AND idunite = %s AND deleted = 0 AND idmagentree = %s",
+                    (idarticle, idu_boucle, idmag)
+                )
+                t_in = cursor.fetchone()[0] or 0
+                print(f"  ➡️ Transferts IN (idmagentree): {t_in}")
+                
+                # Transferts OUT
+                cursor.execute(
+                    "SELECT COALESCE(SUM(qttransfert), 0) FROM tb_transfertdetail WHERE idarticle = %s AND idunite = %s AND deleted = 0 AND idmagsortie = %s",
+                    (idarticle, idu_boucle, idmag)
+                )
+                t_out = cursor.fetchone()[0] or 0
+                print(f"  ⬅️ Transferts OUT (idmagsortie): {t_out}")
+        
+                # Inventaires
+                cursor.execute(
+                    "SELECT COALESCE(SUM(qtinventaire), 0) FROM tb_inventaire WHERE codearticle = %s AND idmag = %s",
+                    (code_boucle, idmag)
+                )
+                inv = cursor.fetchone()[0] or 0
+                print(f"  📋 Inventaires (tb_inventaire): {inv}")
+
+                # Avoirs (annulation de vente = +stock)
+                cursor.execute(
+                    """
+                    SELECT COALESCE(SUM(ad.qtavoir), 0) 
+                    FROM tb_avoirdetail ad
+                    INNER JOIN tb_avoir a ON ad.idavoir = a.id
+                    WHERE ad.idarticle = %s AND ad.idunite = %s 
+                    AND a.deleted = 0 AND ad.deleted = 0 AND ad.idmag = %s
+                    """,
+                    (idarticle, idu_boucle, idmag)
+                )
+                avoirs = cursor.fetchone()[0] or 0
+                print(f"  🔄 Avoirs/Retours (tb_avoirdetail): {avoirs}")
+
+                # Calcul du solde pour cette unité
+                solde_unite = (receptions + t_in + inv + avoirs) - (ventes + sorties + t_out)
+                print(f"\n  🧮 Formule: ({receptions} + {t_in} + {inv} + {avoirs}) - ({ventes} + {sorties} + {t_out})")
+                print(f"  = ({receptions + t_in + inv + avoirs}) - ({ventes + sorties + t_out})")
+                print(f"  = {solde_unite}")
+                
+                contribution = solde_unite * qtunite_boucle
+                print(f"  × Poids (qtunite={qtunite_boucle}) = {contribution}")
+                
+                total_stock_global_base += contribution
+
+            # 4. Conversion finale pour l'affichage
+            print(f"\n{'='*80}")
+            print(f"🔢 RÉSUMÉ CALCUL FINAL")
+            print(f"{'='*80}")
+            print(f"  Total stock global (base): {total_stock_global_base}")
+            print(f"  qtunite_affichage: {qtunite_affichage}")
+            print(f"  Calcul: {total_stock_global_base} / {qtunite_affichage}")
+            
+            stock_final = total_stock_global_base / qtunite_affichage
+            stock_affiche = max(0.0, stock_final)
+            
+            print(f"\n✅ STOCK FINAL AFFICHÉ: {stock_affiche}")
+            print(f"{'='*80}\n")
+            
+            return stock_affiche
+        
+        except Exception as e:
+            print(f"❌ Erreur calcul stock consolidé : {e}")
+            import traceback
+            traceback.print_exc()
+            return 0.0
+        finally:
+            cursor.close()
+            conn.close()
         
     def _verifier_mode_credit(self, choix):
         """Active ou désactive le calendrier selon le mode choisi"""
@@ -288,14 +446,28 @@ class PagePmtFacture(ctk.CTkToplevel):
         try:
             cursor = conn.cursor()
 
+            # ============================================================
+            # ÉTAPE 1 : RÉCUPÉRER LA FACTURE DE VENTE
+            # ============================================================
+            print(f"\n{'='*70}")
+            print(f"🔍 ÉTAPE 1 : RÉCUPÉRATION FACTURE DE VENTE")
+            print(f"{'='*70}")
+            print(f"📌 Facture: {self.refvente}")
+            print(f"💰 Client: {self.client}")
+            print(f"💵 Montant à encaisser: {montant_saisi} Ar")
+            print(f"🏪 Mode de paiement: {nom_mode_pmt}")
+
             # 1. Infos Société
             cursor.execute("SELECT nomsociete, adressesociete, contactsociete, villesociete FROM tb_infosociete LIMIT 1")
             info_soc = cursor.fetchone()
             
             # 2. Récupérer l'idclient depuis tb_vente
-            cursor.execute("SELECT idclient FROM tb_vente WHERE refvente = %s", (self.refvente,))
+            cursor.execute("SELECT idclient, idmag FROM tb_vente WHERE refvente = %s", (self.refvente,))
             res_vente = cursor.fetchone()
             idclient = res_vente[0] if res_vente else None
+            idmag_facture = res_vente[1] if res_vente else None
+            print(f"✓ ID Client: {idclient}")
+            print(f"✓ Magasin: {idmag_facture}")
             
             # 3. Infos Client
             cursor.execute("SELECT nomcli FROM tb_client WHERE nomcli = %s", (self.client,))
@@ -306,6 +478,13 @@ class PagePmtFacture(ctk.CTkToplevel):
             cursor.execute("SELECT username FROM tb_users WHERE iduser = %s", (self.iduser,))
             res_user = cursor.fetchone()
             username = res_user[0] if res_user else "Inconnu"
+
+            # ============================================================
+            # ÉTAPE 2 : RÉCUPÉRER LES DÉTAILS DE VENTE (ARTICLES)
+            # ============================================================
+            print(f"\n{'='*70}")
+            print(f"📦 ÉTAPE 2 : RÉCUPÉRATION DES ARTICLES VENDUS")
+            print(f"{'='*70}")
 
             # 5. Requête avec JOINS et CALCUL du montant (qtvente * prixunit)
             # On récupère aussi idarticle, idunite et idmag pour mise à jour stock
@@ -328,6 +507,18 @@ class PagePmtFacture(ctk.CTkToplevel):
             """
             cursor.execute(query_articles, (self.refvente,))
             articles = cursor.fetchall()
+            
+            print(f"✓ Nombre d'articles trouvés: {len(articles)}")
+            for idx, art in enumerate(articles, 1):
+                idarticle, idunite, idmag, codearticle, designation, unite, qtvente, prixunit, montant = art
+                print(f"\n  Article #{idx}:")
+                print(f"    - ID Article: {idarticle}")
+                print(f"    - Code Article: '{codearticle}'")
+                print(f"    - Désignation: {designation}")
+                print(f"    - Unité: {unite}")
+                print(f"    - Quantité vendue: {qtvente}")
+                print(f"    - Prix unitaire: {prixunit}")
+                print(f"    - Magasin: {idmag}")
 
             # 6. Enregistrement du paiement avec dateecheance ET idclient
             cursor.execute("SELECT COALESCE(MAX(id),0)+1 FROM tb_pmtfacture")
@@ -355,9 +546,117 @@ class PagePmtFacture(ctk.CTkToplevel):
             )
             cursor.execute(query_pmt, params_pmt)
 
+            # ============================================================
+            # ÉTAPE 3 : MISE À JOUR FACTURE ET GESTION DU STOCK
+            # ============================================================
+            print(f"\n{'='*70}")
+            print(f"💳 ÉTAPE 3 : ENREGISTREMENT PAIEMENT ET MISE À JOUR STOCK")
+            print(f"{'='*70}")
+            print(f"Paiement référencé: {refpmt}")
+
             # --- MISE A JOUR ATOMIQUE : payment + statut + stock + log ---
             try:
                 # 1) Mettre à jour tb_pmtfacture (déjà inséré), puis tb_vente.statut = 'VALIDEE'
+                query_update_vente = """
+                    UPDATE tb_vente 
+                    SET idmode = %s, statut = 'VALIDEE'
+                    WHERE refvente = %s
+                """
+                cursor.execute(query_update_vente, (id_mode_selectionne, self.refvente))
+                print(f"✓ Facture marquée comme VALIDÉE")
+
+                # ============================================================
+                # ÉTAPE 4 : MISE À JOUR STOCK POUR CHAQUE ARTICLE
+                # ============================================================
+                print(f"\n{'='*70}")
+                print(f"📦 ÉTAPE 4 : MISE À JOUR DU STOCK")
+                print(f"{'='*70}")
+
+                # 2) Mettre à jour le stock et journaliser
+                for det_idx, det in enumerate(articles, 1):
+                    idarticle = det[0]
+                    idunite = det[1]
+                    idmag = det[2]
+                    codearticle = det[3] or ''
+                    designation = det[4]
+                    qtvente = float(det[6] or 0)
+
+                    print(f"\n  🔄 Article #{det_idx}: {designation}")
+                    print(f"     ID: {idarticle}, Code: '{codearticle}', Magasin: {idmag}, Qté vendue: {qtvente}")
+
+                    # 🎯 UTILISER LE CALCUL CONSOLIDÉ DU STOCK RÉEL
+                    stock_reel = self.calculer_stock_article_reel(idarticle, idunite, idmag)
+                    ancien_stock = stock_reel
+                    print(f"     ✓ Stock RÉEL (consolidé): {ancien_stock}")
+                    
+                    nouveau_stock = ancien_stock - qtvente
+                    print(f"     📊 Calcul: {ancien_stock} - {qtvente} = {nouveau_stock}")
+
+                    # Vérification disponibilité (empêche validation si stock insuffisant)
+                    if ancien_stock < qtvente:
+                        print(f"     ❌ ERREUR: Stock insuffisant!")
+                        conn.rollback()
+                        messagebox.showerror("Stock insuffisant", f"Stock insuffisant pour l'article {codearticle or idarticle} (mag {idmag}). Ancien: {ancien_stock}, demandé: {qtvente}")
+                        return
+
+                    # Mise à jour du stock dans tb_stock (synchronisation du cache)
+                    if codearticle:
+                        cursor.execute("UPDATE tb_stock SET qtstock = %s WHERE codearticle = %s AND idmag = %s", (nouveau_stock, codearticle, idmag))
+                        cursor.execute("SELECT COUNT(*) FROM tb_stock WHERE codearticle = %s AND idmag = %s", (codearticle, idmag))
+                        if cursor.fetchone()[0] == 0:
+                            cursor.execute("INSERT INTO tb_stock (codearticle, idmag, qtstock, qtalert, deleted) VALUES (%s, %s, %s, 0, 0)", (codearticle, idmag, nouveau_stock))
+                        print(f"     ✓ SYNC tb_stock avec codearticle='{codearticle}': qtstock={nouveau_stock}")
+                    else:
+                        cursor.execute("UPDATE tb_stock SET qtstock = %s WHERE idarticle = %s AND idmag = %s", (nouveau_stock, idarticle, idmag))
+                        cursor.execute("SELECT COUNT(*) FROM tb_stock WHERE idarticle = %s AND idmag = %s", (idarticle, idmag))
+                        if cursor.fetchone()[0] == 0:
+                            cursor.execute("INSERT INTO tb_stock (idarticle, idmag, qtstock, qtalert, deleted) VALUES (%s, %s, %s, 0, 0)", (idarticle, idmag, nouveau_stock))
+                        print(f"     ✓ SYNC tb_stock avec idarticle={idarticle}: qtstock={nouveau_stock}")
+
+                    # Insérer le log de stock
+                    try:
+                        cursor.execute("SELECT setval(pg_get_serial_sequence('tb_log_stock', 'id'), COALESCE((SELECT MAX(id) FROM tb_log_stock), 0) + 1, false);")
+                    except Exception:
+                        pass
+
+                    cursor.execute(
+                        """
+                        INSERT INTO tb_log_stock (codearticle, idmag, ancien_stock, nouveau_stock, iduser, type_action, date_action) 
+                        VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                        """,
+                        (codearticle if codearticle else None, idmag, ancien_stock, nouveau_stock, self.iduser, f"VENTE {self.refvente}")
+                    )
+                    print(f"     📋 Log enregistré: ancien={ancien_stock}, nouveau={nouveau_stock}")
+
+                # Commit global (paiement + update vente + stock + log)
+                conn.commit()
+                print(f"\n{'='*70}")
+                print(f"✅ VALIDATION RÉUSSIE - Tous les changements sont validés")
+                print(f"{'='*70}\n")
+
+            except Exception as e:
+                conn.rollback()
+                print(f"\n❌ ERREUR lors de la mise à jour du stock: {e}\n")
+                messagebox.showerror("Erreur Stock", f"Erreur lors de la mise à jour du stock : {e}")
+                return
+
+            # 7. Préparer et générer le PDF (articles normalisés)
+            articles_pdf = []
+            for det in articles:
+                try:
+                    code = det[3]
+                    designation = det[4]
+                    unite = det[5]
+                    qte = det[6]
+                    prix_unit = det[7]
+                    montant = det[8]
+                    articles_pdf.append((code, designation, unite, qte, prix_unit, montant))
+                except Exception:
+                    continue
+
+            # Charger le paramètre d'impression depuis settings.json
+            settings = self.charger_settings()
+            imprimer_ticket = settings.get('ClientAPayer_ImpressionTicket', 1)
                 query_update_vente = """
                     UPDATE tb_vente 
                     SET idmode = %s, statut = 'VALIDEE'
@@ -373,10 +672,12 @@ class PagePmtFacture(ctk.CTkToplevel):
                     codearticle = det[3] or ''
                     qtvente = float(det[6] or 0)
 
-                    code_key = str(codearticle) if codearticle else str(idarticle)
-
-                    # Verrouiller la ligne de stock correspondante pour éviter race conditions
-                    cursor.execute("SELECT qtstock FROM tb_stock WHERE codearticle = %s AND idmag = %s FOR UPDATE", (code_key, idmag))
+                    # Chercher le stock : d'abord par codearticle (exact match), sinon par idarticle
+                    if codearticle:
+                        cursor.execute("SELECT qtstock FROM tb_stock WHERE codearticle = %s AND idmag = %s FOR UPDATE", (codearticle, idmag))
+                    else:
+                        cursor.execute("SELECT qtstock FROM tb_stock WHERE idarticle = %s AND idmag = %s FOR UPDATE", (idarticle, idmag))
+                    
                     res_stock = cursor.fetchone()
                     ancien_stock = float(res_stock[0]) if res_stock and res_stock[0] is not None else 0.0
 
@@ -388,10 +689,21 @@ class PagePmtFacture(ctk.CTkToplevel):
                         messagebox.showerror("Stock insuffisant", f"Stock insuffisant pour l'article {codearticle or idarticle} (mag {idmag}). Ancien: {ancien_stock}, demandé: {qtvente}")
                         return
 
-                    if res_stock:
-                        cursor.execute("UPDATE tb_stock SET qtstock = %s WHERE codearticle = %s AND idmag = %s", (nouveau_stock, code_key, idmag))
+                    # Mise à jour du stock avec la clé appropriée
+                    if codearticle:
+                        stock_key = codearticle
+                        key_name = 'codearticle'
                     else:
-                        cursor.execute("INSERT INTO tb_stock (codearticle, idmag, qtstock, qtalert, deleted) VALUES (%s, %s, %s, 0, 0)", (code_key, idmag, nouveau_stock))
+                        stock_key = idarticle
+                        key_name = 'idarticle'
+
+                    if res_stock:
+                        if key_name == 'codearticle':
+                            cursor.execute("UPDATE tb_stock SET qtstock = %s WHERE codearticle = %s AND idmag = %s", (nouveau_stock, stock_key, idmag))
+                        else:
+                            cursor.execute("UPDATE tb_stock SET qtstock = %s WHERE idarticle = %s AND idmag = %s", (nouveau_stock, stock_key, idmag))
+                    else:
+                        cursor.execute("INSERT INTO tb_stock (codearticle, idarticle, idmag, qtstock, qtalert, deleted) VALUES (%s, %s, %s, %s, 0, 0)", (codearticle if codearticle else None, idarticle, idmag, nouveau_stock))
 
                     # Insérer le log de stock
                     try:
@@ -404,7 +716,7 @@ class PagePmtFacture(ctk.CTkToplevel):
                         INSERT INTO tb_log_stock (codearticle, idmag, ancien_stock, nouveau_stock, iduser, type_action, date_action) 
                         VALUES (%s, %s, %s, %s, %s, %s, NOW())
                         """,
-                        (code_key, idmag, ancien_stock, nouveau_stock, self.iduser, f"VENTE {self.refvente}")
+                        (codearticle if codearticle else None, idmag, ancien_stock, nouveau_stock, self.iduser, f"VENTE {self.refvente}")
                     )
 
                 # Commit global (paiement + update vente + stock + log)

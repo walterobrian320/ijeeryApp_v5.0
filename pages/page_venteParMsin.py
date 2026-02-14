@@ -1549,19 +1549,15 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                         exp(sum(ln(NULLIF(CASE WHEN qtunite > 0 THEN qtunite ELSE 1 END, 0))) 
                         OVER (PARTITION BY idarticle ORDER BY niveau ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)) as coeff
                     FROM tb_unite WHERE deleted = 0
-                ),
-                prix_recent AS (
-                    SELECT DISTINCT ON (idarticle, idunite) idarticle, idunite, prix
-                    FROM tb_prix ORDER BY idarticle, idunite, dateregistre DESC, id DESC
                 )
                 SELECT u.idarticle, u.idunite, u.codearticle, a.designation, cu.designationunite,
-                    COALESCE(pr.prix, 0) as prix, 
+                    COALESCE(p.prix, 0) as prix, 
                     ROUND(COALESCE(sb.solde, 0) / NULLIF(COALESCE(cu.coeff, 1), 0)) as stock_total
                 FROM tb_article a
                 INNER JOIN tb_unite u ON a.idarticle = u.idarticle
                 LEFT JOIN coeff_unite cu ON cu.idarticle = u.idarticle AND cu.idunite = u.idunite
-                LEFT JOIN prix_recent pr ON pr.idarticle = u.idarticle AND pr.idunite = u.idunite
                 LEFT JOIN solde_base sb ON sb.idarticle = u.idarticle
+                LEFT JOIN tb_prix p ON a.idarticle = p.idarticle AND u.idunite = p.idunite
                 WHERE a.deleted = 0 AND (u.codearticle ILIKE %s OR a.designation ILIKE %s)
                 ORDER BY a.designation ASC, u.codearticle ASC
                 """

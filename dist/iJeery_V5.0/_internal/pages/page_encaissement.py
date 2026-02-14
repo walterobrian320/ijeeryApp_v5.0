@@ -401,7 +401,7 @@ class PageEncaissement(ctk.CTkToplevel):
                 
             # INSERTION AVEC L'ID UTILISATEUR
             query = """
-            INSERT INTO tb_decaissement (refpmt, idcc, mtpaye, observation, idtypeoperation, datepmt, iduser)
+            INSERT INTO tb_encaissement (refpmt, idcc, mtpaye, observation, idtypeoperation, datepmt, iduser)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             """
             print(f"DEBUG: Insertion avec iduser = {iduser}")
@@ -420,7 +420,7 @@ class PageEncaissement(ctk.CTkToplevel):
             
             if fichier_pdf:
                 messagebox.showinfo("Succès", 
-                    f"Décaissement enregistré avec succès!\n\n"
+                    f"Encaissement enregistré avec succès!\n\n"
                     f"Référence: {reference}\n"
                     f"Ticket généré: {os.path.basename(fichier_pdf)}\n"
                     f"Emplacement: {os.path.dirname(fichier_pdf)}")

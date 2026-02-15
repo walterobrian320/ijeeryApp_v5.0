@@ -19,7 +19,7 @@ from pages.page_SuiviCommande import PageSuiviCommande
 class PageChangementArticle(ctk.CTkFrame):
     """
     CLASSE POUR GESTION DES CHANGEMENTS D'ARTICLES.
-    Permet les sorties et entrées d'articles avec interface verticale.
+    Permet les sorties et entrées d'articles avec interface à deux colonnes.
     """
     def __init__(self, master, iduser):
         super().__init__(master, fg_color="white")
@@ -121,7 +121,7 @@ class PageChangementArticle(ctk.CTkFrame):
             return
         try:
             cursor = conn.cursor()
-            query = "SELECT idmag, designationmag FROM tb_magasin WHERE deleted = 0 ORDER BY designationmag"
+            query = "SELECT idmagasin, nommagasin FROM tb_magasin WHERE deleted = 0 ORDER BY nommagasin"
             cursor.execute(query)
             self.magasins = {row[1]: row[0] for row in cursor.fetchall()}
             
@@ -141,95 +141,96 @@ class PageChangementArticle(ctk.CTkFrame):
                 conn.close()
 
     def setup_ui(self):
-        """Construit l'interface utilisateur - DISPOSITION VERTICALE"""
+        """Construit l'interface utilisateur"""
         # ============ EN-TÊTE ============
         frame_entete = ctk.CTkFrame(self)
         frame_entete.pack(fill="x", padx=20, pady=10)
 
+        # Titre
         titre = ctk.CTkLabel(frame_entete, text="Changement d'Articles", 
                             font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"))
-        titre.pack(pady=10, anchor="w")
+        titre.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky="w")
 
-        # Référence, Date, Charger sur une ligne
-        frame_ref_date = ctk.CTkFrame(frame_entete)
-        frame_ref_date.pack(fill="x", pady=(0, 10))
+        # Référence
+        ctk.CTkLabel(frame_entete, text="Référence:").grid(row=1, column=0, padx=10, pady=5, sticky="w")
+        self.entry_ref = ctk.CTkEntry(frame_entete, width=200, state="readonly")
+        self.entry_ref.grid(row=1, column=1, padx=10, pady=5)
 
-        ctk.CTkLabel(frame_ref_date, text="Référence:").pack(side="left", padx=10)
-        self.entry_ref = ctk.CTkEntry(frame_ref_date, width=150, state="readonly")
-        self.entry_ref.pack(side="left", padx=5)
-
-        ctk.CTkLabel(frame_ref_date, text="Date:").pack(side="left", padx=10)
-        self.entry_date = ctk.CTkEntry(frame_ref_date, width=120, state="readonly")
+        # Date
+        ctk.CTkLabel(frame_entete, text="Date:").grid(row=1, column=2, padx=10, pady=5, sticky="w")
+        self.entry_date = ctk.CTkEntry(frame_entete, width=150, state="readonly")
         self.entry_date.configure(state="normal")
         self.entry_date.insert(0, datetime.now().strftime("%d/%m/%Y"))
         self.entry_date.configure(state="readonly")
-        self.entry_date.pack(side="left", padx=5)
+        self.entry_date.grid(row=1, column=3, padx=10, pady=5)
 
-        btn_charger = ctk.CTkButton(frame_ref_date, text="📂 Charger", 
+        # Bouton Charger Changement
+        btn_charger = ctk.CTkButton(frame_entete, text="📂 Charger", 
                                     command=self.ouvrir_recherche_changement, width=140,
                                     fg_color="#1976d2", hover_color="#1565c0")
-        btn_charger.pack(side="left", padx=10)
+        btn_charger.grid(row=1, column=4, padx=10, pady=5)
 
-        # ============ CORPS PRINCIPAL (VERTICAL) ============
+        # ============ CORPS PRINCIPAL (DEUX COLONNES) ============
         frame_contenu = ctk.CTkFrame(self, fg_color="transparent")
         frame_contenu.pack(fill="both", expand=True, padx=20, pady=10)
+        frame_contenu.grid_columnconfigure((0, 1), weight=1)
 
-        # ========== PANEL HAUT : SORTIES ==========
+        # ========== COLONNE GAUCHE : SORTIES ==========
         frame_sortie = ctk.CTkFrame(frame_contenu, fg_color="#FFF5F5", border_width=2, border_color="#D32F2F")
-        frame_sortie.pack(fill="both", expand=True, padx=0, pady=(0, 10))
+        frame_sortie.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        frame_sortie.grid_rowconfigure(3, weight=1)
 
-        # En-tête Sortie (Titre + Magasin)
-        frame_header_sortie = ctk.CTkFrame(frame_sortie, fg_color="transparent")
-        frame_header_sortie.pack(fill="x", padx=10, pady=10)
-        
-        titre_sortie = ctk.CTkLabel(frame_header_sortie, text="📤 ARTICLES À CHANGER (Sortie)", 
+        # Titre Sortie
+        titre_sortie = ctk.CTkLabel(frame_sortie, text="📤 ARTICLES À CHANGER (Sortie)", 
                                     font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
                                     text_color="#D32F2F")
-        titre_sortie.pack(side="left", anchor="w")
+        titre_sortie.grid(row=0, column=0, columnspan=3, padx=10, pady=10, sticky="w")
+
+        # Sélecteur Magasin Sortie
+        ctk.CTkLabel(frame_sortie, text="Magasin Sortie:").grid(row=1, column=0, padx=10, pady=5, sticky="w")
+        self.combo_mag_sortie = ctk.CTkComboBox(frame_sortie, width=250, state="readonly")
+        self.combo_mag_sortie.grid(row=1, column=1, columnspan=2, padx=10, pady=5, sticky="w")
+
+        # Recherche Article Sortie
+        ctk.CTkLabel(frame_sortie, text="Article:").grid(row=2, column=0, padx=10, pady=5, sticky="w")
+        self.entry_article_sortie = ctk.CTkEntry(frame_sortie, width=200, state="readonly")
+        self.entry_article_sortie.grid(row=2, column=1, padx=10, pady=5)
         
-        # Magasin Sortie (à droite)
-        frame_mag_sortie = ctk.CTkFrame(frame_header_sortie, fg_color="transparent")
-        frame_mag_sortie.pack(side="right", fill="x", expand=False)
-        ctk.CTkLabel(frame_mag_sortie, text="Magasin:").pack(side="left", padx=5)
-        self.combo_mag_sortie = ctk.CTkComboBox(frame_mag_sortie, width=200, state="readonly")
-        self.combo_mag_sortie.pack(side="left", padx=5)
-
-        # Ligne de saisie complète (Article, Charger, Quantité, Unité, Boutons)
-        frame_input_sortie = ctk.CTkFrame(frame_sortie, fg_color="transparent")
-        frame_input_sortie.pack(fill="x", padx=10, pady=5)
-
-        self.entry_article_sortie = ctk.CTkEntry(frame_input_sortie, placeholder_text="Rechercher article...", width=200)
-        self.entry_article_sortie.pack(side="left", padx=3)
-
-        btn_recherche_sortie = ctk.CTkButton(frame_input_sortie, text="🔍 Charger", 
-                                            command=self.ouvrir_recherche_article_sortie, width=100,
+        btn_recherche_sortie = ctk.CTkButton(frame_sortie, text="🔍 Charger", 
+                                            command=self.ouvrir_recherche_article_sortie, width=120,
                                             fg_color="#1976d2", hover_color="#1565c0")
-        btn_recherche_sortie.pack(side="left", padx=3)
+        btn_recherche_sortie.grid(row=2, column=2, padx=5, pady=5)
 
-        self.entry_qty_sortie = ctk.CTkEntry(frame_input_sortie, placeholder_text="Qty", width=60)
-        self.entry_qty_sortie.pack(side="left", padx=3)
+        # Quantité et Unité Sortie
+        ctk.CTkLabel(frame_sortie, text="Quantité:").grid(row=3, column=0, padx=10, pady=5, sticky="w")
+        self.entry_qty_sortie = ctk.CTkEntry(frame_sortie, width=100)
+        self.entry_qty_sortie.grid(row=3, column=1, padx=10, pady=5, sticky="w")
 
-        self.entry_unite_sortie = ctk.CTkEntry(frame_input_sortie, placeholder_text="Unité", width=60, state="readonly")
-        self.entry_unite_sortie.pack(side="left", padx=3)
+        ctk.CTkLabel(frame_sortie, text="Unité:").grid(row=4, column=0, padx=10, pady=5, sticky="w")
+        self.entry_unite_sortie = ctk.CTkEntry(frame_sortie, width=250, state="readonly")
+        self.entry_unite_sortie.grid(row=4, column=1, columnspan=2, padx=10, pady=5)
 
-        self.btn_ajouter_sortie = ctk.CTkButton(frame_input_sortie, text="➕ Ajouter", 
-                                               command=self.ajouter_article_sortie, width=90,
-                                               fg_color="#2e7d32", hover_color="#1b5e20")
-        self.btn_ajouter_sortie.pack(side="left", padx=3)
+        # Boutons Sortie
+        frame_btn_sortie = ctk.CTkFrame(frame_sortie, fg_color="transparent")
+        frame_btn_sortie.grid(row=5, column=0, columnspan=3, padx=10, pady=10, sticky="w")
 
-        self.btn_annuler_sortie = ctk.CTkButton(frame_input_sortie, text="❌ Annuler", 
-                                               command=self.annuler_sortie, width=80,
+        self.btn_ajouter_sortie = ctk.CTkButton(frame_btn_sortie, text="➕ Ajouter", 
+                                               command=self.ajouter_article_sortie, width=110)
+        self.btn_ajouter_sortie.pack(side="left", padx=5)
+
+        self.btn_annuler_sortie = ctk.CTkButton(frame_btn_sortie, text="❌ Annuler", 
+                                               command=self.annuler_sortie, width=100,
                                                fg_color="#757575", hover_color="#616161")
-        self.btn_annuler_sortie.pack(side="left", padx=3)
+        self.btn_annuler_sortie.pack(side="left", padx=5)
 
         # Tableau Sortie
         frame_tree_sortie = ctk.CTkFrame(frame_sortie)
-        frame_tree_sortie.pack(fill="both", expand=True, padx=10, pady=10)
+        frame_tree_sortie.grid(row=6, column=0, columnspan=3, sticky="nsew", padx=10, pady=10)
         frame_tree_sortie.grid_rowconfigure(0, weight=1)
         frame_tree_sortie.grid_columnconfigure(0, weight=1)
 
         colonnes_sortie = ("Code", "Désignation", "Unité", "Magasin", "Quantité")
-        self.tree_sortie = ttk.Treeview(frame_tree_sortie, columns=colonnes_sortie, show="headings", height=2)
+        self.tree_sortie = ttk.Treeview(frame_tree_sortie, columns=colonnes_sortie, show="headings", height=6)
 
         for col in colonnes_sortie:
             self.tree_sortie.heading(col, text=col)
@@ -247,65 +248,66 @@ class PageChangementArticle(ctk.CTkFrame):
         # Bouton Supprimer Sortie
         btn_supprimer_sortie = ctk.CTkButton(frame_sortie, text="🗑️ Supprimer Ligne", 
                                             command=self.supprimer_article_sortie,
-                                            fg_color="#d32f2f", hover_color="#b71c1c", width=150)
-        btn_supprimer_sortie.pack(padx=10, pady=5, fill="x")
+                                            fg_color="#d32f2f", hover_color="#b71c1c", width=200)
+        btn_supprimer_sortie.grid(row=7, column=0, columnspan=3, padx=10, pady=10, sticky="ew")
 
-        # ========== PANEL BAS : ENTRÉES ==========
+        # ========== COLONNE DROITE : ENTRÉES ==========
         frame_entree = ctk.CTkFrame(frame_contenu, fg_color="#F5F5FF", border_width=2, border_color="#1976D2")
-        frame_entree.pack(fill="both", expand=True, padx=0, pady=0)
+        frame_entree.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+        frame_entree.grid_rowconfigure(3, weight=1)
 
-        # En-tête Entrée (Titre + Magasin)
-        frame_header_entree = ctk.CTkFrame(frame_entree, fg_color="transparent")
-        frame_header_entree.pack(fill="x", padx=10, pady=10)
-        
-        titre_entree = ctk.CTkLabel(frame_header_entree, text="📥 ARTICLES REÇUS (Entrée)", 
+        # Titre Entrée
+        titre_entree = ctk.CTkLabel(frame_entree, text="📥 ARTICLES REÇUS (Entrée)", 
                                    font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
                                    text_color="#1976D2")
-        titre_entree.pack(side="left", anchor="w")
+        titre_entree.grid(row=0, column=0, columnspan=3, padx=10, pady=10, sticky="w")
+
+        # Sélecteur Magasin Entrée
+        ctk.CTkLabel(frame_entree, text="Magasin Entrée:").grid(row=1, column=0, padx=10, pady=5, sticky="w")
+        self.combo_mag_entree = ctk.CTkComboBox(frame_entree, width=250, state="readonly")
+        self.combo_mag_entree.grid(row=1, column=1, columnspan=2, padx=10, pady=5, sticky="w")
+
+        # Recherche Article Entrée
+        ctk.CTkLabel(frame_entree, text="Article:").grid(row=2, column=0, padx=10, pady=5, sticky="w")
+        self.entry_article_entree = ctk.CTkEntry(frame_entree, width=200, state="readonly")
+        self.entry_article_entree.grid(row=2, column=1, padx=10, pady=5)
         
-        # Magasin Entrée (à droite)
-        frame_mag_entree = ctk.CTkFrame(frame_header_entree, fg_color="transparent")
-        frame_mag_entree.pack(side="right", fill="x", expand=False)
-        ctk.CTkLabel(frame_mag_entree, text="Magasin:").pack(side="left", padx=5)
-        self.combo_mag_entree = ctk.CTkComboBox(frame_mag_entree, width=200, state="readonly")
-        self.combo_mag_entree.pack(side="left", padx=5)
-
-        # Ligne de saisie (Article, Charger, Quantité, Unité, Ajouter, Annuler)
-        frame_input_entree = ctk.CTkFrame(frame_entree, fg_color="transparent")
-        frame_input_entree.pack(fill="x", padx=10, pady=5)
-
-        self.entry_article_entree = ctk.CTkEntry(frame_input_entree, placeholder_text="Rechercher article...", width=200)
-        self.entry_article_entree.pack(side="left", padx=3)
-
-        btn_recherche_entree = ctk.CTkButton(frame_input_entree, text="🔍 Charger", 
-                                            command=self.ouvrir_recherche_article_entree, width=100,
+        btn_recherche_entree = ctk.CTkButton(frame_entree, text="🔍 Charger", 
+                                            command=self.ouvrir_recherche_article_entree, width=120,
                                             fg_color="#1976d2", hover_color="#1565c0")
-        btn_recherche_entree.pack(side="left", padx=3)
+        btn_recherche_entree.grid(row=2, column=2, padx=5, pady=5)
 
-        self.entry_qty_entree = ctk.CTkEntry(frame_input_entree, placeholder_text="Quantité", width=60)
-        self.entry_qty_entree.pack(side="left", padx=3)
+        # Quantité et Unité Entrée
+        ctk.CTkLabel(frame_entree, text="Quantité:").grid(row=3, column=0, padx=10, pady=5, sticky="w")
+        self.entry_qty_entree = ctk.CTkEntry(frame_entree, width=100)
+        self.entry_qty_entree.grid(row=3, column=1, padx=10, pady=5, sticky="w")
 
-        self.entry_unite_entree = ctk.CTkEntry(frame_input_entree, placeholder_text="Unité", width=60, state="readonly")
-        self.entry_unite_entree.pack(side="left", padx=3)
+        ctk.CTkLabel(frame_entree, text="Unité:").grid(row=4, column=0, padx=10, pady=5, sticky="w")
+        self.entry_unite_entree = ctk.CTkEntry(frame_entree, width=250, state="readonly")
+        self.entry_unite_entree.grid(row=4, column=1, columnspan=2, padx=10, pady=5)
 
-        self.btn_ajouter_entree = ctk.CTkButton(frame_input_entree, text="➕ Ajouter", 
-                                               command=self.ajouter_article_entree, width=90,
+        # Boutons Entrée
+        frame_btn_entree = ctk.CTkFrame(frame_entree, fg_color="transparent")
+        frame_btn_entree.grid(row=5, column=0, columnspan=3, padx=10, pady=10, sticky="w")
+
+        self.btn_ajouter_entree = ctk.CTkButton(frame_btn_entree, text="➕ Ajouter", 
+                                               command=self.ajouter_article_entree, width=110,
                                                fg_color="#2e7d32", hover_color="#1b5e20")
-        self.btn_ajouter_entree.pack(side="left", padx=3)
+        self.btn_ajouter_entree.pack(side="left", padx=5)
 
-        self.btn_annuler_entree = ctk.CTkButton(frame_input_entree, text="❌ Annuler", 
-                                               command=self.annuler_entree, width=80,
+        self.btn_annuler_entree = ctk.CTkButton(frame_btn_entree, text="❌ Annuler", 
+                                               command=self.annuler_entree, width=100,
                                                fg_color="#757575", hover_color="#616161")
-        self.btn_annuler_entree.pack(side="left", padx=3)
+        self.btn_annuler_entree.pack(side="left", padx=5)
 
         # Tableau Entrée
         frame_tree_entree = ctk.CTkFrame(frame_entree)
-        frame_tree_entree.pack(fill="both", expand=True, padx=10, pady=10)
+        frame_tree_entree.grid(row=6, column=0, columnspan=3, sticky="nsew", padx=10, pady=10)
         frame_tree_entree.grid_rowconfigure(0, weight=1)
         frame_tree_entree.grid_columnconfigure(0, weight=1)
 
         colonnes_entree = ("Code", "Désignation", "Unité", "Magasin", "Quantité")
-        self.tree_entree = ttk.Treeview(frame_tree_entree, columns=colonnes_entree, show="headings", height=2)
+        self.tree_entree = ttk.Treeview(frame_tree_entree, columns=colonnes_entree, show="headings", height=6)
 
         for col in colonnes_entree:
             self.tree_entree.heading(col, text=col)
@@ -323,8 +325,8 @@ class PageChangementArticle(ctk.CTkFrame):
         # Bouton Supprimer Entrée
         btn_supprimer_entree = ctk.CTkButton(frame_entree, text="🗑️ Supprimer Ligne", 
                                             command=self.supprimer_article_entree,
-                                            fg_color="#d32f2f", hover_color="#b71c1c", width=150)
-        btn_supprimer_entree.pack(padx=10, pady=5, fill="x")
+                                            fg_color="#d32f2f", hover_color="#b71c1c", width=200)
+        btn_supprimer_entree.grid(row=7, column=0, columnspan=3, padx=10, pady=10, sticky="ew")
 
         # ============ FOOTER (COMMUN) ============
         frame_footer = ctk.CTkFrame(self, fg_color="transparent")
@@ -455,8 +457,10 @@ class PageChangementArticle(ctk.CTkFrame):
                     'unite': unite,
                     'code': codeart
                 }
+                self.entry_article_sortie.configure(state="normal")
                 self.entry_article_sortie.delete(0, "end")
                 self.entry_article_sortie.insert(0, designation)
+                self.entry_article_sortie.configure(state="readonly")
                 
                 self.entry_unite_sortie.configure(state="normal")
                 self.entry_unite_sortie.delete(0, "end")
@@ -470,8 +474,10 @@ class PageChangementArticle(ctk.CTkFrame):
                     'unite': unite,
                     'code': codeart
                 }
+                self.entry_article_entree.configure(state="normal")
                 self.entry_article_entree.delete(0, "end")
                 self.entry_article_entree.insert(0, designation)
+                self.entry_article_entree.configure(state="readonly")
                 
                 self.entry_unite_entree.configure(state="normal")
                 self.entry_unite_entree.delete(0, "end")
@@ -568,7 +574,9 @@ class PageChangementArticle(ctk.CTkFrame):
     def annuler_sortie(self):
         """Réinitialise les champs de sortie"""
         self.article_sortie_selectionne = None
+        self.entry_article_sortie.configure(state="normal")
         self.entry_article_sortie.delete(0, "end")
+        self.entry_article_sortie.configure(state="readonly")
         self.entry_unite_sortie.configure(state="normal")
         self.entry_unite_sortie.delete(0, "end")
         self.entry_unite_sortie.configure(state="readonly")
@@ -577,7 +585,9 @@ class PageChangementArticle(ctk.CTkFrame):
     def annuler_entree(self):
         """Réinitialise les champs d'entrée"""
         self.article_entree_selectionne = None
+        self.entry_article_entree.configure(state="normal")
         self.entry_article_entree.delete(0, "end")
+        self.entry_article_entree.configure(state="readonly")
         self.entry_unite_entree.configure(state="normal")
         self.entry_unite_entree.delete(0, "end")
         self.entry_unite_entree.configure(state="readonly")

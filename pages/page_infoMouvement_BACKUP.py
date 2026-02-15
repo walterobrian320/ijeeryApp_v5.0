@@ -121,7 +121,7 @@ class PageChangementArticle(ctk.CTkFrame):
             return
         try:
             cursor = conn.cursor()
-            query = "SELECT idmag, designationmag FROM tb_magasin WHERE deleted = 0 ORDER BY designationmag"
+            query = "SELECT idmagasin, nommagasin FROM tb_magasin WHERE deleted = 0 ORDER BY nommagasin"
             cursor.execute(query)
             self.magasins = {row[1]: row[0] for row in cursor.fetchall()}
             
@@ -230,7 +230,7 @@ class PageChangementArticle(ctk.CTkFrame):
 
         colonnes_sortie = ("Code", "Désignation", "Unité", "Magasin", "Quantité")
         self.tree_sortie = ttk.Treeview(frame_tree_sortie, columns=colonnes_sortie, show="headings", height=2)
-
+        
         for col in colonnes_sortie:
             self.tree_sortie.heading(col, text=col)
             if col == "Désignation":

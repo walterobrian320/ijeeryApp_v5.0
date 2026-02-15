@@ -463,10 +463,10 @@ class PageChangementArticle(ctk.CTkFrame):
                 conn.close()
 
     def _ouvrir_recherche_article(self, type_mouvement):
-        """Fenêtre générique de recherche d'article"""
+        """Fenêtre générique de recherche d'article avec stocks consolidés (9 sources)"""
         fenetre = ctk.CTkToplevel(self)
         fenetre.title("Rechercher un article")
-        fenetre.geometry("1000x500")
+        fenetre.geometry("1100x500")
         fenetre.grab_set()
 
         main_frame = ctk.CTkFrame(fenetre)
@@ -484,77 +484,267 @@ class PageChangementArticle(ctk.CTkFrame):
         entry_search.pack(side="left", padx=5, fill="x", expand=True)
         
         def charger_articles(filtre=""):
+            """Charge articles avec la même requête consolidée que page_sortie.py"""
             for item in tree.get_children():
                 tree.delete(item)
+            
             conn = self.connect_db()
             if not conn:
                 return
             try:
-                cursor = conn.cursor()
+                cur = conn.cursor()
+                filtre_like = f"%{filtre}%"
+
+                # ✅ Requête IDENTIQUE à page_sortie.py : consolidée (9 sources + coefficient hiérarchique)
                 query = """
-                    SELECT T2."idarticle", T1."idunite", T1."codearticle", T2."designation", T1."designationunite"
-                    FROM tb_unite AS T1
-                    INNER JOIN tb_article AS T2 ON T1.idarticle = T2.idarticle
-                    WHERE T2."deleted" = 0
+                WITH mouvements_bruts AS (
+                    -- Réceptions
+                    SELECT
+                        lf.idarticle,
+                        lf.idmag,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        lf.qtlivrefrs as quantite,
+                        'reception' as type_mouvement
+                    FROM tb_livraisonfrs lf
+                    INNER JOIN tb_unite u ON lf.idarticle = u.idarticle AND lf.idunite = u.idunite
+                    WHERE lf.deleted = 0
+
+                    UNION ALL
+
+                    -- Ventes
+                    SELECT
+                        vd.idarticle,
+                        v.idmag,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        vd.qtvente as quantite,
+                        'vente' as type_mouvement
+                    FROM tb_ventedetail vd
+                    INNER JOIN tb_vente v ON vd.idvente = v.id AND v.deleted = 0 AND v.statut = 'VALIDEE'
+                    INNER JOIN tb_unite u ON vd.idarticle = u.idarticle AND vd.idunite = u.idunite
+                    WHERE vd.deleted = 0
+
+                    UNION ALL
+
+                    -- Transferts entrants
+                    SELECT
+                        t.idarticle,
+                        t.idmagentree as idmag,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        t.qttransfert as quantite,
+                        'transfert_in' as type_mouvement
+                    FROM tb_transfertdetail t
+                    INNER JOIN tb_unite u ON t.idarticle = u.idarticle AND t.idunite = u.idunite
+                    WHERE t.deleted = 0
+
+                    UNION ALL
+
+                    -- Transferts sortants
+                    SELECT
+                        t.idarticle,
+                        t.idmagsortie as idmag,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        t.qttransfert as quantite,
+                        'transfert_out' as type_mouvement
+                    FROM tb_transfertdetail t
+                    INNER JOIN tb_unite u ON t.idarticle = u.idarticle AND t.idunite = u.idunite
+                    WHERE t.deleted = 0
+
+                    UNION ALL
+
+                    -- Sorties
+                    SELECT
+                        sd.idarticle,
+                        sd.idmag,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        sd.qtsortie as quantite,
+                        'sortie' as type_mouvement
+                    FROM tb_sortiedetail sd
+                    INNER JOIN tb_unite u ON sd.idarticle = u.idarticle AND sd.idunite = u.idunite
+
+                    UNION ALL
+
+                    -- Inventaires
+                    SELECT
+                        u.idarticle,
+                        i.idmag,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        i.qtinventaire as quantite,
+                        'inventaire' as type_mouvement
+                    FROM tb_inventaire i
+                    INNER JOIN tb_unite u ON i.codearticle = u.codearticle
+                    WHERE u.idunite IN (
+                        SELECT DISTINCT ON (idarticle) idunite
+                        FROM tb_unite
+                        WHERE deleted = 0
+                        ORDER BY idarticle, qtunite ASC
+                    )
+
+                    UNION ALL
+
+                    -- Avoirs
+                    SELECT
+                        ad.idarticle,
+                        ad.idmag,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        ad.qtavoir as quantite,
+                        'avoir' as type_mouvement
+                    FROM tb_avoir a
+                    INNER JOIN tb_avoirdetail ad ON a.id = ad.idavoir
+                    INNER JOIN tb_unite u ON ad.idarticle = u.idarticle AND ad.idunite = u.idunite
+                    WHERE a.deleted = 0 AND ad.deleted = 0
+
+                    UNION ALL
+
+                    -- Consommation interne
+                    SELECT
+                        cd.idarticle,
+                        cd.idmag,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        cd.qtconsomme as quantite,
+                        'consommation_interne' as type_mouvement
+                    FROM tb_consommationinterne_details cd
+                    INNER JOIN tb_unite u ON cd.idarticle = u.idarticle AND cd.idunite = u.idunite
+
+                    UNION ALL
+
+                    -- Échanges entrée
+                    SELECT
+                        dce.idarticle,
+                        dce.idmagasin,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        dce.quantite_entree as quantite,
+                        'echange_entree' as type_mouvement
+                    FROM tb_detailchange_entree dce
+                    INNER JOIN tb_unite u ON dce.idarticle = u.idarticle AND dce.idunite = u.idunite
+
+                    UNION ALL
+
+                    -- Échanges sortie
+                    SELECT
+                        dcs.idarticle,
+                        dcs.idmagasin,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        dcs.quantite_sortie as quantite,
+                        'echange_sortie' as type_mouvement
+                    FROM tb_detailchange_sortie dcs
+                    INNER JOIN tb_unite u ON dcs.idarticle = u.idarticle AND dcs.idunite = u.idunite
+                ),
+
+                solde_base_par_mag AS (
+                    SELECT
+                        idarticle,
+                        idmag,
+                        SUM(
+                            CASE type_mouvement
+                                WHEN 'reception'             THEN  quantite * qtunite_source
+                                WHEN 'transfert_in'          THEN  quantite * qtunite_source
+                                WHEN 'inventaire'            THEN  quantite * qtunite_source
+                                WHEN 'avoir'                 THEN  quantite * qtunite_source
+                                WHEN 'echange_entree'        THEN  quantite * qtunite_source
+                                WHEN 'vente'                 THEN -quantite * qtunite_source
+                                WHEN 'sortie'                THEN -quantite * qtunite_source
+                                WHEN 'transfert_out'         THEN -quantite * qtunite_source
+                                WHEN 'consommation_interne'  THEN -quantite * qtunite_source
+                                WHEN 'echange_sortie'        THEN -quantite * qtunite_source
+                                ELSE 0
+                            END
+                        ) as solde_base
+                    FROM mouvements_bruts
+                    GROUP BY idarticle, idmag
+                ),
+
+                solde_total AS (
+                    SELECT
+                        idarticle,
+                        SUM(solde_base) as solde_total
+                    FROM solde_base_par_mag
+                    GROUP BY idarticle
+                ),
+
+                unite_hierarchie AS (
+                    SELECT idarticle, idunite, niveau, qtunite, designationunite
+                    FROM tb_unite
+                    WHERE deleted = 0
+                ),
+
+                unite_coeff AS (
+                    SELECT
+                        idarticle,
+                        idunite,
+                        niveau,
+                        qtunite,
+                        designationunite,
+                        exp(sum(ln(NULLIF(CASE WHEN qtunite > 0 THEN qtunite ELSE 1 END, 0)))
+                            OVER (PARTITION BY idarticle ORDER BY niveau ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+                        ) as coeff_hierarchique
+                    FROM unite_hierarchie
+                ),
+
+                -- ✅ Dernier prix uniquement (CTE pour éviter les doublons)
+                dernier_prix AS (
+                    SELECT
+                        idarticle,
+                        idunite,
+                        prix,
+                        ROW_NUMBER() OVER (PARTITION BY idarticle, idunite ORDER BY id DESC) AS rn
+                    FROM tb_prix
+                )
+
+                SELECT
+                    u.idarticle,
+                    u.idunite,
+                    u.codearticle,
+                    a.designation,
+                    uc.designationunite,
+                    GREATEST(COALESCE(st.solde_total, 0) / NULLIF(COALESCE(uc.coeff_hierarchique, 1), 0), 0) as stock_total,
+                    COALESCE(p.prix, 0) as prix_unitaire
+                FROM tb_article a
+                INNER JOIN tb_unite u ON a.idarticle = u.idarticle
+                LEFT JOIN unite_coeff uc ON uc.idarticle = u.idarticle AND uc.idunite = u.idunite
+                LEFT JOIN solde_total st ON st.idarticle = u.idarticle
+                LEFT JOIN dernier_prix p ON a.idarticle = p.idarticle AND u.idunite = p.idunite AND p.rn = 1
+                WHERE a.deleted = 0
+                  AND (u.codearticle ILIKE %s OR a.designation ILIKE %s)
+                ORDER BY u.codearticle, u.idunite
                 """
-                params = []
-                if filtre:
-                    query += """ AND (
-                        LOWER(T1."codearticle") LIKE LOWER(%s) OR 
-                        LOWER(T2."designation") LIKE LOWER(%s)
-                    )"""
-                    params = [f"%{filtre}%", f"%{filtre}%"]
-                query += " ORDER BY T2.\"designation\" ASC, T1.\"codearticle\" ASC"
-                cursor.execute(query, params)
-                resultats = cursor.fetchall()
 
-                # Récupérer le magasin sélectionné
-                idmag = self.magasins.get(self.combo_mag_sortie.get() if type_mouvement == "sortie" else self.combo_mag_entree.get(), None)
-                
-                # Charger articles SANS stocks d'abord (rapide)
+                cur.execute(query, (filtre_like, filtre_like))
+                resultats = cur.fetchall()
+
+                # Charger tous les articles avec stocks en une seule requête
                 for row in resultats:
-                    tree.insert('', 'end', values=(row[0], row[1], row[2], row[3], row[4], "..."))
+                    idarticle, idunite, code, designation, unite, stock, prix = row
+                    tree.insert('', 'end', values=(
+                        idarticle,
+                        idunite,
+                        code,
+                        designation,
+                        unite,
+                        f"{stock:.2f}" if stock else "0.00"
+                    ))
 
-                label_count.configure(text=f"Articles: {len(resultats)} (chargement stocks...)")
-                
-                # Charger les stocks en arrière-plan
-                def charger_stocks_bg():
-                    try:
-                        for idx, row in enumerate(resultats):
-                            idarticle = row[0]
-                            idunite = row[1]
-                            stock = self.calculer_stock_article(idarticle, idunite, idmag) if idmag else 0
-                            
-                            # Récupérer l'item du tree et le mettre à jour
-                            items = tree.get_children()
-                            if idx < len(items):
-                                tree.item(items[idx], values=(row[0], row[1], row[2], row[3], row[4], f"{stock:.2f}"))
-                    except Exception as e:
-                        print(f"Erreur chargement stocks: {e}")
-                
-                # Lancer le chargement des stocks dans un thread
-                import threading
-                thread_stocks = threading.Thread(target=charger_stocks_bg, daemon=True)
-                thread_stocks.start()
-                
                 label_count.configure(text=f"Articles: {len(resultats)}")
+                
             except Exception as e:
                 messagebox.showerror("Erreur", f"Erreur: {str(e)}")
+                print(f"Erreur requête: {e}")
             finally:
-                if 'cursor' in locals() and cursor:
-                    cursor.close()
+                if 'cur' in locals() and cur:
+                    cur.close()
                 if conn:
                     conn.close()
 
-        btn_rechercher = ctk.CTkButton(search_frame, text="🔎 Chercher", 
-                                      command=lambda: charger_articles(entry_search.get()),
-                                      width=100, fg_color="#1976d2", hover_color="#1565c0")
-        btn_rechercher.pack(side="left", padx=5)
+        # ✅ Recherche en temps réel (au lieu d'un bouton)
+        def rechercher(*args):
+            """Déclenche la recherche à chaque frappe"""
+            charger_articles(entry_search.get())
+
+        entry_search.bind('<KeyRelease>', rechercher)
 
         tree_frame = ctk.CTkFrame(main_frame)
         tree_frame.pack(fill="both", expand=True, pady=(0, 10))
 
-        colonnes = ("ID", "ID_Unite", "Code", "Désignation", "Unité", "Stock")
+        colonnes = ("ID", "ID_Unite", "Code", "Désignation", "Unité", "Stock Total")
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
 
         for col in colonnes:
@@ -562,10 +752,10 @@ class PageChangementArticle(ctk.CTkFrame):
         
         tree.column("ID", width=0, stretch=False)
         tree.column("ID_Unite", width=0, stretch=False)
-        tree.column("Code", width=120, anchor='w')
+        tree.column("Code", width=100, anchor='w')
         tree.column("Désignation", width=400, anchor='w')
         tree.column("Unité", width=100, anchor='w')
-        tree.column("Stock", width=100, anchor='center')
+        tree.column("Stock Total", width=100, anchor='center')
 
         scrollbar = ctk.CTkScrollbar(tree_frame, command=tree.yview)
         tree.configure(yscrollcommand=scrollbar.set)
@@ -587,7 +777,7 @@ class PageChangementArticle(ctk.CTkFrame):
             codeart = values[2]
             designation = values[3]
             unite = values[4]
-            stock = float(values[5])  # Stock actuel du magasin
+            stock = float(values[5]) if values[5] != "0.00" else 0.0
 
             if type_mouvement == "sortie":
                 self.article_sortie_selectionne = {
@@ -783,7 +973,12 @@ class PageChangementArticle(ctk.CTkFrame):
                 return
             
             # 2. Insérer dans tb_changement
-            note = self.entry_note.get() or None  # Peut être None si vide
+            note = self.entry_note.get().strip() if self.entry_note.get() else ""
+            
+            # ✅ Si description vide, ajouter texte par défaut
+            if not note:
+                note = "Aucune description"
+            
             cursor.execute("""
                 INSERT INTO tb_changement (refchg, datechg, iduser, note)
                 VALUES (%s, CURRENT_TIMESTAMP, %s, %s)

@@ -2,8 +2,20 @@ import customtkinter as ctk
 from tkinter import messagebox, ttk
 import psycopg2
 import json
+import os
+import sys
+import subprocess
 from datetime import datetime
 from resource_utils import get_config_path, safe_file_read
+
+# Imports pour génération PDF
+from reportlab.lib.pagesizes import A5, landscape
+from reportlab.lib import colors
+from reportlab.lib.units import cm, mm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageTemplate, Frame
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.pdfgen import canvas
 
 
 # Importation des pages existantes
@@ -229,7 +241,7 @@ class PageChangementArticle(ctk.CTkFrame):
         frame_tree_sortie.grid_columnconfigure(0, weight=1)
 
         colonnes_sortie = ("Code", "Désignation", "Unité", "Magasin", "Quantité")
-        self.tree_sortie = ttk.Treeview(frame_tree_sortie, columns=colonnes_sortie, show="headings", height=2)
+        self.tree_sortie = ttk.Treeview(frame_tree_sortie, columns=colonnes_sortie, show="headings", height=4)
 
         for col in colonnes_sortie:
             self.tree_sortie.heading(col, text=col)
@@ -305,7 +317,7 @@ class PageChangementArticle(ctk.CTkFrame):
         frame_tree_entree.grid_columnconfigure(0, weight=1)
 
         colonnes_entree = ("Code", "Désignation", "Unité", "Magasin", "Quantité")
-        self.tree_entree = ttk.Treeview(frame_tree_entree, columns=colonnes_entree, show="headings", height=2)
+        self.tree_entree = ttk.Treeview(frame_tree_entree, columns=colonnes_entree, show="headings", height=4)
 
         for col in colonnes_entree:
             self.tree_entree.heading(col, text=col)
@@ -325,6 +337,14 @@ class PageChangementArticle(ctk.CTkFrame):
                                             command=self.supprimer_article_entree,
                                             fg_color="#d32f2f", hover_color="#b71c1c", width=150)
         btn_supprimer_entree.pack(padx=10, pady=5, fill="x")
+
+        # ============ CHAMP NOTE ============
+        frame_note = ctk.CTkFrame(self, fg_color="transparent")
+        frame_note.pack(fill="x", padx=20, pady=(0, 10))
+        
+        ctk.CTkLabel(frame_note, text="📝 Note du changement:").pack(side="left", padx=5)
+        self.entry_note = ctk.CTkEntry(frame_note, placeholder_text="Entrez une note (optionnel)...")
+        self.entry_note.pack(side="left", fill="x", expand=True, padx=5)
 
         # ============ FOOTER (COMMUN) ============
         frame_footer = ctk.CTkFrame(self, fg_color="transparent")
@@ -763,11 +783,12 @@ class PageChangementArticle(ctk.CTkFrame):
                 return
             
             # 2. Insérer dans tb_changement
+            note = self.entry_note.get() or None  # Peut être None si vide
             cursor.execute("""
                 INSERT INTO tb_changement (refchg, datechg, iduser, note)
-                VALUES (%s, CURRENT_TIMESTAMP, %s, NULL)
+                VALUES (%s, CURRENT_TIMESTAMP, %s, %s)
                 RETURNING idchg
-            """, (refchg, self.iduser))
+            """, (refchg, self.iduser, note))
             
             idchg = cursor.fetchone()[0]
             
@@ -807,11 +828,15 @@ class PageChangementArticle(ctk.CTkFrame):
                               f"Sorties: {len(self.articles_sortie)} articles\n"
                               f"Entrées: {len(self.articles_entree)} articles")
             
+            # Générer et imprimer le PDF automatiquement
+            self.generer_pdf_changement(refchg, idchg)
+            
             # Réinitialiser après enregistrement
             self.articles_sortie = []
             self.articles_entree = []
             self.tree_sortie.delete(*self.tree_sortie.get_children())
             self.tree_entree.delete(*self.tree_entree.get_children())
+            self.entry_note.delete(0, "end")  # Vider le champ note
             
             # Générer nouvelle référence
             self.generer_reference()
@@ -830,13 +855,212 @@ class PageChangementArticle(ctk.CTkFrame):
                 conn.close()
 
 
+    def generer_pdf_changement(self, refchg, idchg):
+        """Génère un PDF A5 paysage avec les articles du changement - Modèle adapté à la facture"""
+        try:
+            # Créer un dossier "Etats Impression" dans le projet principal
+            project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            etats_dir = os.path.join(project_dir, "Etats Impression")
+            if not os.path.exists(etats_dir):
+                os.makedirs(etats_dir)
+            
+            pdf_path = os.path.join(etats_dir, f"Changement_{refchg}.pdf")
+            
+            # ✅ CRÉATION DU PDF AVEC CANVAS - Format A5 Paysage (210x148 mm)
+            from reportlab.pdfgen import canvas as pdfcanvas
+            c = pdfcanvas.Canvas(pdf_path, pagesize=landscape(A5))
+            width, height = landscape(A5)
+            
+            styles = getSampleStyleSheet()
+            style_p = ParagraphStyle('style_p', fontSize=9, leading=11, parent=styles['Normal'])
+            
+            # ✅ 1. CADRE D'EN-TÊTE AVEC BORDURE
+            verset = "CHANGEMENT D'ARTICLES"
+            c.setLineWidth(1)
+            c.rect(10*mm, height - 13*mm, width - 20*mm, 7*mm)
+            c.setFont("Helvetica-Bold", 11)
+            c.drawCentredString(width/2, height - 10*mm, verset)
+            
+            # ✅ 2. EN-TÊTE DEUX COLONNES
+            # Récupérer infos utilisateur
+            date_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+            user_conn = self.connect_db()
+            username = "Utilisateur"
+            if user_conn:
+                try:
+                    cursor = user_conn.cursor()
+                    cursor.execute("SELECT username FROM tb_users WHERE iduser = %s", (self.iduser,))
+                    result = cursor.fetchone()
+                    username = result[0] if result else "Utilisateur"
+                    cursor.close()
+                except:
+                    pass
+                finally:
+                    user_conn.close()
+            
+            # Récupérer infos société
+            gauche_text = f"<b>IJEERY V5.0</b><br/>Gestion d'Inventaire<br/>TEL: +261 contact<br/>Changement d'Articles"
+            droite_text = f"<b>Changement N°: {refchg}</b><br/>{date_str}<br/><b>Opérateur: {username}</b>"
+            
+            gauche = Paragraph(gauche_text, style_p)
+            droite = Paragraph(droite_text, style_p)
+            
+            header_table = Table([[gauche, droite]], colWidths=[65*mm, 65*mm])
+            header_table.setStyle(TableStyle([
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ]))
+            
+            header_table.wrapOn(c, width, height)
+            header_table.drawOn(c, 10*mm, height - 38*mm)
+            
+            # ✅ 3. TABLEAU DES SORTIES
+            table_sortie_top = height - 45*mm
+            
+            if self.articles_sortie:
+                c.setFont("Helvetica-Bold", 9)
+                c.drawString(10*mm, table_sortie_top + 2*mm, "📤 ARTICLES À CHANGER (Sortie):")
+                
+                # Données sorties
+                data_sortie = [['Code', 'Désignation', 'Magasin', 'Qté', 'Unité']]
+                for art in self.articles_sortie:
+                    data_sortie.append([
+                        str(art['code'])[:8],
+                        str(art['designation'])[:22],
+                        str(art['idmagasin'])[:8],
+                        f"{art['quantite']:.2f}",
+                        str(art['unite'])[:8]
+                    ])
+                
+                # Ajouter lignes vides
+                while len(data_sortie) < 8:
+                    data_sortie.append(['', '', '', '', ''])
+                
+                col_widths_sortie = [18*mm, 45*mm, 28*mm, 18*mm, 20*mm]
+                table_sortie = Table(data_sortie, colWidths=col_widths_sortie)
+                table_sortie.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#D32F2F')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 9),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#FFF5F5')]),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 2),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+                    ('TOPPADDING', (0, 0), (-1, -1), 1),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+                ]))
+                
+                table_sortie.wrapOn(c, width, height)
+                table_sortie.drawOn(c, 10*mm, table_sortie_top - 45*mm)
+            
+            # ✅ 4. TABLEAU DES ENTRÉES
+            table_entree_top = table_sortie_top - 50*mm if self.articles_sortie else table_sortie_top
+            
+            if self.articles_entree:
+                c.setFont("Helvetica-Bold", 9)
+                c.drawString(10*mm, table_entree_top + 2*mm, "📥 ARTICLES REÇUS (Entrée):")
+                
+                # Données entrées
+                data_entree = [['Code', 'Désignation', 'Magasin', 'Qté', 'Unité']]
+                for art in self.articles_entree:
+                    data_entree.append([
+                        str(art['code'])[:8],
+                        str(art['designation'])[:22],
+                        str(art['idmagasin'])[:8],
+                        f"{art['quantite']:.2f}",
+                        str(art['unite'])[:8]
+                    ])
+                
+                # Ajouter lignes vides
+                while len(data_entree) < 8:
+                    data_entree.append(['', '', '', '', ''])
+                
+                col_widths_entree = [18*mm, 45*mm, 28*mm, 18*mm, 20*mm]
+                table_entree = Table(data_entree, colWidths=col_widths_entree)
+                table_entree.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1976D2')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 9),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F5FF')]),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 2),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+                    ('TOPPADDING', (0, 0), (-1, -1), 1),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+                ]))
+                
+                table_entree.wrapOn(c, width, height)
+                table_entree.drawOn(c, 10*mm, table_entree_top - 45*mm)
+            
+            # ✅ 5. NOTE (si présente)
+            note = self.entry_note.get()
+            sig_top = 25*mm
+            if note:
+                c.setFont("Helvetica-Bold", 8)
+                c.drawString(10*mm, sig_top + 5*mm, f"Note: {note[:80]}")
+                sig_top = 20*mm
+            
+            # ✅ 6. SIGNATURES
+            c.setFont("Helvetica", 8)
+            c.drawString(15*mm, sig_top, "Magasinier:")
+            c.drawString(15*mm, sig_top - 5*mm, "_________________")
+            
+            c.drawString(105*mm, sig_top, "Contrôleur:")
+            c.drawString(105*mm, sig_top - 5*mm, "_________________")
+            
+            # Finaliser le PDF
+            c.save()
+            
+            # Afficher un message de succès avec le chemin du fichier
+            messagebox.showinfo("PDF Généré", f"PDF enregistré avec succès :\n\n{pdf_path}")
+            
+            # Imprimer automatiquement (si possible)
+            try:
+                if sys.platform == 'win32':
+                    os.startfile(pdf_path, "print")
+                elif sys.platform == 'darwin':
+                    subprocess.Popen(['lp', pdf_path])
+                else:
+                    subprocess.Popen(['lp', pdf_path])
+            except Exception as print_error:
+                print(f"Impression non disponible: {print_error}")
+            
+            return pdf_path
+            
+        except Exception as e:
+            print(f"Erreur génération PDF: {e}")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Erreur PDF", f"Erreur lors de la génération du PDF: {str(e)}")
+            return None
+
     def imprimer_changement(self):
         """Imprime le changement"""
         if not self.articles_sortie and not self.articles_entree:
             messagebox.showwarning("Attention", "Aucun article à imprimer")
             return
 
-        messagebox.showinfo("Impression", "Impression à développer")
+        # Récupérer la référence
+        refchg = self.entry_ref.get()
+        if refchg:
+            self.generer_pdf_changement(refchg, None)
+        else:
+            messagebox.showwarning("Attention", "Référence requise pour imprimer")
+
 
 
 class PasswordDialog(ctk.CTkToplevel):

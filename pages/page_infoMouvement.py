@@ -1051,196 +1051,263 @@ class PageChangementArticle(ctk.CTkFrame):
 
 
     def generer_pdf_changement(self, refchg, idchg):
-        """Génère un PDF A5 paysage avec les articles du changement - Modèle adapté à la facture"""
+        """Génère un PDF Paysage pour le changement d'articles avec layout Canvas - Pattern Bon de Sortie"""
         try:
-            # Créer un dossier "Etats Impression" dans le projet principal
-            project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            etats_dir = os.path.join(project_dir, "Etats Impression")
-            if not os.path.exists(etats_dir):
-                os.makedirs(etats_dir)
+            from reportlab.lib.pagesizes import landscape, A5
+            from reportlab.pdfgen import canvas as canvas_pdfgen
+            from reportlab.platypus import Table, TableStyle, Paragraph
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import mm
+            from reportlab.lib import colors
             
-            pdf_path = os.path.join(etats_dir, f"Changement_{refchg}.pdf")
+            filename = f"Changement_{refchg}.pdf"
             
-            # ✅ CRÉATION DU PDF AVEC CANVAS - Format A5 Paysage (210x148 mm)
-            from reportlab.pdfgen import canvas as pdfcanvas
-            c = pdfcanvas.Canvas(pdf_path, pagesize=landscape(A5))
-            width, height = landscape(A5)
-            
-            styles = getSampleStyleSheet()
-            style_p = ParagraphStyle('style_p', fontSize=9, leading=11, parent=styles['Normal'])
-            
-            # ✅ 1. CADRE D'EN-TÊTE AVEC BORDURE
-            verset = "CHANGEMENT D'ARTICLES"
-            c.setLineWidth(1)
-            c.rect(10*mm, height - 13*mm, width - 20*mm, 7*mm)
-            c.setFont("Helvetica-Bold", 11)
-            c.drawCentredString(width/2, height - 10*mm, verset)
-            
-            # ✅ 2. EN-TÊTE DEUX COLONNES
-            # Récupérer infos utilisateur
-            date_str = datetime.now().strftime("%d/%m/%Y %H:%M")
-            user_conn = self.connect_db()
+            # Récupérer infos société et utilisateur
+            conn = self.connect_db()
+            societe_info = {
+                'nomsociete': 'IJEERY V5.0',
+                'adressesociete': 'N/A',
+                'villesociete': '',
+                'contactsociete': 'N/A',
+                'nifsociete': 'N/A',
+                'statsociete': 'N/A'
+            }
             username = "Utilisateur"
-            if user_conn:
+            
+            if conn:
                 try:
-                    cursor = user_conn.cursor()
-                    cursor.execute("SELECT username FROM tb_users WHERE iduser = %s", (self.iduser,))
-                    result = cursor.fetchone()
-                    username = result[0] if result else "Utilisateur"
-                    cursor.close()
+                    cur = conn.cursor()
+                    
+                    # Récupérer infos société
+                    cur.execute("""
+                        SELECT nomsociete, adressesociete, villesociete, contactsociete, nifsociete, statsociete 
+                        FROM tb_infosociete LIMIT 1
+                    """)
+                    soc_res = cur.fetchone()
+                    if soc_res:
+                        societe_info = {
+                            'nomsociete': soc_res[0] or 'IJEERY V5.0',
+                            'adressesociete': soc_res[1] or 'N/A',
+                            'villesociete': soc_res[2] or '',
+                            'contactsociete': soc_res[3] or 'N/A',
+                            'nifsociete': soc_res[4] or 'N/A',
+                            'statsociete': soc_res[5] or 'N/A'
+                        }
+                    
+                    # Récupérer info utilisateur
+                    cur.execute("SELECT username FROM tb_users WHERE iduser = %s", (self.iduser,))
+                    user_res = cur.fetchone()
+                    username = user_res[0] if user_res else "Utilisateur"
+                    
+                    cur.close()
                 except:
                     pass
                 finally:
-                    user_conn.close()
+                    conn.close()
             
-            # Récupérer infos société
-            gauche_text = f"<b>IJEERY V5.0</b><br/>Gestion d'Inventaire<br/>TEL: +261 contact<br/>Changement d'Articles"
-            droite_text = f"<b>Changement N°: {refchg}</b><br/>{date_str}<br/><b>Opérateur: {username}</b>"
+            # ✅ CRÉATION DU PDF AVEC CANVAS EN PAYSAGE
+            c = canvas_pdfgen.Canvas(filename, pagesize=landscape(A5))
+            width, height = landscape(A5)
+            
+            # ✅ 1. EN-TÊTE SOCIÉTÉ (DEUX COLONNES)
+            styles = getSampleStyleSheet()
+            style_p = ParagraphStyle('style_p', fontSize=9, leading=11, parent=styles['Normal'])
+            
+            # Formater texte en-tête gauche (Société)
+            villes_line = f"{societe_info['villesociete']}<br/>" if societe_info['villesociete'] else ""
+            gauche_text = (
+                f"<b><font size='11'>{societe_info['nomsociete']}</font></b><br/>"
+                f"{societe_info['adressesociete']}<br/>{villes_line}"
+                f"TEL: {societe_info['contactsociete']}<br/>"
+                f"NIF: {societe_info['nifsociete']} <br/>"
+                f"STAT: {societe_info['statsociete']}"
+            )
+            
+            # Formater texte en-tête droit (Changement)
+            droite_text = (
+                f"<b>Changement N°: {refchg}</b><br/>"
+                f"{datetime.now().strftime('%d/%m/%Y %H:%M')}<br/>"
+                f"<b>CHANGEMENT D'ARTICLES</b><br/><br/>"
+                f"<i>Opérateur: {username}</i><br/>"
+            )
             
             gauche = Paragraph(gauche_text, style_p)
             droite = Paragraph(droite_text, style_p)
             
-            header_table = Table([[gauche, droite]], colWidths=[65*mm, 65*mm])
+            header_table = Table([[gauche, droite]], colWidths=[100*mm, 48*mm])
             header_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 5),
-                ('TOPPADDING', (0, 0), (-1, -1), 3),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
             ]))
             
             header_table.wrapOn(c, width, height)
-            header_table.drawOn(c, 10*mm, height - 38*mm)
+            header_table.drawOn(c, 10*mm, height - 35*mm)
             
-            # ✅ 3. TABLEAU DES SORTIES
-            table_sortie_top = height - 45*mm
+            # Footer fixe (10*mm du bas)
+            footer_y = 10*mm
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(15*mm, footer_y + 2*mm, "Le Magasinier")
+            c.drawCentredString(width/2, footer_y + 2*mm, "Le Contrôleur")
+            c.drawString(width - 35*mm, footer_y + 2*mm, "Le Responsable")
             
-            if self.articles_sortie:
-                c.setFont("Helvetica-Bold", 9)
-                c.drawString(10*mm, table_sortie_top + 2*mm, "📤 ARTICLES À CHANGER (Sortie):")
+            # Zone disponible pour le contenu (entre en-tête et footer)
+            content_top = height - 40*mm
+            content_bottom = footer_y + 8*mm
+            content_height = content_top - content_bottom
+            
+            # Hauteur des lignes
+            row_height = 6*mm
+            header_height = 7*mm
+            spacing_between_sections = 6*mm
+            title_height = 5*mm
+            
+            col_widths = [18*mm, 60*mm, 15*mm, 20*mm, 25*mm]
+            
+            # ✅ 2. TABLEAU ARTICLES EN SORTIE (taille réelle au contenu)
+            table_data_sortie = [['Code', 'Désignation', 'Unité', 'Quantité', 'Magasin']]
+            
+            for art in self.articles_sortie:
+                code_art = str(art.get('code', ''))
+                desig_art = str(art.get('designation', ''))
+                unite_art = str(art.get('unite', ''))
+                qty_art = art.get('quantite', 0)
+                mag_art = str(art.get('idmagasin', ''))
                 
-                # Données sorties
-                data_sortie = [['Code', 'Désignation', 'Magasin', 'Qté', 'Unité']]
-                for art in self.articles_sortie:
-                    data_sortie.append([
-                        str(art['code'])[:8],
-                        str(art['designation'])[:22],
-                        str(art['idmagasin'])[:8],
-                        f"{art['quantite']:.2f}",
-                        str(art['unite'])[:8]
-                    ])
+                table_data_sortie.append([
+                    code_art,
+                    desig_art,
+                    unite_art,
+                    f"{float(qty_art):.2f}" if qty_art else "0.00",
+                    mag_art
+                ])
+            
+            # Calculer hauteur réelle (exclure l'en-tête)
+            num_articles_sortie = len(table_data_sortie) - 1  # Exclure en-tête
+            actual_height_sortie = (num_articles_sortie * row_height) + header_height
+            
+            # Titre SORTIE
+            current_y = content_top
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(10*mm, current_y, "📤 ARTICLES EN SORTIE")
+            current_y -= title_height
+            
+            # Cadre tableau sortie
+            c.setLineWidth(1)
+            table_bottom_sortie = current_y - actual_height_sortie
+            c.rect(10*mm, table_bottom_sortie, width - 20*mm, actual_height_sortie)
+            
+            # Lignes verticales
+            x_pos = 10*mm
+            for w in col_widths[:-1]:
+                x_pos += w
+                c.line(x_pos, current_y, x_pos, table_bottom_sortie)
+            
+            # Créer tableau sortie avec hauteurs différentes
+            row_heights_sortie = [header_height] + [row_height] * num_articles_sortie
+            
+            articles_table_sortie = Table(table_data_sortie, colWidths=col_widths, rowHeights=row_heights_sortie)
+            articles_table_sortie.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#D32F2F')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+                ('TOPPADDING', (0, 0), (-1, -1), 2),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ]))
+            
+            articles_table_sortie.wrapOn(c, width, height)
+            articles_table_sortie.drawOn(c, 10*mm, table_bottom_sortie)
+            
+            # ✅ 3. TABLEAU ARTICLES EN ENTREE (taille réelle au contenu)
+            table_data_entree = [['Code', 'Désignation', 'Unité', 'Quantité', 'Magasin']]
+            
+            for art in self.articles_entree:
+                code_art = str(art.get('code', ''))
+                desig_art = str(art.get('designation', ''))
+                unite_art = str(art.get('unite', ''))
+                qty_art = art.get('quantite', 0)
+                mag_art = str(art.get('idmagasin', ''))
                 
-                # Ajouter lignes vides
-                while len(data_sortie) < 8:
-                    data_sortie.append(['', '', '', '', ''])
-                
-                col_widths_sortie = [18*mm, 45*mm, 28*mm, 18*mm, 20*mm]
-                table_sortie = Table(data_sortie, colWidths=col_widths_sortie)
-                table_sortie.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#D32F2F')),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, 0), 9),
-                    ('FONTSIZE', (0, 1), (-1, -1), 8),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#FFF5F5')]),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('LEFTPADDING', (0, 0), (-1, -1), 2),
-                    ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-                    ('TOPPADDING', (0, 0), (-1, -1), 1),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
-                ]))
-                
-                table_sortie.wrapOn(c, width, height)
-                table_sortie.drawOn(c, 10*mm, table_sortie_top - 45*mm)
+                table_data_entree.append([
+                    code_art,
+                    desig_art,
+                    unite_art,
+                    f"{float(qty_art):.2f}" if qty_art else "0.00",
+                    mag_art
+                ])
             
-            # ✅ 4. TABLEAU DES ENTRÉES
-            table_entree_top = table_sortie_top - 50*mm if self.articles_sortie else table_sortie_top
+            # Calculer hauteur réelle (exclure l'en-tête)
+            num_articles_entree = len(table_data_entree) - 1  # Exclure en-tête
+            actual_height_entree = (num_articles_entree * row_height) + header_height
             
-            if self.articles_entree:
-                c.setFont("Helvetica-Bold", 9)
-                c.drawString(10*mm, table_entree_top + 2*mm, "📥 ARTICLES REÇUS (Entrée):")
-                
-                # Données entrées
-                data_entree = [['Code', 'Désignation', 'Magasin', 'Qté', 'Unité']]
-                for art in self.articles_entree:
-                    data_entree.append([
-                        str(art['code'])[:8],
-                        str(art['designation'])[:22],
-                        str(art['idmagasin'])[:8],
-                        f"{art['quantite']:.2f}",
-                        str(art['unite'])[:8]
-                    ])
-                
-                # Ajouter lignes vides
-                while len(data_entree) < 8:
-                    data_entree.append(['', '', '', '', ''])
-                
-                col_widths_entree = [18*mm, 45*mm, 28*mm, 18*mm, 20*mm]
-                table_entree = Table(data_entree, colWidths=col_widths_entree)
-                table_entree.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1976D2')),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, 0), 9),
-                    ('FONTSIZE', (0, 1), (-1, -1), 8),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F5FF')]),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('LEFTPADDING', (0, 0), (-1, -1), 2),
-                    ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-                    ('TOPPADDING', (0, 0), (-1, -1), 1),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
-                ]))
-                
-                table_entree.wrapOn(c, width, height)
-                table_entree.drawOn(c, 10*mm, table_entree_top - 45*mm)
+            # Titre ENTRÉE avec espacement
+            current_y = table_bottom_sortie - spacing_between_sections
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(10*mm, current_y, "📥 ARTICLES EN ENTRÉE")
+            current_y -= title_height
             
-            # ✅ 5. NOTE (si présente)
-            note = self.entry_note.get()
-            sig_top = 25*mm
-            if note:
-                c.setFont("Helvetica-Bold", 8)
-                c.drawString(10*mm, sig_top + 5*mm, f"Note: {note[:80]}")
-                sig_top = 20*mm
+            # Cadre tableau entrée
+            table_bottom_entree = current_y - actual_height_entree
+            c.rect(10*mm, table_bottom_entree, width - 20*mm, actual_height_entree)
             
-            # ✅ 6. SIGNATURES
-            c.setFont("Helvetica", 8)
-            c.drawString(15*mm, sig_top, "Magasinier:")
-            c.drawString(15*mm, sig_top - 5*mm, "_________________")
+            # Lignes verticales
+            x_pos = 10*mm
+            for w in col_widths[:-1]:
+                x_pos += w
+                c.line(x_pos, current_y, x_pos, table_bottom_entree)
             
-            c.drawString(105*mm, sig_top, "Contrôleur:")
-            c.drawString(105*mm, sig_top - 5*mm, "_________________")
+            # Créer tableau entrée avec hauteurs différentes
+            row_heights_entree = [header_height] + [row_height] * num_articles_entree
             
-            # Finaliser le PDF
-            c.save()
+            articles_table_entree = Table(table_data_entree, colWidths=col_widths, rowHeights=row_heights_entree)
+            articles_table_entree.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1976D2')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+                ('TOPPADDING', (0, 0), (-1, -1), 2),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ]))
             
-            # Afficher un message de succès avec le chemin du fichier
-            messagebox.showinfo("PDF Généré", f"PDF enregistré avec succès :\n\n{pdf_path}")
+            articles_table_entree.wrapOn(c, width, height)
+            articles_table_entree.drawOn(c, 10*mm, table_bottom_entree)
             
-            # Imprimer automatiquement (si possible)
+            # ✅ SAUVEGARDER LE PDF
             try:
+                c.save()
+                print(f"✅ PDF Changement généré avec succès : {filename}")
+                
+                # Ouvrir le fichier
                 if sys.platform == 'win32':
-                    os.startfile(pdf_path, "print")
-                elif sys.platform == 'darwin':
-                    subprocess.Popen(['lp', pdf_path])
-                else:
-                    subprocess.Popen(['lp', pdf_path])
-            except Exception as print_error:
-                print(f"Impression non disponible: {print_error}")
-            
-            return pdf_path
+                    os.startfile(filename)
+                
+                return filename
+                
+            except Exception as e:
+                print(f"❌ Erreur sauvegarde PDF : {e}")
+                messagebox.showerror("Erreur", f"Erreur lors de la génération du PDF: {str(e)}")
+                return None
             
         except Exception as e:
-            print(f"Erreur génération PDF: {e}")
+            print(f"❌ Erreur PDF: {e}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Erreur PDF", f"Erreur lors de la génération du PDF: {str(e)}")
+            messagebox.showerror("Erreur", f"Erreur génération PDF: {str(e)}")
             return None
 
     def imprimer_changement(self):

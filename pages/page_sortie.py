@@ -7,6 +7,8 @@ import calendar
 from typing import Optional, Dict, Any, List
 import traceback 
 import os
+import sys
+import subprocess
 from resource_utils import get_config_path, get_session_path, safe_file_read
 
 
@@ -1529,6 +1531,10 @@ class PageSortie(ctk.CTkFrame):
         conn.commit()
         messagebox.showinfo("Succès", f"Sortie N°{ref_sortie} enregistrée.")
         self.derniere_idsortie_enregistree = idsortie
+        
+        # ✅ Générer et afficher le PDF d'impression automatiquement
+        self.generer_pdf_sortie_paysage(ref_sortie, idsortie)
+        
         self.reset_form()
 
     def _enregistrer_consommation_ci(self, cursor, conn, ref_sortie, date_sortie, designationmag, motif_sortie, montant_total):
@@ -1574,7 +1580,7 @@ class PageSortie(ctk.CTkFrame):
         messagebox.showinfo("Succès", f"Consommation N°{ref_sortie} enregistrée.")
         
         # Générer le PDF d'impression
-        self._generer_pdf_consommation_ci(ref_sortie, date_sortie, designationmag, motif_sortie, montant_total)
+        self.generer_pdf_consommation_interne_paysage(ref_sortie, idconsommation)
         
         self.reset_form()
 
@@ -1724,6 +1730,320 @@ class PageSortie(ctk.CTkFrame):
             # Si l'ouverture automatique échoue, ce n'est pas grave
             pass
 
+    # ✅ NOUVELLES MÉTHODES: PDF PAYSAGE CANVAS POUR SORTIE ET CONSOMMATION INTERNE
+
+    def generer_pdf_sortie_paysage(self, ref_sortie: str, idsortie: int):
+        """Génère un PDF Paysage pour BON DE SORTIE avec infos société complètes"""
+        try:
+            from reportlab.lib.pagesizes import landscape, A5
+            from reportlab.pdfgen import canvas as canvas_pdfgen
+            from reportlab.platypus import Table, TableStyle, Paragraph
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import mm
+            from reportlab.lib import colors
+            
+            filename = f"BonSortie_{ref_sortie.replace('-', '_')}.pdf"
+            
+            # Récupérer info utilisateur
+            conn = self.connect_db()
+            username = "Utilisateur"
+            if conn:
+                try:
+                    cur = conn.cursor()
+                    cur.execute("SELECT username FROM tb_users WHERE iduser = %s", (self.id_user_connecte,))
+                    user_res = cur.fetchone()
+                    username = user_res[0] if user_res else "Utilisateur"
+                    cur.close()
+                except:
+                    pass
+                finally:
+                    conn.close()
+            
+            # Canvas paysage
+            c = canvas_pdfgen.Canvas(filename, pagesize=landscape(A5))
+            width, height = landscape(A5)
+            
+            # Styles
+            styles = getSampleStyleSheet()
+            style_p = ParagraphStyle('style_p', fontSize=8, leading=10, parent=styles['Normal'])
+            
+            # EN-TÊTE (Société à gauche, Infos Mouvement à droite)
+            societe = self.infos_societe
+            villes_line = f"{societe.get('villesociete', '')}<br/>" if societe.get('villesociete') else ""
+            
+            gauche_text = (
+                f"<b><font size='12'>{societe.get('nomsociete', 'SOCIÉTÉ')}</font></b><br/><br/>"
+                f"<b>Adresse:</b> {societe.get('adressesociete', 'N/A')}<br/>"
+                f"{villes_line if villes_line else ''}"
+                f"<b>TEL:</b> {societe.get('contactsociete', 'N/A')}<br/>"
+                f"<b>NIF:</b> {societe.get('nifsociete', 'N/A')}<br/>"
+                f"<b>STAT:</b> {societe.get('statsociete', 'N/A')}"
+            )
+            
+            droite_text = (
+                f"<b><font size='13'>BON DE SORTIE</font></b><br/>"
+                f"<b>N°:</b> {ref_sortie}<br/>"
+                f"<b>Date:</b> {datetime.now().strftime('%d/%m/%Y')}<br/>"
+                f"<b>Heure:</b> {datetime.now().strftime('%H:%M')}<br/><br/>"
+                f"<b>Opérateur:</b><br/>{username}"
+            )
+            
+            gauche = Paragraph(gauche_text, style_p)
+            droite = Paragraph(droite_text, style_p)
+            
+            header_table = Table([[gauche, droite]], colWidths=[95*mm, 53*mm])
+            header_table.setStyle(TableStyle([
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ]))
+            
+            header_table.wrapOn(c, width, height)
+            header_table.drawOn(c, 10*mm, height - 38*mm)
+            
+            # Footer fixe (10mm du bas)
+            footer_y = 10*mm
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(40*mm, footer_y + 2*mm, "Le Magasinier")
+            c.drawString(110*mm, footer_y + 2*mm, "Le Contrôleur")
+            
+            # Zone contenu (tableau articles)
+            content_top = height - 42*mm
+            content_bottom = footer_y + 8*mm
+            row_height = 5*mm
+            
+            # TABLEAU ARTICLES
+            table_data = [['Code', 'Désignation', 'Unité', 'Quantité', 'Magasin']]
+            
+            for detail in self.detail_sortie:
+                table_data.append([
+                    str(detail.get('code_article', ''))[:10],
+                    str(detail.get('nom_article', ''))[:28],
+                    str(detail.get('nom_unite', ''))[:10],
+                    f"{detail.get('qtsortie', 0):.2f}",
+                    str(detail.get('designationmag', ''))[:15]
+                ])
+            
+            num_articles = len(table_data)
+            actual_height = num_articles * row_height
+            
+            col_widths = [18*mm, 60*mm, 15*mm, 18*mm, 27*mm]
+            
+            # Titre tableau
+            current_y = content_top
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(10*mm, current_y, "📤 ARTICLES DE SORTIE")
+            current_y -= 4*mm
+            
+            # Cadre tableau
+            c.setLineWidth(1)
+            table_bottom = current_y - actual_height
+            c.rect(10*mm, table_bottom, width - 20*mm, actual_height)
+            
+            # Lignes verticales
+            x_pos = 10*mm
+            for w in col_widths[:-1]:
+                x_pos += w
+                c.line(x_pos, current_y, x_pos, table_bottom)
+            
+            # Créer tableau
+            row_heights = [row_height] * num_articles
+            
+            articles_table = Table(table_data, colWidths=col_widths, rowHeights=row_heights)
+            articles_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FF9800')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('ALIGN', (3, 1), (3, -1), 'RIGHT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 2),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+                ('TOPPADDING', (0, 0), (-1, -1), 1),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+            ]))
+            
+            articles_table.wrapOn(c, width, height)
+            articles_table.drawOn(c, 10*mm, table_bottom)
+            
+            c.save()
+            print(f"✅ PDF Bon de Sortie généré : {filename}")
+            
+            if sys.platform == 'win32':
+                os.startfile(filename)
+            
+            return filename
+            
+        except Exception as e:
+            print(f"❌ Erreur PDF Sortie: {e}")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Erreur", f"Erreur génération PDF Sortie: {str(e)}")
+            return None
+
+    def generer_pdf_consommation_interne_paysage(self, ref_sortie: str, idsortie: int):
+        """Génère un PDF Paysage pour CONSOMMATION INTERNE avec infos société complètes"""
+        try:
+            from reportlab.lib.pagesizes import landscape, A5
+            from reportlab.pdfgen import canvas as canvas_pdfgen
+            from reportlab.platypus import Table, TableStyle, Paragraph
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import mm
+            from reportlab.lib import colors
+            
+            filename = f"ConsommationInterne_{ref_sortie.replace('-', '_')}.pdf"
+            
+            # Récupérer info utilisateur
+            conn = self.connect_db()
+            username = "Utilisateur"
+            if conn:
+                try:
+                    cur = conn.cursor()
+                    cur.execute("SELECT username FROM tb_users WHERE iduser = %s", (self.id_user_connecte,))
+                    user_res = cur.fetchone()
+                    username = user_res[0] if user_res else "Utilisateur"
+                    cur.close()
+                except:
+                    pass
+                finally:
+                    conn.close()
+            
+            # Canvas paysage
+            c = canvas_pdfgen.Canvas(filename, pagesize=landscape(A5))
+            width, height = landscape(A5)
+            
+            # Styles
+            styles = getSampleStyleSheet()
+            style_p = ParagraphStyle('style_p', fontSize=8, leading=10, parent=styles['Normal'])
+            
+            # EN-TÊTE (Société à gauche, Infos Mouvement à droite)
+            societe = self.infos_societe
+            villes_line = f"{societe.get('villesociete', '')}<br/>" if societe.get('villesociete') else ""
+            
+            gauche_text = (
+                f"<b><font size='12'>{societe.get('nomsociete', 'SOCIÉTÉ')}</font></b><br/><br/>"
+                f"<b>Adresse:</b> {societe.get('adressesociete', 'N/A')}<br/>"
+                f"{villes_line if villes_line else ''}"
+                f"<b>TEL:</b> {societe.get('contactsociete', 'N/A')}<br/>"
+                f"<b>NIF:</b> {societe.get('nifsociete', 'N/A')}<br/>"
+                f"<b>STAT:</b> {societe.get('statsociete', 'N/A')}"
+            )
+            
+            droite_text = (
+                f"<b><font size='13'>CONSOMMATION INTERNE</font></b><br/>"
+                f"<b>N°:</b> {ref_sortie}<br/>"
+                f"<b>Date:</b> {datetime.now().strftime('%d/%m/%Y')}<br/>"
+                f"<b>Heure:</b> {datetime.now().strftime('%H:%M')}<br/><br/>"
+                f"<b>Opérateur:</b><br/>{username}"
+            )
+            
+            gauche = Paragraph(gauche_text, style_p)
+            droite = Paragraph(droite_text, style_p)
+            
+            header_table = Table([[gauche, droite]], colWidths=[95*mm, 53*mm])
+            header_table.setStyle(TableStyle([
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ]))
+            
+            header_table.wrapOn(c, width, height)
+            header_table.drawOn(c, 10*mm, height - 38*mm)
+            
+            # Footer fixe (10mm du bas)
+            footer_y = 10*mm
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(40*mm, footer_y + 2*mm, "Le Magasinier")
+            c.drawString(110*mm, footer_y + 2*mm, "Le Contrôleur")
+            
+            # Zone contenu (tableau articles)
+            content_top = height - 42*mm
+            content_bottom = footer_y + 8*mm
+            row_height = 5*mm
+            
+            # TABLEAU ARTICLES
+            table_data = [['Code', 'Désignation', 'Unité', 'Quantité', 'P.U.', 'Montant']]
+            
+            for detail in self.detail_sortie:
+                montant = detail.get('montant_total', detail.get('qtsortie', 0) * detail.get('prix_unitaire', 0))
+                table_data.append([
+                    str(detail.get('code_article', ''))[:10],
+                    str(detail.get('nom_article', ''))[:22],
+                    str(detail.get('nom_unite', ''))[:8],
+                    f"{detail.get('qtsortie', 0):.2f}",
+                    f"{detail.get('prix_unitaire', 0):.2f}",
+                    f"{montant:.2f}"
+                ])
+            
+            num_articles = len(table_data)
+            actual_height = num_articles * row_height
+            
+            col_widths = [15*mm, 40*mm, 12*mm, 13*mm, 16*mm, 22*mm]
+            
+            # Titre tableau
+            current_y = content_top
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(10*mm, current_y, "📋 ARTICLES CONSOMMÉS")
+            current_y -= 4*mm
+            
+            # Cadre tableau
+            c.setLineWidth(1)
+            table_bottom = current_y - actual_height
+            c.rect(10*mm, table_bottom, width - 20*mm, actual_height)
+            
+            # Lignes verticales
+            x_pos = 10*mm
+            for w in col_widths[:-1]:
+                x_pos += w
+                c.line(x_pos, current_y, x_pos, table_bottom)
+            
+            # Créer tableau
+            row_heights = [row_height] * num_articles
+            
+            articles_table = Table(table_data, colWidths=col_widths, rowHeights=row_heights)
+            articles_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1565C0')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 8),
+                ('FONTSIZE', (0, 1), (-1, -1), 7),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('ALIGN', (3, 0), (-1, -1), 'RIGHT'),
+                ('ALIGN', (4, 0), (-1, -1), 'RIGHT'),
+                ('ALIGN', (5, 0), (-1, -1), 'RIGHT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 1),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+                ('TOPPADDING', (0, 0), (-1, -1), 1),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+            ]))
+            
+            articles_table.wrapOn(c, width, height)
+            articles_table.drawOn(c, 10*mm, table_bottom)
+            
+            c.save()
+            print(f"✅ PDF Consommation Interne généré : {filename}")
+            
+            if sys.platform == 'win32':
+                os.startfile(filename)
+            
+            return filename
+            
+        except Exception as e:
+            print(f"❌ Erreur PDF CI: {e}")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Erreur", f"Erreur génération PDF CI: {str(e)}")
+            return None
+
     def get_data_bon_sortie(self, idsortie: int) -> Optional[Dict[str, Any]]:
         """Récupère toutes les données nécessaires pour imprimer un bon de sortie."""
         conn = self.connect_db()
@@ -1797,38 +2117,33 @@ class PageSortie(ctk.CTkFrame):
         try:
             ref_sortie = data['sortie']['refsortie']
             
+            # ✅ Créer le dossier "Etats Impression" si nécessaire
+            project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            etats_dir = os.path.join(project_dir, "Etats Impression")
+            if not os.path.exists(etats_dir):
+                os.makedirs(etats_dir)
+            
             if format.lower() == 'a5':
                 filename = f"BS_{ref_sortie.replace('-', '_')}_A5.pdf"
                 self.generer_pdf_a5(data, filename)
-                messagebox.showinfo("Impression A5", f"Le Bon de Sortie a été généré en PDF (A5) :\n{filename}")
-                self.open_file(filename) # <--- AJOUTEZ CETTE LIGNE
+                pdf_path = os.path.join(etats_dir, filename)
+                messagebox.showinfo("Impression A5", f"Le Bon de Sortie a été généré en PDF (A5) :\n{pdf_path}")
+                self.open_file(pdf_path)
                 
             elif format.lower() == '80mm':
                 filename = f"BS_{ref_sortie.replace('-', '_')}_80mm.txt"
-                self.generate_ticket_80mm(data, filename)
-                messagebox.showinfo("Impression 80mm", f"Le Bon de Sortie a été généré en fichier texte (80mm) :\n{filename}\n(À imprimer via un pilote d'imprimante thermique)")
-                self.open_file(filename) # <--- AJOUTEZ CETTE LIGNE
+                txt_path = os.path.join(etats_dir, filename)
+                self.generate_ticket_80mm(data, txt_path)
+                messagebox.showinfo("Impression 80mm", f"Le Bon de Sortie a été généré en fichier texte (80mm) :\n{txt_path}\n(À imprimer via un pilote d'imprimante thermique)")
+                self.open_file(txt_path)
                 
         except Exception as e:
             messagebox.showerror("Erreur Génération", f"Erreur lors de la génération du document : {str(e)}")
 
-    def generer_pdf_a5(self, *args, **kwargs):
+    def generer_pdf_a5(self, data, filename):
         """
         Génère un Bon de Sortie au format PDF A5 (Portrait) incluant le motif.
         """
-        # Vérifier qu'un bon de sortie a été enregistré ou chargé
-        if self.derniere_idsortie_enregistree is None:
-            messagebox.showwarning("Attention", "Aucun bon de sortie à imprimer.")
-            return
-    
-        idsortie = self.derniere_idsortie_enregistree
-        data = self.get_data_bon_sortie(idsortie)
-        if not data:
-            return
-
-        ref_sortie = data['sortie']['refsortie'].replace('-', '_')
-        filename = f"BS_{ref_sortie}_A5.pdf"
-
         try:
             doc = SimpleDocTemplate(
                 filename, 
@@ -1915,6 +2230,18 @@ class PageSortie(ctk.CTkFrame):
             elements.append(sig_table)
 
             doc.build(elements)
+            
+            # ✅ Imprimer automatiquement (si possible)
+            try:
+                if sys.platform == 'win32':
+                    os.startfile(filename, "print")
+                elif sys.platform == 'darwin':
+                    subprocess.Popen(['lp', filename])
+                else:
+                    subprocess.Popen(['lp', filename])
+            except Exception as print_error:
+                print(f"Impression non disponible: {print_error}")
+            
             messagebox.showinfo("Succès", f"PDF Portrait généré avec motif : {filename}")
             self.open_file(filename)
 

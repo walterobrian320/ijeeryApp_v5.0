@@ -7,7 +7,7 @@ import calendar
 from typing import Optional, Dict, Any, List
 import traceback 
 import os
-from resource_utils import get_config_path, safe_file_read
+from resource_utils import get_config_path, get_session_path, safe_file_read
 
 
 # --- NOUVELLES IMPORTATIONS POUR L'IMPRESSION ---
@@ -37,16 +37,26 @@ class PageSortie(ctk.CTkFrame):
         self.infos_societe: Dict[str, Any] = {}
         self.derniere_idsortie_enregistree: Optional[int] = None
     
+        # *** NOUVEAU : Type de sortie (BS ou CI) ***
+        self.type_sortie = "BS"  # "BS" = Bon de Sortie, "CI" = Consommation Interne
+        self.show_price_columns = False  # Toggle pour afficher/masquer prix et montant
+        
         # *** NOUVEAU : Variables pour le mode modification ***
         self.mode_modification = False
         self.idsortie_charge = None
         
+        # *** NOUVEAU : Référence du treeview pour reconfiguration dynamique ***
+        self.tree_details = None
+        self.tree_frame = None
+        self.scrollbar_details = None
+        
         # Configurer la grille
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=0) # Lot 1 et 2
-        self.grid_rowconfigure(1, weight=1) # Treeview
-        self.grid_rowconfigure(2, weight=0) # Boutons
-        self.grid_rowconfigure(3, weight=0) # Boutons d'action
+        self.grid_rowconfigure(0, weight=0) # Lot 0: Select type
+        self.grid_rowconfigure(1, weight=0) # Lot 1 et 2
+        self.grid_rowconfigure(2, weight=1) # Treeview
+        self.grid_rowconfigure(3, weight=0) # Boutons
+        self.grid_rowconfigure(4, weight=0) # Boutons d'action
         
         self.setup_ui()
         self.generer_reference()
@@ -219,13 +229,29 @@ class PageSortie(ctk.CTkFrame):
     def setup_ui(self):
         """Configure l'interface utilisateur de la page de sortie."""
     
+        # --- NOUVEAU : Frame pour le choix du type de sortie (Lot 0) ---
+        type_frame = ctk.CTkFrame(self)
+        type_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+        type_frame.grid_columnconfigure(1, weight=1)
+        
+        ctk.CTkLabel(type_frame, text="Type de sortie:", font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold")).grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        
+        self.combo_type_sortie = ctk.CTkOptionMenu(
+            type_frame, 
+            values=["Sortie d'articles (BS)", "Consommation interne (CI)"],
+            command=self._on_type_sortie_changed,
+            width=250
+        )
+        self.combo_type_sortie.set("Sortie d'articles (BS)")
+        self.combo_type_sortie.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+    
         # --- Frame principale d'en-tête (Lot 1) ---
         header_frame = ctk.CTkFrame(self)
-        header_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+        header_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
         header_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7), weight=1)
     
         # Référence
-        ctk.CTkLabel(header_frame, text="Réf Sortie:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(header_frame, text="Réf :").grid(row=0, column=0, padx=5, pady=5, sticky="w")
         self.entry_ref_sortie = ctk.CTkEntry(header_frame, width=150)
         self.entry_ref_sortie.grid(row=0, column=1, padx=5, pady=5, sticky="w")
         self.entry_ref_sortie.configure(state="readonly")
@@ -242,19 +268,19 @@ class PageSortie(ctk.CTkFrame):
         self.combo_magasin.grid(row=0, column=5, padx=5, pady=5, sticky="w")
     
         # *** NOUVEAU : Bouton Charger BS ***
-        btn_charger_bs = ctk.CTkButton(header_frame, text="📂 Charger BS", 
+        btn_charger_bs = ctk.CTkButton(header_frame, text="📂 Charger Opération", 
                                     command=self.ouvrir_recherche_sortie, width=130,
                                     fg_color="#1976d2", hover_color="#1565c0")
         btn_charger_bs.grid(row=0, column=6, padx=5, pady=5, sticky="w")
     
         # Motif
-        ctk.CTkLabel(header_frame, text="Motif Sortie:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(header_frame, text="Motif:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
         self.entry_motif = ctk.CTkEntry(header_frame, width=800)
         self.entry_motif.grid(row=1, column=1, columnspan=7, padx=5, pady=5, sticky="ew")
 
         # --- Frame d'ajout de Détail (Lot 2) ---
         detail_frame = ctk.CTkFrame(self)
-        detail_frame.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+        detail_frame.grid(row=2, column=0, padx=10, pady=(0, 10), sticky="ew")
         detail_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6), weight=1)
         
         # Article
@@ -267,7 +293,7 @@ class PageSortie(ctk.CTkFrame):
         self.btn_recherche_article.grid(row=1, column=1, padx=5, pady=5, sticky="w")
         
         # Quantité
-        ctk.CTkLabel(detail_frame, text="Quantité Sortie:").grid(row=0, column=2, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(detail_frame, text="Quantité :").grid(row=0, column=2, padx=5, pady=5, sticky="w")
         self.entry_qtsortie = ctk.CTkEntry(detail_frame, width=100)
         self.entry_qtsortie.grid(row=1, column=2, padx=5, pady=5, sticky="ew")
         
@@ -277,54 +303,51 @@ class PageSortie(ctk.CTkFrame):
         self.entry_unite.grid(row=1, column=3, padx=5, pady=5, sticky="ew")
         self.entry_unite.configure(state="readonly")
         
+        # *** NOUVEAU : Prix unitaire (visible pour CI) - SUR LA MÊME LIGNE ***
+        self.label_prix_unit = ctk.CTkLabel(detail_frame, text="Prix U.:")
+        self.label_prix_unit.grid(row=0, column=4, padx=5, pady=5, sticky="w")
+        self.entry_prix_unit = ctk.CTkEntry(detail_frame, width=100)
+        self.entry_prix_unit.grid(row=1, column=4, padx=5, pady=5, sticky="ew")
+        self.entry_prix_unit.configure(state="readonly")
+        
         # Boutons d'action
         self.btn_ajouter = ctk.CTkButton(detail_frame, text="➕ Ajouter", command=self.valider_detail, 
                                         fg_color="#2e7d32", hover_color="#1b5e20")
-        self.btn_ajouter.grid(row=1, column=4, padx=5, pady=5, sticky="w")
+        self.btn_ajouter.grid(row=1, column=5, padx=5, pady=5, sticky="w")
         
         self.btn_annuler_mod = ctk.CTkButton(detail_frame, text="✖️ Annuler Modif.", command=self.reset_detail_form, 
                                             fg_color="#d32f2f", hover_color="#b71c1c", state="disabled")
-        self.btn_annuler_mod.grid(row=1, column=5, padx=5, pady=5, sticky="w")
+        self.btn_annuler_mod.grid(row=1, column=6, padx=5, pady=5, sticky="w")
 
-
-        # --- Treeview pour les Détails (Lot 3) ---
-        tree_frame = ctk.CTkFrame(self)
-        tree_frame.grid(row=2, column=0, padx=10, pady=(0, 10), sticky="nsew")
-        tree_frame.grid_columnconfigure(0, weight=1)
-        tree_frame.grid_rowconfigure(0, weight=1)
+        # --- Frame pour treeview et toggle (Lot 3) ---
+        self.tree_frame = ctk.CTkFrame(self)
+        self.tree_frame.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="nsew")
+        self.tree_frame.grid_columnconfigure(0, weight=1)
+        self.tree_frame.grid_columnconfigure(1, weight=0)  # Espace pour scrollbar
+        self.tree_frame.grid_rowconfigure(0, weight=0)  # Pour le toggle
+        self.tree_frame.grid_rowconfigure(1, weight=1)  # Pour le treeview
         
-        style = ttk.Style()
-        style.theme_use("default")
-        style.configure("Treeview", rowheight=22, font=('Segoe UI', 8), background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0)
-        style.configure("Treeview.Heading", font=('Segoe UI', 8, 'bold'), background="#E8E8E8", foreground="#000000")
-
-        colonnes = ("ID_Article", "ID_Unite", "ID_Magasin", "Code Article", "Désignation", "Magasin", "Unité", "Quantité Sortie")
-        self.tree_details = ttk.Treeview(tree_frame, columns=colonnes, show='headings')
+        # *** NOUVEAU : Frame pour le toggle ***
+        toggle_frame = ctk.CTkFrame(self.tree_frame)
+        toggle_frame.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
+        toggle_frame.grid_columnconfigure(0, weight=1)
         
-        for col in colonnes:
-            self.tree_details.heading(col, text=col.replace('_', ' ').title())
-            if "ID" in col:
-                 self.tree_details.column(col, width=0, stretch=False) 
-            elif "Quantité" in col:
-                 self.tree_details.column(col, width=150, anchor='e')
-            elif "Désignation" in col:
-                 self.tree_details.column(col, width=350, anchor='w')
-            else:
-                 self.tree_details.column(col, width=150, anchor='w')
+        self.btn_toggle_prix = ctk.CTkButton(
+            toggle_frame, 
+            text="👁️ Afficher Prix/Montant",
+            command=self._toggle_price_columns,
+            fg_color="#ff9800",
+            hover_color="#f57c00",
+            width=180
+        )
+        self.btn_toggle_prix.grid(row=0, column=1, padx=5, sticky="e")
         
-        # Scrollbar
-        scrollbar = ctk.CTkScrollbar(tree_frame, command=self.tree_details.yview)
-        self.tree_details.configure(yscrollcommand=scrollbar.set)
-        
-        self.tree_details.grid(row=0, column=0, sticky="nsew", padx=(5, 0), pady=5)
-        scrollbar.grid(row=0, column=1, sticky="ns", padx=(0, 5), pady=5)
-        
-        # Bindings
-        self.tree_details.bind('<Double-1>', self.modifier_detail)
+        # Créer le treeview
+        self._create_treeview()
 
         # --- Frame de Boutons (Lot 4) ---
         btn_action_frame = ctk.CTkFrame(self)
-        btn_action_frame.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
+        btn_action_frame.grid(row=4, column=0, padx=10, pady=10, sticky="ew")
         btn_action_frame.grid_columnconfigure((0, 1, 2), weight=1) # 3 colonnes pour 3 boutons
         
         self.btn_supprimer_ligne = ctk.CTkButton(btn_action_frame, text="🗑️ Supprimer Ligne", command=self.supprimer_detail, 
@@ -338,21 +361,110 @@ class PageSortie(ctk.CTkFrame):
 
         
         # --- NOUVEAU BOUTON IMPRIMER (CORRIGÉ) ---
-        self.btn_imprimer = ctk.CTkButton(btn_action_frame, text="🖨️ Imprimer Bon Sortie", command=self.open_impression_dialogue, 
+        self.btn_imprimer = ctk.CTkButton(btn_action_frame, text="🖨️ Imprimer état", command=self.open_impression_dialogue, 
                                           fg_color="#00695c", hover_color="#004d40", state="disabled")
         # CORRECTION ICI : sticky="ew" permet au bouton de s'étirer et d'être centré dans la colonne
         self.btn_imprimer.grid(row=0, column=1, padx=5, pady=5, sticky="ew") 
         # -----------------------------
         
-        self.btn_enregistrer = ctk.CTkButton(btn_action_frame, text="💾 Enregistrer la Sortie", command=self.enregistrer_sortie, 
+        self.btn_enregistrer = ctk.CTkButton(btn_action_frame, text="💾 Enregistrer", command=self.enregistrer_sortie, 
                                              font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"))
         self.btn_enregistrer.grid(row=0, column=2, padx=5, pady=5, sticky="e")
         
 
     # --- MÉTHODES DE CHARGEMENT DE DONNÉES ---
 
+    def _create_treeview(self):
+        """Crée ou recréé le treeview selon le type de sortie"""
+        # Détruire l'ancien treeview s'il existe
+        if self.tree_details is not None:
+            self.tree_details.destroy()
+        
+        # Déterminer les colonnes selon le type
+        if self.type_sortie == "CI":
+            colonnes = ("ID_Article", "ID_Unite", "ID_Magasin", "Code Article", "Désignation", "Magasin", "Unité", "Quantité", "Montant")
+        else:  # BS
+            colonnes = ("ID_Article", "ID_Unite", "ID_Magasin", "Code Article", "Désignation", "Magasin", "Unité", "Quantité")
+        
+        # Style du treeview
+        style = ttk.Style()
+        style.theme_use("default")
+        style.configure("Treeview", rowheight=22, font=('Segoe UI', 8), background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0)
+        style.configure("Treeview.Heading", font=('Segoe UI', 8, 'bold'), background="#E8E8E8", foreground="#000000")
+        
+        # Créer le treeview
+        self.tree_details = ttk.Treeview(self.tree_frame, columns=colonnes, show='headings')
+        
+        # Configurer les colonnes avec les bonne largeurs
+        for col in colonnes:
+            self.tree_details.heading(col, text=col.replace('_', ' ').title())
+            if "ID" in col:
+                self.tree_details.column(col, width=0, stretch=False)
+            elif col == "Quantité":
+                self.tree_details.column(col, width=130, anchor='e')
+            elif col == "Montant":
+                self.tree_details.column(col, width=130, anchor='e')
+            elif col == "Désignation":
+                self.tree_details.column(col, width=300, anchor='w')
+            else:
+                self.tree_details.column(col, width=120, anchor='w')
+        
+        # Scrollbar
+        if hasattr(self, 'scrollbar_details') and self.scrollbar_details is not None:
+            self.scrollbar_details.destroy()
+        
+        self.scrollbar_details = ctk.CTkScrollbar(self.tree_frame, command=self.tree_details.yview)
+        self.tree_details.configure(yscrollcommand=self.scrollbar_details.set)
+        
+        self.tree_details.grid(row=1, column=0, sticky="nsew", padx=(5, 0), pady=5)
+        self.scrollbar_details.grid(row=1, column=1, sticky="ns", padx=(0, 5), pady=5)
+        
+        # Bindings
+        self.tree_details.bind('<Double-1>', self.modifier_detail)
+        
+        # Recharger les données
+        self.charger_details_treeview()
+        
+        # Mettre à jour la visibilité du toggle
+        if self.type_sortie == "CI":
+            self.btn_toggle_prix.grid()
+        else:
+            self.btn_toggle_prix.grid_remove()
+
+    def _toggle_price_columns(self):
+        """Bascule l'affichage des colonnes prix/montant (CI seulement)"""
+        self.show_price_columns = not self.show_price_columns
+        # Mettre à jour l'affichage des données
+        self.charger_details_treeview()
+        # Mettre à jour le texte du bouton
+        if self.show_price_columns:
+            self.btn_toggle_prix.configure(text="👁️ Masquer Prix/Montant", fg_color="#ff6f00")
+        else:
+            self.btn_toggle_prix.configure(text="👁️ Afficher Prix/Montant", fg_color="#ff9800")
+
+    def _on_type_sortie_changed(self, new_type_str):
+        """Gère le changement de type de sortie (BS ou CI)"""
+        self.type_sortie = "BS" if "BS" in new_type_str else "CI"
+        
+        # Afficher/masquer le champ prix unitaire
+        if self.type_sortie == "CI":
+            self.label_prix_unit.grid()
+            self.entry_prix_unit.grid()
+        else:
+            self.label_prix_unit.grid_remove()
+            self.entry_prix_unit.grid_remove()
+        
+        # Régénérer la référence
+        self.generer_reference()
+        
+        # Réinitialiser le formulaire
+        self.reset_form()
+        
+        # *** NOUVEAU : Recréer le treeview avec les bonnes colonnes ***
+        self._create_treeview()
+
     def generer_reference(self):
-        """Génère la référence de la prochaine sortie (ex: SOR-AAA-0001)."""
+        """Génère la référence de la prochaine sortie selon le type (BS ou CI)."""
         conn = self.connect_db()
         if not conn: return
         
@@ -360,15 +472,17 @@ class PageSortie(ctk.CTkFrame):
             cursor = conn.cursor()
             
             annee = datetime.now().year
+            type_prefix = self.type_sortie  # "BS" ou "CI"
             
             sql_max_id = """
                 SELECT refsortie 
                 FROM tb_sortie 
                 WHERE EXTRACT(YEAR FROM dateregistre) = %s 
+                  AND refsortie LIKE %s
                 ORDER BY id DESC 
                 LIMIT 1
             """
-            cursor.execute(sql_max_id, (annee,))
+            cursor.execute(sql_max_id, (annee, f"{annee}-{type_prefix}-%"))
             derniere_ref = cursor.fetchone()
 
             nouveau_numero = 1
@@ -376,7 +490,7 @@ class PageSortie(ctk.CTkFrame):
                 partie_num = derniere_ref[0].split('-')[-1]
                 nouveau_numero = int(partie_num) + 1
             
-            nouvelle_ref = f"{annee}-BS-{nouveau_numero:05d}"
+            nouvelle_ref = f"{annee}-{type_prefix}-{nouveau_numero:05d}"
             
             self.entry_ref_sortie.configure(state="normal")
             self.entry_ref_sortie.delete(0, "end")
@@ -510,7 +624,7 @@ class PageSortie(ctk.CTkFrame):
         tree_frame = ctk.CTkFrame(main_frame)
         tree_frame.pack(fill="both", expand=True, pady=(0, 10))
 
-        colonnes = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité", "Stock")
+        colonnes = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité", "Stock", "Prix U.")
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
 
         style = ttk.Style()
@@ -524,13 +638,15 @@ class PageSortie(ctk.CTkFrame):
         tree.heading("Désignation", text="Désignation")
         tree.heading("Unité", text="Unité")
         tree.heading("Stock", text="Stock Actuel (Total)")
+        tree.heading("Prix U.", text="Prix U.")
 
         tree.column("ID_Article", width=0, stretch=False)
         tree.column("ID_Unite", width=0, stretch=False)
-        tree.column("Code", width=150, anchor='w')
-        tree.column("Désignation", width=350, anchor='w')
-        tree.column("Unité", width=100, anchor='w')
-        tree.column("Stock", width=120, anchor='e')
+        tree.column("Code", width=120, anchor='w')
+        tree.column("Désignation", width=300, anchor='w')
+        tree.column("Unité", width=80, anchor='w')
+        tree.column("Stock", width=100, anchor='e')
+        tree.column("Prix U.", width=100, anchor='e')
 
         scrollbar = ttk.Scrollbar(tree_frame, command=tree.yview)
         tree.configure(yscrollcommand=scrollbar.set)
@@ -679,11 +795,13 @@ class PageSortie(ctk.CTkFrame):
                     u.codearticle,
                     a.designation,
                     u.designationunite,
-                    GREATEST(COALESCE(st.solde_total, 0) / NULLIF(COALESCE(u.qtunite, 1), 0), 0) as stock_total
+                    GREATEST(COALESCE(st.solde_total, 0) / NULLIF(COALESCE(u.qtunite, 1), 0), 0) as stock_total,
+                    COALESCE(p.prix, 0) as prix_unitaire
                 FROM tb_article a
                 INNER JOIN tb_unite u ON a.idarticle = u.idarticle
                 LEFT JOIN solde_total st
                     ON st.idarticle = u.idarticle
+                LEFT JOIN tb_prix p ON a.idarticle = p.idarticle AND u.idunite = p.idunite
                 WHERE a.deleted = 0
                   AND (u.codearticle ILIKE %s OR a.designation ILIKE %s)
                 ORDER BY u.codearticle, u.idunite
@@ -700,7 +818,8 @@ class PageSortie(ctk.CTkFrame):
                         row[2] or "",    # codearticle
                         row[3] or "",    # designation
                         row[4] or "",    # designationunite
-                        self.formater_nombre(row[5])  # stock_total formaté
+                        self.formater_nombre(row[5]),  # stock_total formaté
+                        self.formater_nombre(row[6])   # prix_unitaire formaté *** NOUVEAU ***
                     ))
 
             except Exception as e:
@@ -727,7 +846,7 @@ class PageSortie(ctk.CTkFrame):
             values = item.get('values', [])
     
             # Vérification de sécurité pour éviter le crash
-            if len(values) < 6:
+            if len(values) < 7:
                 messagebox.showerror("Erreur", "Données de l'article incomplètes dans le tableau.")
                 return
 
@@ -738,6 +857,7 @@ class PageSortie(ctk.CTkFrame):
             desig    = values[3]
             unite    = values[4]
             stock_val = values[5] # C'est bien l'index 5 pour le stock
+            prix_unit = values[6]  # *** NOUVEAU *** Index 6 pour le prix
 
             # Construire le dictionnaire avec les valeurs extraites de la ligne
             article_selectionne = {
@@ -746,7 +866,8 @@ class PageSortie(ctk.CTkFrame):
                 'code_article': code,
                 'nom_article': desig,
                 'nom_unite': unite,
-                'stock_disponible': self.parser_nombre(str(stock_val))  # Re-parser le nombre formaté
+                'stock_disponible': self.parser_nombre(str(stock_val)),  # Re-parser le nombre formaté
+                'prix_unitaire': self.parser_nombre(str(prix_unit))      # *** NOUVEAU *** Re-parser le prix
             }
 
             fenetre_recherche.destroy()
@@ -782,6 +903,12 @@ class PageSortie(ctk.CTkFrame):
         self.entry_unite.delete(0, "end")
         self.entry_unite.insert(0, article_data['nom_unite'])
         self.entry_unite.configure(state="readonly")
+        
+        # *** NOUVEAU : Remplir le prix unitaire ***
+        self.entry_prix_unit.configure(state="normal")
+        self.entry_prix_unit.delete(0, "end")
+        self.entry_prix_unit.insert(0, self.formater_nombre(article_data.get('prix_unitaire', 0)))
+        self.entry_prix_unit.configure(state="readonly")
         
         self.entry_qtsortie.delete(0, "end")
         self.entry_qtsortie.focus_set()
@@ -836,6 +963,11 @@ class PageSortie(ctk.CTkFrame):
             return
         # ---------------------------------------
 
+        # *** NOUVEAU : Récupérer le prix unitaire pour CI ***
+        prix_unitaire = 0
+        if self.type_sortie == "CI":
+            prix_unitaire = self.article_selectionne.get('prix_unitaire', 0)
+
         nouveau_detail = {
             'idmag': idmag,
             'designationmag': designationmag,
@@ -844,7 +976,9 @@ class PageSortie(ctk.CTkFrame):
             'nom_article': self.article_selectionne['nom_article'],
             'idunite': self.article_selectionne['idunite'],
             'nom_unite': self.article_selectionne['nom_unite'],
-            'qtsortie': qtsortie
+            'qtsortie': qtsortie,
+            'prix_unitaire': prix_unitaire,  # *** NOUVEAU ***
+            'montant_total': qtsortie * prix_unitaire  # *** NOUVEAU ***
         }
 
         if self.index_ligne_selectionnee is not None:
@@ -866,6 +1000,8 @@ class PageSortie(ctk.CTkFrame):
                     if messagebox.askyesno("Doublon détecté", 
                                           f"L'article '{detail['nom_article']}' est déjà présent. Fusionner?"):
                         self.detail_sortie[i]['qtsortie'] = nouvelle_qte_totale
+                        # *** NOUVEAU : Recalculer le montant total ***
+                        self.detail_sortie[i]['montant_total'] = nouvelle_qte_totale * self.detail_sortie[i]['prix_unitaire']
                         messagebox.showinfo("Succès", "Quantité fusionnée.")
                         self.charger_details_treeview()
                         self.reset_detail_form()
@@ -885,16 +1021,22 @@ class PageSortie(ctk.CTkFrame):
             self.tree_details.delete(item)
             
         for detail in self.detail_sortie:
-            values = (
+            # Valeurs de base pour tous les types
+            values = [
                 detail['idarticle'], 
                 detail['idunite'], 
                 detail['idmag'], 
                 detail.get('code_article', 'N/A'), 
-                detail['nom_article'], 
+                detail['nom_article'],  # Nom seul, sans prix en extension
                 detail['designationmag'],
                 detail['nom_unite'], 
-                self.formater_nombre(detail['qtsortie']) 
-            )
+                self.formater_nombre(detail['qtsortie'])
+            ]
+            
+            # Ajouter montant pour CI uniquement (prix unitaire calculé à l'ajout)
+            if self.type_sortie == "CI":
+                values.append(self.formater_nombre(detail.get('montant_total', 0)))
+            
             self.tree_details.insert('', 'end', values=values)
 
     def modifier_detail(self, event):
@@ -1189,9 +1331,9 @@ class PageSortie(ctk.CTkFrame):
     # --- MÉTHODE D'ENREGISTREMENT PRINCIPALE ---
 
     def enregistrer_sortie(self):
-        """Enregistre l'ensemble de la sortie et ses détails dans la base de données."""
+        """Enregistre la sortie ou la consommation interne selon le type sélectionné."""
         if not self.detail_sortie:
-            messagebox.showwarning("Attention", "La liste de sortie est vide. Veuillez ajouter des articles.")
+            messagebox.showwarning("Attention", "La liste est vide. Veuillez ajouter des articles.")
             return
 
         ref_sortie = self.entry_ref_sortie.get()
@@ -1200,13 +1342,40 @@ class PageSortie(ctk.CTkFrame):
         motif_sortie = self.entry_motif.get().strip()
 
         if not ref_sortie or not date_sortie_str or not designationmag or not motif_sortie:
-            messagebox.showwarning("Attention", "Veuillez remplir tous les champs d'en-tête (Réf, Date, Magasin, Motif).")
+            messagebox.showwarning("Attention", "Veuillez remplir tous les champs d'en-tête.")
             return
             
         try:
             date_sortie = datetime.strptime(date_sortie_str, "%d/%m/%Y").date()
         except ValueError:
-            messagebox.showerror("Erreur de Date", "Le format de la date est incorrect (attendu : JJ/MM/AAAA).")
+            messagebox.showerror("Erreur de Date", "Format incorrect (attendu: JJ/MM/AAAA).")
+            return
+
+        # Confirmation
+        montant_total_ci = sum(d.get('montant_total', 0) for d in self.detail_sortie)
+        type_label = "Sortie d'articles (BS)" if self.type_sortie == "BS" else "Consommation interne (CI)"
+        
+        if self.type_sortie == "BS":
+            confirmation_msg = (
+                f"CONFIRMEZ LA SORTIE D'ARTICLES\n\n"
+                f"Type: {type_label}\n"
+                f"Référence: {ref_sortie}\n"
+                f"Articles: {len(self.detail_sortie)}\n"
+                f"Motif: {motif_sortie}\n\n"
+                f"Voulez-vous enregistrer cette sortie?"
+            )
+        else:  # CI
+            confirmation_msg = (
+                f"CONFIRMEZ LA CONSOMMATION INTERNE\n\n"
+                f"Type: {type_label}\n"
+                f"Référence: {ref_sortie}\n"
+                f"Articles: {len(self.detail_sortie)}\n"
+                f"Valeur totale: {self.formater_nombre(montant_total_ci)} Ar\n"
+                f"Motif: {motif_sortie}\n\n"
+                f"Voulez-vous enregistrer la consommation?"
+            )
+        
+        if not messagebox.askyesno("Confirmation", confirmation_msg):
             return
 
         conn = self.connect_db()
@@ -1215,58 +1384,183 @@ class PageSortie(ctk.CTkFrame):
         try:
             cursor = conn.cursor()
             
-            # 1. Enregistrement de l'en-tête de la sortie (tb_sortie)
-            sql_sortie = """
-                INSERT INTO tb_sortie (refsortie, dateregistre, description, iduser, deleted)
-                VALUES (%s, %s, %s, %s, 0) RETURNING id
-            """
-            cursor.execute(sql_sortie, (
-                ref_sortie,
-                date_sortie,
-                motif_sortie,
-                self.id_user_connecte
-            ))
-            idsortie = cursor.fetchone()[0]
-
-            # 2. Enregistrement des détails de la sortie (tb_sortiedetail)
-            sql_sortie_detail = """
-                INSERT INTO tb_sortiedetail (idsortie, idmag, idarticle, idunite, qtsortie)
-                VALUES (%s, %s, %s, %s, %s)
-            """
-            
-            details_a_inserer = []
-            for detail in self.detail_sortie:
-                details_a_inserer.append((
-                    idsortie,
-                    detail['idmag'],
-                    detail['idarticle'], 
-                    detail['idunite'], 
-                    detail['qtsortie']
-                ))
-            
-            cursor.executemany(sql_sortie_detail, details_a_inserer)
-
-            # 3. Validation et succès
-            conn.commit()
-            messagebox.showinfo("Succès", f"La sortie N°{ref_sortie} a été enregistrée avec succès.")
-            
-            # Stocker l'ID pour l'impression et activer le bouton
-            self.derniere_idsortie_enregistree = idsortie 
-            self.btn_imprimer.configure(state="normal") 
-            
-            # 4. Réinitialisation des champs de saisie pour une nouvelle sortie
-            self.reset_form(reset_imprimer=False) # Ne pas désactiver le bouton Imprimer tout de suite
+            if self.type_sortie == "BS":
+                # =============== ENREGISTREMENT SORTIE (BS) ===============
+                self._enregistrer_sortie_bs(cursor, conn, ref_sortie, date_sortie, designationmag, motif_sortie)
+            else:
+                # =============== ENREGISTREMENT CONSOMMATION (CI) ===============
+                self._enregistrer_consommation_ci(cursor, conn, ref_sortie, date_sortie, designationmag, motif_sortie, montant_total_ci)
 
         except psycopg2.Error as e:
-            conn.rollback() 
-            messagebox.showerror("Erreur de Base de Données", f"Une erreur s'est produite lors de l'enregistrement:\n{e}")
+            if conn: conn.rollback()
+            messagebox.showerror("Erreur BD", f"Erreur d'enregistrement:\n{e}")
         except Exception as e:
             if conn: conn.rollback()
-            messagebox.showerror("Erreur", f"Une erreur inattendue s'est produite:\n{e}")
-
+            messagebox.showerror("Erreur", f"Erreur inattendue:\n{e}")
         finally:
             if 'cursor' in locals() and cursor: cursor.close()
             if conn: conn.close()
+
+    def _enregistrer_sortie_bs(self, cursor, conn, ref_sortie, date_sortie, designationmag, motif_sortie):
+        """Enregistre une Sortie d'Articles (BS) dans tb_sortie et tb_sortiedetail."""
+        # Récupérer l'idmag
+        cursor.execute("SELECT idmag FROM tb_magasin WHERE designationmag = %s LIMIT 1", (designationmag,))
+        result = cursor.fetchone()
+        if not result:
+            messagebox.showerror("Erreur", f"Magasin '{designationmag}' introuvable.")
+            return
+        idmag = result[0]
+        
+        # 1. Insérer en-tête de sortie (sans idmag - idmag est seulement dans les détails)
+        sql_sortie = """
+            INSERT INTO tb_sortie (refsortie, dateregistre, description, deleted)
+            VALUES (%s, %s, %s, 0) RETURNING id
+        """
+        cursor.execute(sql_sortie, (ref_sortie, date_sortie, motif_sortie))
+        idsortie = cursor.fetchone()[0]
+
+        # 2. Insérer les détails
+        sql_detail = """
+            INSERT INTO tb_sortiedetail (idsortie, idmag, idarticle, idunite, qtsortie)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        for detail in self.detail_sortie:
+            cursor.execute(sql_detail, (
+                idsortie,
+                detail['idmag'],
+                detail['idarticle'],
+                detail['idunite'],
+                detail['qtsortie']
+            ))
+
+        conn.commit()
+        messagebox.showinfo("Succès", f"Sortie N°{ref_sortie} enregistrée.")
+        self.derniere_idsortie_enregistree = idsortie
+        self.reset_form()
+
+    def _enregistrer_consommation_ci(self, cursor, conn, ref_sortie, date_sortie, designationmag, motif_sortie, montant_total):
+        """Enregistre une Consommation Interne (CI) dans tb_consommationinterne et tb_consommationinterne_details."""
+        # Récupérer iduser depuis session.json
+        try:
+            session_path = get_session_path()
+            with open(session_path, 'r', encoding='utf-8') as f:
+                session = json.load(f)
+                iduser = session.get('user_id')
+            if not iduser:
+                messagebox.showerror("Erreur", "Utilisateur non identifié. Reconnectez-vous.")
+                return
+        except Exception as e:
+            messagebox.showerror("Erreur Session", f"Impossible de récupérer l'utilisateur: {e}")
+            return
+        
+        # 1. Insérer en-tête de consommation
+        sql_ci = """
+            INSERT INTO tb_consommationinterne (refconsommation, iduser, observation, valeur_totale)
+            VALUES (%s, %s, %s, %s) RETURNING id
+        """
+        cursor.execute(sql_ci, (ref_sortie, iduser, motif_sortie, montant_total))
+        idconsommation = cursor.fetchone()[0]
+
+        # 2. Insérer les détails
+        sql_detail = """
+            INSERT INTO tb_consommationinterne_details (idconsommation, idarticle, idunite, idmag, qtconsomme, prixunit, observation)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        for detail in self.detail_sortie:
+            cursor.execute(sql_detail, (
+                idconsommation,
+                detail['idarticle'],
+                detail['idunite'],
+                detail['idmag'],
+                detail['qtsortie'],
+                detail.get('prix_unitaire', 0),
+                motif_sortie
+            ))
+
+        conn.commit()
+        messagebox.showinfo("Succès", f"Consommation N°{ref_sortie} enregistrée.")
+        
+        # Générer le PDF d'impression
+        self._generer_pdf_consommation_ci(ref_sortie, date_sortie, designationmag, motif_sortie, montant_total)
+        
+        self.reset_form()
+
+    def _generer_pdf_consommation_ci(self, ref_sortie, date_sortie, designationmag, motif_sortie, montant_total):
+        """Génère un PDF d'impression pour la consommation interne."""
+        try:
+            # Créer le dossier "Etats Impression" s'il n'existe pas
+            etat_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Etats Impression")
+            if not os.path.exists(etat_dir):
+                os.makedirs(etat_dir)
+            
+            # Nom du fichier PDF
+            pdf_filename = f"{ref_sortie.replace('-', '_')}_Consommation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            pdf_path = os.path.join(etat_dir, pdf_filename)
+            
+            # Créer le document PDF (A5 Landscape)
+            doc = SimpleDocTemplate(pdf_path, pagesize=landscape(A5), rightMargin=10, leftMargin=10, topMargin=10, bottomMargin=10)
+            story = []
+            styles = getSampleStyleSheet()
+            
+            # Titre
+            title_style = styles['Heading1']
+            title_style.fontSize = 14
+            title_style.alignment = 1  # Centre
+            story.append(Paragraph("📋 CONSOMMATION INTERNE", title_style))
+            
+            # Informations principales
+            info_data = [
+                ["Référence:", ref_sortie],
+                ["Date:", date_sortie.strftime("%d/%m/%Y")],
+                ["Magasin:", designationmag],
+                ["Motif:", motif_sortie],
+                ["Valeur Totale:", f"{self.formater_nombre(montant_total)} Ar"]
+            ]
+            info_table = Table(info_data, colWidths=[80, 200])
+            info_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ]))
+            story.append(info_table)
+            story.append(Spacer(1, 10))
+            
+            # Tableau des articles
+            articles_data = [["Code", "Désignation", "Unité", "Quantité", "P.U.", "Montant"]]
+            for detail in self.detail_sortie:
+                code = detail.get('code_article', '')
+                designation = detail.get('nom_article', '')
+                unite = detail.get('nom_unite', '')
+                qte = self.formater_nombre(detail.get('qtsortie', 0))
+                pu = self.formater_nombre(detail.get('prix_unitaire', 0))
+                montant = self.formater_nombre(detail.get('montant_total', 0))
+                
+                articles_data.append([code, designation, unite, qte, pu, montant])
+            
+            articles_table = Table(articles_data, colWidths=[50, 110, 40, 50, 50, 65])
+            articles_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+            ]))
+            story.append(articles_table)
+            
+            # Générer le PDF
+            doc.build(story)
+            messagebox.showinfo("PDF Généré", f"État d'impression sauvegardé:\n{pdf_filename}")
+            
+        except Exception as e:
+            messagebox.showerror("Erreur PDF", f"Erreur lors de la génération du PDF:\n{e}")
             
     def reset_form(self, reset_imprimer=True):
         """Réinitialise toute la fenêtre après l'enregistrement."""

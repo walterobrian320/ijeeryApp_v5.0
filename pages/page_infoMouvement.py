@@ -348,11 +348,105 @@ class PageChangementArticle(ctk.CTkFrame):
         """Ouvre la fenêtre de recherche d'article pour ENTRÉE"""
         self._ouvrir_recherche_article("entree")
 
+    def calculer_stock_article(self, idarticle, idunite, idmag):
+        """
+        Calcule le stock consolidé en prenant en compte tous les mouvements.
+        Formule: (Réceptions + Transferts IN + Inventaires + Avoirs - Ventes - Sorties - Transferts OUT)
+        """
+        conn = self.connect_db()
+        if not conn: 
+            return 0
+    
+        try:
+            cursor = conn.cursor()
+            
+            # D'abord récupérer le codearticle pour tb_inventaire
+            cursor.execute("""
+                SELECT codearticle FROM tb_unite WHERE idarticle = %s AND idunite = %s
+            """, (idarticle, idunite))
+            result = cursor.fetchone()
+            codearticle = result[0] if result else None
+            
+            if not codearticle:
+                return 0
+            
+            # Réceptions (tb_livraisonfrs)
+            cursor.execute("""
+                SELECT COALESCE(SUM(qtlivrefrs), 0) 
+                FROM tb_livraisonfrs 
+                WHERE idarticle = %s AND idunite = %s AND deleted = 0 AND idmag = %s
+            """, (idarticle, idunite, idmag))
+            receptions = cursor.fetchone()[0] or 0
+        
+            # Ventes (tb_ventedetail)
+            cursor.execute("""
+                SELECT COALESCE(SUM(qtvente), 0) 
+                FROM tb_ventedetail 
+                WHERE idarticle = %s AND idunite = %s AND deleted = 0 AND idmag = %s
+            """, (idarticle, idunite, idmag))
+            ventes = cursor.fetchone()[0] or 0
+        
+            # Sorties (tb_sortiedetail)
+            cursor.execute("""
+                SELECT COALESCE(SUM(qtsortie), 0) 
+                FROM tb_sortiedetail 
+                WHERE idarticle = %s AND idunite = %s AND idmag = %s
+            """, (idarticle, idunite, idmag))
+            sorties = cursor.fetchone()[0] or 0
+        
+            # Transferts Entrée (tb_transfertdetail)
+            cursor.execute("""
+                SELECT COALESCE(SUM(qttransfert), 0) 
+                FROM tb_transfertdetail 
+                WHERE idarticle = %s AND idunite = %s AND deleted = 0 AND idmagentree = %s
+            """, (idarticle, idunite, idmag))
+            transferts_in = cursor.fetchone()[0] or 0
+            
+            # Transferts Sortie (tb_transfertdetail)
+            cursor.execute("""
+                SELECT COALESCE(SUM(qttransfert), 0) 
+                FROM tb_transfertdetail 
+                WHERE idarticle = %s AND idunite = %s AND deleted = 0 AND idmagsortie = %s
+            """, (idarticle, idunite, idmag))
+            transferts_out = cursor.fetchone()[0] or 0
+        
+            # Inventaires (tb_inventaire utilise codearticle)
+            cursor.execute("""
+                SELECT COALESCE(SUM(qtinventaire), 0) 
+                FROM tb_inventaire 
+                WHERE codearticle = %s AND idmag = %s
+            """, (codearticle, idmag))
+            inventaires = cursor.fetchone()[0] or 0
+
+            # Avoirs (augmentent le stock - annulation de vente)
+            cursor.execute("""
+                SELECT COALESCE(SUM(ad.qtavoir), 0) 
+                FROM tb_avoirdetail ad
+                INNER JOIN tb_avoir a ON ad.idavoir = a.id
+                WHERE ad.idarticle = %s AND ad.idunite = %s AND ad.idmag = %s
+                AND a.deleted = 0 AND ad.deleted = 0
+            """, (idarticle, idunite, idmag))
+            avoirs = cursor.fetchone()[0] or 0
+
+            # Calcul final : Stock = Entrées - Sorties
+            stock_total = (receptions + transferts_in + inventaires + avoirs) - (ventes + sorties + transferts_out)
+            
+            return max(0, stock_total)
+        
+        except Exception as e:
+            print(f"Erreur calcul stock: {e}")
+            return 0
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+
     def _ouvrir_recherche_article(self, type_mouvement):
         """Fenêtre générique de recherche d'article"""
         fenetre = ctk.CTkToplevel(self)
         fenetre.title("Rechercher un article")
-        fenetre.geometry("900x500")
+        fenetre.geometry("1000x500")
         fenetre.grab_set()
 
         main_frame = ctk.CTkFrame(fenetre)
@@ -368,30 +462,7 @@ class PageChangementArticle(ctk.CTkFrame):
         ctk.CTkLabel(search_frame, text="🔍 Rechercher:").pack(side="left", padx=5)
         entry_search = ctk.CTkEntry(search_frame, placeholder_text="Code ou désignation...", width=300)
         entry_search.pack(side="left", padx=5, fill="x", expand=True)
-
-        tree_frame = ctk.CTkFrame(main_frame)
-        tree_frame.pack(fill="both", expand=True, pady=(0, 10))
-
-        colonnes = ("ID", "ID_Unite", "Code", "Désignation", "Unité")
-        tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
-
-        for col in colonnes:
-            tree.heading(col, text=col)
         
-        tree.column("ID", width=0, stretch=False)
-        tree.column("ID_Unite", width=0, stretch=False)
-        tree.column("Code", width=150, anchor='w')
-        tree.column("Désignation", width=500, anchor='w')
-        tree.column("Unité", width=100, anchor='w')
-
-        scrollbar = ctk.CTkScrollbar(tree_frame, command=tree.yview)
-        tree.configure(yscrollcommand=scrollbar.set)
-        tree.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        label_count = ctk.CTkLabel(main_frame, text="Articles: 0")
-        label_count.pack(pady=5)
-
         def charger_articles(filtre=""):
             for item in tree.get_children():
                 tree.delete(item)
@@ -413,13 +484,39 @@ class PageChangementArticle(ctk.CTkFrame):
                         LOWER(T2."designation") LIKE LOWER(%s)
                     )"""
                     params = [f"%{filtre}%", f"%{filtre}%"]
-                query += " ORDER BY T1.\"codearticle\""
+                query += " ORDER BY T2.\"designation\" ASC, T1.\"codearticle\" ASC"
                 cursor.execute(query, params)
                 resultats = cursor.fetchall()
 
+                # Récupérer le magasin sélectionné
+                idmag = self.magasins.get(self.combo_mag_sortie.get() if type_mouvement == "sortie" else self.combo_mag_entree.get(), None)
+                
+                # Charger articles SANS stocks d'abord (rapide)
                 for row in resultats:
-                    tree.insert('', 'end', values=(row[0], row[1], row[2], row[3], row[4]))
+                    tree.insert('', 'end', values=(row[0], row[1], row[2], row[3], row[4], "..."))
 
+                label_count.configure(text=f"Articles: {len(resultats)} (chargement stocks...)")
+                
+                # Charger les stocks en arrière-plan
+                def charger_stocks_bg():
+                    try:
+                        for idx, row in enumerate(resultats):
+                            idarticle = row[0]
+                            idunite = row[1]
+                            stock = self.calculer_stock_article(idarticle, idunite, idmag) if idmag else 0
+                            
+                            # Récupérer l'item du tree et le mettre à jour
+                            items = tree.get_children()
+                            if idx < len(items):
+                                tree.item(items[idx], values=(row[0], row[1], row[2], row[3], row[4], f"{stock:.2f}"))
+                    except Exception as e:
+                        print(f"Erreur chargement stocks: {e}")
+                
+                # Lancer le chargement des stocks dans un thread
+                import threading
+                thread_stocks = threading.Thread(target=charger_stocks_bg, daemon=True)
+                thread_stocks.start()
+                
                 label_count.configure(text=f"Articles: {len(resultats)}")
             except Exception as e:
                 messagebox.showerror("Erreur", f"Erreur: {str(e)}")
@@ -429,10 +526,34 @@ class PageChangementArticle(ctk.CTkFrame):
                 if conn:
                     conn.close()
 
-        def rechercher(*args):
-            charger_articles(entry_search.get())
+        btn_rechercher = ctk.CTkButton(search_frame, text="🔎 Chercher", 
+                                      command=lambda: charger_articles(entry_search.get()),
+                                      width=100, fg_color="#1976d2", hover_color="#1565c0")
+        btn_rechercher.pack(side="left", padx=5)
 
-        entry_search.bind('<KeyRelease>', rechercher)
+        tree_frame = ctk.CTkFrame(main_frame)
+        tree_frame.pack(fill="both", expand=True, pady=(0, 10))
+
+        colonnes = ("ID", "ID_Unite", "Code", "Désignation", "Unité", "Stock")
+        tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
+
+        for col in colonnes:
+            tree.heading(col, text=col)
+        
+        tree.column("ID", width=0, stretch=False)
+        tree.column("ID_Unite", width=0, stretch=False)
+        tree.column("Code", width=120, anchor='w')
+        tree.column("Désignation", width=400, anchor='w')
+        tree.column("Unité", width=100, anchor='w')
+        tree.column("Stock", width=100, anchor='center')
+
+        scrollbar = ctk.CTkScrollbar(tree_frame, command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+        tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        label_count = ctk.CTkLabel(main_frame, text="Articles: 0")
+        label_count.pack(pady=5)
 
         def valider_selection():
             selection = tree.selection()
@@ -446,6 +567,7 @@ class PageChangementArticle(ctk.CTkFrame):
             codeart = values[2]
             designation = values[3]
             unite = values[4]
+            stock = float(values[5])  # Stock actuel du magasin
 
             if type_mouvement == "sortie":
                 self.article_sortie_selectionne = {
@@ -453,7 +575,8 @@ class PageChangementArticle(ctk.CTkFrame):
                     'idunite': idunite,
                     'designation': designation,
                     'unite': unite,
-                    'code': codeart
+                    'code': codeart,
+                    'stock_disponible': stock
                 }
                 self.entry_article_sortie.delete(0, "end")
                 self.entry_article_sortie.insert(0, designation)
@@ -468,7 +591,8 @@ class PageChangementArticle(ctk.CTkFrame):
                     'idunite': idunite,
                     'designation': designation,
                     'unite': unite,
-                    'code': codeart
+                    'code': codeart,
+                    'stock_disponible': stock
                 }
                 self.entry_article_entree.delete(0, "end")
                 self.entry_article_entree.insert(0, designation)
@@ -507,6 +631,14 @@ class PageChangementArticle(ctk.CTkFrame):
                 messagebox.showwarning("Attention", "Quantité doit être > 0")
                 return
 
+            # Vérifier le stock disponible
+            stock_dispo = self.article_sortie_selectionne['stock_disponible']
+            if qty > stock_dispo:
+                messagebox.showerror("Stock insuffisant", 
+                    f"Stock disponible: {self.formater_nombre(stock_dispo)}\n"
+                    f"Vous avez demandé: {self.formater_nombre(qty)}")
+                return
+
             magasin = self.combo_mag_sortie.get()
             designation = self.article_sortie_selectionne['designation']
             unite = self.article_sortie_selectionne['unite']
@@ -527,6 +659,7 @@ class PageChangementArticle(ctk.CTkFrame):
             })
 
             self.annuler_sortie()
+            messagebox.showinfo("Succès", f"Article '{designation}' ajouté à la sortie")
         except ValueError:
             messagebox.showerror("Erreur", "Quantité invalide")
 
@@ -562,6 +695,7 @@ class PageChangementArticle(ctk.CTkFrame):
             })
 
             self.annuler_entree()
+            messagebox.showinfo("Succès", f"Article '{designation}' ajouté à l'entrée")
         except ValueError:
             messagebox.showerror("Erreur", "Quantité invalide")
 
@@ -615,9 +749,86 @@ class PageChangementArticle(ctk.CTkFrame):
             messagebox.showwarning("Attention", "Ajoutez au moins un article en sortie ou entrée")
             return
 
-        messagebox.showinfo("Enregistrement", 
-                          f"Sortie: {len(self.articles_sortie)} articles\nEntrée: {len(self.articles_entree)} articles\n\n"
-                          "Enregistrement à développer")
+        conn = self.connect_db()
+        if not conn:
+            return
+
+        try:
+            cursor = conn.cursor()
+            
+            # 1. Récupérer la référence depuis entry_ref
+            refchg = self.entry_ref.get()
+            if not refchg:
+                messagebox.showerror("Erreur", "Référence vide")
+                return
+            
+            # 2. Insérer dans tb_changement
+            cursor.execute("""
+                INSERT INTO tb_changement (refchg, datechg, iduser, note)
+                VALUES (%s, CURRENT_TIMESTAMP, %s, NULL)
+                RETURNING idchg
+            """, (refchg, self.iduser))
+            
+            idchg = cursor.fetchone()[0]
+            
+            # 3. Insérer les articles en sortie
+            for article in self.articles_sortie:
+                cursor.execute("""
+                    INSERT INTO tb_detailchange_sortie 
+                    (idchg, idarticle, idunite, idmagasin, quantite_sortie)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (
+                    idchg,
+                    article['idarticle'],
+                    article['idunite'],
+                    article['idmagasin'],
+                    article['quantite']
+                ))
+            
+            # 4. Insérer les articles en entrée
+            for article in self.articles_entree:
+                cursor.execute("""
+                    INSERT INTO tb_detailchange_entree 
+                    (idchg, idarticle, idunite, idmagasin, quantite_entree)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (
+                    idchg,
+                    article['idarticle'],
+                    article['idunite'],
+                    article['idmagasin'],
+                    article['quantite']
+                ))
+            
+            conn.commit()
+            
+            messagebox.showinfo("Succès", 
+                              f"Changement enregistré avec succès!\n\n"
+                              f"Référence: {refchg}\n"
+                              f"Sorties: {len(self.articles_sortie)} articles\n"
+                              f"Entrées: {len(self.articles_entree)} articles")
+            
+            # Réinitialiser après enregistrement
+            self.articles_sortie = []
+            self.articles_entree = []
+            self.tree_sortie.delete(*self.tree_sortie.get_children())
+            self.tree_entree.delete(*self.tree_entree.get_children())
+            
+            # Générer nouvelle référence
+            self.generer_reference()
+            
+        except psycopg2.Error as e:
+            conn.rollback()
+            messagebox.showerror("Erreur Base de Données", f"Erreur: {str(e)}")
+        except Exception as e:
+            conn.rollback()
+            messagebox.showerror("Erreur", f"Erreur: {str(e)}")
+            print(f"Erreur enregistrement: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+
 
     def imprimer_changement(self):
         """Imprime le changement"""

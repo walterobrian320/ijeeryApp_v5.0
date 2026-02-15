@@ -1502,62 +1502,146 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                 cursor = conn.cursor()
                 filtre_like = f"%{filtre}%"
             
-                # ✅ SQL - même logique que page_stock.py pour calcul cohérent du stock
+                # Requête consolidée (inclut consommations et échanges, coefficient hiérarchique)
                 query = """
                 WITH mouvements_bruts AS (
                     -- Réceptions
-                    SELECT lf.idarticle, COALESCE(u.qtunite, 1) as qtunite_source, lf.qtlivrefrs as quantite, 'reception' as type_mouvement
-                    FROM tb_livraisonfrs lf INNER JOIN tb_unite u ON lf.idarticle = u.idarticle AND lf.idunite = u.idunite WHERE lf.deleted = 0
+                    SELECT lf.idarticle, lf.idmag, COALESCE(u.qtunite, 1) AS qtunite_source, lf.qtlivrefrs AS quantite, 'reception' AS type_mouvement
+                    FROM tb_livraisonfrs lf
+                    INNER JOIN tb_unite u ON lf.idarticle = u.idarticle AND lf.idunite = u.idunite
+                    WHERE lf.deleted = 0
+
                     UNION ALL
+
                     -- Ventes validées
-                    SELECT vd.idarticle, COALESCE(u.qtunite, 1), vd.qtvente, 'vente'
-                    FROM tb_ventedetail vd INNER JOIN tb_vente v ON vd.idvente = v.id AND v.deleted = 0 AND v.statut = 'VALIDEE' 
-                    INNER JOIN tb_unite u ON vd.idarticle = u.idarticle AND vd.idunite = u.idunite WHERE vd.deleted = 0
+                    SELECT vd.idarticle, v.idmag, COALESCE(u.qtunite, 1) AS qtunite_source, vd.qtvente AS quantite, 'vente' AS type_mouvement
+                    FROM tb_ventedetail vd
+                    INNER JOIN tb_vente v ON vd.idvente = v.id AND v.deleted = 0 AND v.statut = 'VALIDEE'
+                    INNER JOIN tb_unite u ON vd.idarticle = u.idarticle AND vd.idunite = u.idunite
+                    WHERE vd.deleted = 0
+
                     UNION ALL
+
                     -- Transferts entrants
-                    SELECT t.idarticle, COALESCE(u.qtunite, 1), t.qttransfert, 'transfert_in'
-                    FROM tb_transfertdetail t INNER JOIN tb_unite u ON t.idarticle = u.idarticle AND t.idunite = u.idunite WHERE t.deleted = 0
+                    SELECT t.idarticle, t.idmagentree AS idmag, COALESCE(u.qtunite, 1) AS qtunite_source, t.qttransfert AS quantite, 'transfert_in' AS type_mouvement
+                    FROM tb_transfertdetail t
+                    INNER JOIN tb_unite u ON t.idarticle = u.idarticle AND t.idunite = u.idunite
+                    WHERE t.deleted = 0
+
                     UNION ALL
+
                     -- Transferts sortants
-                    SELECT t.idarticle, COALESCE(u.qtunite, 1), t.qttransfert, 'transfert_out'
-                    FROM tb_transfertdetail t INNER JOIN tb_unite u ON t.idarticle = u.idarticle AND t.idunite = u.idunite WHERE t.deleted = 0
+                    SELECT t.idarticle, t.idmagsortie AS idmag, COALESCE(u.qtunite, 1) AS qtunite_source, t.qttransfert AS quantite, 'transfert_out' AS type_mouvement
+                    FROM tb_transfertdetail t
+                    INNER JOIN tb_unite u ON t.idarticle = u.idarticle AND t.idunite = u.idunite
+                    WHERE t.deleted = 0
+
                     UNION ALL
-                    -- Sorties
-                    SELECT sd.idarticle, COALESCE(u.qtunite, 1), sd.qtsortie, 'sortie'
-                    FROM tb_sortiedetail sd INNER JOIN tb_unite u ON sd.idarticle = u.idarticle AND sd.idunite = u.idunite WHERE sd.deleted = 0
+
+                    -- Sorties (BS)
+                    SELECT sd.idarticle, sd.idmag, COALESCE(u.qtunite, 1) AS qtunite_source, sd.qtsortie AS quantite, 'sortie' AS type_mouvement
+                    FROM tb_sortiedetail sd
+                    INNER JOIN tb_unite u ON sd.idarticle = u.idarticle AND sd.idunite = u.idunite
+                    WHERE sd.deleted = 0
+
                     UNION ALL
-                    -- Inventaires (une seule fois par article = unité de base)
-                    SELECT u.idarticle, COALESCE(u.qtunite, 1), i.qtinventaire, 'inventaire'
-                    FROM tb_inventaire i INNER JOIN tb_unite u ON i.codearticle = u.codearticle
-                    WHERE u.idunite IN (SELECT DISTINCT ON (idarticle) idunite FROM tb_unite WHERE deleted = 0 ORDER BY idarticle, qtunite ASC)
+
+                    -- Inventaires (une seule fois par article via unité de base)
+                    SELECT u.idarticle, i.idmag, COALESCE(u.qtunite, 1) AS qtunite_source, i.qtinventaire AS quantite, 'inventaire' AS type_mouvement
+                    FROM tb_inventaire i
+                    INNER JOIN tb_unite u ON i.codearticle = u.codearticle
+                    WHERE u.idunite IN (
+                        SELECT DISTINCT ON (idarticle) idunite FROM tb_unite WHERE deleted = 0 ORDER BY idarticle, qtunite ASC
+                    )
+
                     UNION ALL
-                    -- Avoirs (augmentent le stock = retour marchandises)
-                    SELECT ad.idarticle, COALESCE(u.qtunite, 1), ad.qtavoir, 'avoir'
-                    FROM tb_avoir a INNER JOIN tb_avoirdetail ad ON a.id = ad.idavoir
+
+                    -- Avoirs
+                    SELECT ad.idarticle, ad.idmag, COALESCE(u.qtunite, 1) AS qtunite_source, ad.qtavoir AS quantite, 'avoir' AS type_mouvement
+                    FROM tb_avoir a
+                    INNER JOIN tb_avoirdetail ad ON a.id = ad.idavoir
                     INNER JOIN tb_unite u ON ad.idarticle = u.idarticle AND ad.idunite = u.idunite
                     WHERE a.deleted = 0 AND ad.deleted = 0
+
+                    UNION ALL
+
+                    -- Consommation interne
+                    SELECT cd.idarticle, cd.idmag, COALESCE(u.qtunite, 1) AS qtunite_source, cd.qtconsomme AS quantite, 'consommation_interne' AS type_mouvement
+                    FROM tb_consommationinterne_details cd
+                    INNER JOIN tb_unite u ON cd.idarticle = u.idarticle AND cd.idunite = u.idunite
+
+                    UNION ALL
+
+                    -- Échanges entrée
+                    SELECT dce.idarticle, dce.idmagasin AS idmag, COALESCE(u.qtunite, 1) AS qtunite_source, dce.quantite_entree AS quantite, 'echange_entree' AS type_mouvement
+                    FROM tb_detailchange_entree dce
+                    INNER JOIN tb_unite u ON dce.idarticle = u.idarticle AND dce.idunite = u.idunite
+
+                    UNION ALL
+
+                    -- Échanges sortie
+                    SELECT dcs.idarticle, dcs.idmagasin AS idmag, COALESCE(u.qtunite, 1) AS qtunite_source, dcs.quantite_sortie AS quantite, 'echange_sortie' AS type_mouvement
+                    FROM tb_detailchange_sortie dcs
+                    INNER JOIN tb_unite u ON dcs.idarticle = u.idarticle AND dcs.idunite = u.idunite
                 ),
+
+                -- On agrège par idarticle (somme sur tous les magasins) pour obtenir un solde global
                 solde_base AS (
-                    SELECT idarticle, 
-                        SUM(CASE WHEN type_mouvement IN ('reception','transfert_in','inventaire','avoir') 
-                                 THEN quantite * qtunite_source 
-                                 ELSE -quantite * qtunite_source END) as solde
-                    FROM mouvements_bruts GROUP BY idarticle
+                    SELECT idarticle,
+                        SUM(
+                            CASE
+                                WHEN type_mouvement IN ('reception','transfert_in','inventaire','avoir','echange_entree') THEN quantite * qtunite_source
+                                WHEN type_mouvement IN ('vente','sortie','transfert_out','consommation_interne','echange_sortie') THEN - quantite * qtunite_source
+                                ELSE 0
+                            END
+                        ) AS solde_global
+                    FROM mouvements_bruts
+                    GROUP BY idarticle
                 ),
-                coeff_unite AS (
-                    SELECT idarticle, idunite, designationunite, qtunite, niveau,
-                        exp(sum(ln(NULLIF(CASE WHEN qtunite > 0 THEN qtunite ELSE 1 END, 0))) 
-                        OVER (PARTITION BY idarticle ORDER BY niveau ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)) as coeff
-                    FROM tb_unite WHERE deleted = 0
+
+                -- CTE pour la hiérarchie des unités et calcul du coefficient cumulatif
+                unite_hierarchie AS (
+                    SELECT idarticle, idunite, niveau, qtunite, designationunite
+                    FROM tb_unite
+                    WHERE deleted = 0
+                ),
+
+                unite_coeff AS (
+                    SELECT
+                        idarticle,
+                        idunite,
+                        niveau,
+                        qtunite,
+                        designationunite,
+                        exp(sum(ln(NULLIF(CASE WHEN qtunite > 0 THEN qtunite ELSE 1 END, 0)))
+                            OVER (PARTITION BY idarticle ORDER BY niveau ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+                        ) AS coeff_hierarchique
+                    FROM unite_hierarchie
+                ),
+
+                -- ✅ Récupérer SEULEMENT le dernier prix pour chaque (idarticle, idunite)
+                dernier_prix AS (
+                    SELECT
+                        idarticle,
+                        idunite,
+                        prix,
+                        ROW_NUMBER() OVER (PARTITION BY idarticle, idunite ORDER BY id DESC) AS rn
+                    FROM tb_prix
                 )
-                SELECT u.idarticle, u.idunite, u.codearticle, a.designation, cu.designationunite,
-                    COALESCE(p.prix, 0) as prix, 
-                    ROUND(COALESCE(sb.solde, 0) / NULLIF(COALESCE(cu.coeff, 1), 0)) as stock_total
+
+                SELECT
+                    u.idarticle,
+                    u.idunite,
+                    u.codearticle,
+                    a.designation,
+                    uc.designationunite,
+                    COALESCE(p.prix, 0) AS prix,
+                    ROUND(COALESCE(sb.solde_global, 0) / NULLIF(COALESCE(uc.coeff_hierarchique, 1), 0)) AS stock_total
                 FROM tb_article a
                 INNER JOIN tb_unite u ON a.idarticle = u.idarticle
-                LEFT JOIN coeff_unite cu ON cu.idarticle = u.idarticle AND cu.idunite = u.idunite
+                LEFT JOIN unite_coeff uc ON uc.idarticle = u.idarticle AND uc.idunite = u.idunite
                 LEFT JOIN solde_base sb ON sb.idarticle = u.idarticle
-                LEFT JOIN tb_prix p ON a.idarticle = p.idarticle AND u.idunite = p.idunite
+                LEFT JOIN dernier_prix p ON a.idarticle = p.idarticle AND u.idunite = p.idunite AND p.rn = 1
                 WHERE a.deleted = 0 AND (u.codearticle ILIKE %s OR a.designation ILIKE %s)
                 ORDER BY a.designation ASC, u.codearticle ASC
                 """

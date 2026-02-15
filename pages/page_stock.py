@@ -213,6 +213,7 @@ class PageStock(ctk.CTkFrame):
             #   1) mouvements_bruts   → chaque mouvement converti en "unité de base"
             #   2) solde_base_par_mag → somme tous les mouvements par (idarticle, idmag) 
             #   3) Requête finale     → divise par qtunite pour obtenir stock affiché
+            # ✅ Requête consolidée avec les 9 sources de mouvements + coefficient hiérarchique
             query_optimisee = """
             WITH mouvements_bruts AS (
                 -- Réceptions (tb_livraisonfrs)
@@ -268,7 +269,7 @@ class PageStock(ctk.CTkFrame):
 
                 UNION ALL
 
-                -- Sorties (tb_sortiedetail) - DIMINUENT le stock
+                -- Sorties (tb_sortiedetail)
                 SELECT
                     sd.idarticle,
                     sd.idmag,
@@ -280,11 +281,7 @@ class PageStock(ctk.CTkFrame):
 
                 UNION ALL
 
-                -- Inventaires (via codearticle → idunite pour avoir qtunite)
-                -- ⚠️ FIX: Ne compter les inventaires qu'UNE SEULE FOIS par article
-                -- (sélectionner uniquement l'unité de base pour chaque article)
-                -- Cela évite le double-comptage quand il y a plusieurs inventaires
-                -- pour différentes variantes d'unité du même article
+                -- Inventaires (une seule fois par article = unité de base)
                 SELECT
                     u.idarticle,
                     i.idmag,
@@ -294,8 +291,6 @@ class PageStock(ctk.CTkFrame):
                 FROM tb_inventaire i
                 INNER JOIN tb_unite u ON i.codearticle = u.codearticle
                 WHERE u.idunite IN (
-                    -- Sélectionner UNIQUEMENT l'unité de base (plus petit qtunite)
-                    -- pour chaque idarticle (DISTINCT ON nécessite PostgreSQL)
                     SELECT DISTINCT ON (idarticle) idunite
                     FROM tb_unite
                     WHERE deleted = 0
@@ -304,7 +299,7 @@ class PageStock(ctk.CTkFrame):
 
                 UNION ALL
 
-                -- Avoirs (tb_avoir/tb_avoirdetail) - AUGMENTENT le stock (annulation de vente)
+                -- Avoirs (augmentent le stock = retour marchandises)
                 SELECT
                     ad.idarticle,
                     ad.idmag,
@@ -318,7 +313,7 @@ class PageStock(ctk.CTkFrame):
 
                 UNION ALL
 
-                -- Consommation Interne (tb_consommationinterne_details) - DIMINUENT le stock
+                -- Consommation interne (diminue le stock)
                 SELECT
                     cd.idarticle,
                     cd.idmag,
@@ -330,7 +325,7 @@ class PageStock(ctk.CTkFrame):
 
                 UNION ALL
 
-                -- Échanges Entrée (tb_detailchange_entree) - AUGMENTENT le stock
+                -- Échanges entrée (augmentent le stock)
                 SELECT
                     dce.idarticle,
                     dce.idmagasin,
@@ -342,7 +337,7 @@ class PageStock(ctk.CTkFrame):
 
                 UNION ALL
 
-                -- Échanges Sortie (tb_detailchange_sortie) - DIMINUENT le stock
+                -- Échanges sortie (diminuent le stock)
                 SELECT
                     dcs.idarticle,
                     dcs.idmagasin,
@@ -354,25 +349,21 @@ class PageStock(ctk.CTkFrame):
             ),
 
             solde_base_par_mag AS (
-                -- On convertit chaque mouvement en unité de base (× qtunite_source)
-                -- puis on calcule le solde global par (idarticle, idmag)
                 SELECT
                     idarticle,
                     idmag,
                     SUM(
                         CASE type_mouvement
-                            -- ENTRÉES (Stock augmente)
                             WHEN 'reception'             THEN  quantite * qtunite_source
                             WHEN 'transfert_in'          THEN  quantite * qtunite_source
                             WHEN 'inventaire'            THEN  quantite * qtunite_source
-                            WHEN 'avoir'                 THEN  quantite * qtunite_source  -- Retour marchandise (annulation vente)
-                            WHEN 'echange_entree'        THEN  quantite * qtunite_source  -- Échange entrée
-                            -- SORTIES (Stock diminue)
+                            WHEN 'avoir'                 THEN  quantite * qtunite_source
+                            WHEN 'echange_entree'        THEN  quantite * qtunite_source
                             WHEN 'vente'                 THEN -quantite * qtunite_source
-                            WHEN 'sortie'                THEN -quantite * qtunite_source  -- Bon de Sortie
+                            WHEN 'sortie'                THEN -quantite * qtunite_source
                             WHEN 'transfert_out'         THEN -quantite * qtunite_source
-                            WHEN 'consommation_interne'  THEN -quantite * qtunite_source  -- Consommation Interne
-                            WHEN 'echange_sortie'        THEN -quantite * qtunite_source  -- Échange sortie
+                            WHEN 'consommation_interne'  THEN -quantite * qtunite_source
+                            WHEN 'echange_sortie'        THEN -quantite * qtunite_source
                             ELSE 0
                         END
                     ) as solde_base
@@ -380,19 +371,12 @@ class PageStock(ctk.CTkFrame):
                 GROUP BY idarticle, idmag
             ),
 
-            -- ✅ CTE de HIÉRARCHIE : calcule le coefficient de conversion via la chaîne hiérarchique
             unite_hierarchie AS (
-                SELECT
-                    u.idarticle,
-                    u.idunite,
-                    u.niveau,
-                    u.qtunite,
-                    u.designationunite
-                FROM tb_unite u
-                WHERE u.deleted = 0
+                SELECT idarticle, idunite, niveau, qtunite, designationunite
+                FROM tb_unite
+                WHERE deleted = 0
             ),
 
-            -- Coefficient cumulatif pour chaque unité (produit des qtunite de la chaîne)
             unite_coeff AS (
                 SELECT
                     idarticle,
@@ -400,7 +384,7 @@ class PageStock(ctk.CTkFrame):
                     niveau,
                     qtunite,
                     designationunite,
-                    exp(sum(ln(NULLIF(CASE WHEN qtunite > 0 THEN qtunite ELSE 1 END, 0))) 
+                    exp(sum(ln(NULLIF(CASE WHEN qtunite > 0 THEN qtunite ELSE 1 END, 0)))
                         OVER (PARTITION BY idarticle ORDER BY niveau ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
                     ) as coeff_hierarchique
                 FROM unite_hierarchie
@@ -423,8 +407,6 @@ class PageStock(ctk.CTkFrame):
                 u.idarticle,
                 u.idunite,
                 m.idmag,
-                -- ✅ Division par le coefficient hiérarchique (pas seulement qtunite)
-                -- Gère les hiérarchies multi-niveaux : u3 = 5*u2, u2 = 10*u1
                 COALESCE(sb.solde_base, 0) / NULLIF(COALESCE(uc.coeff_hierarchique, 1), 0) as stock
             FROM tb_unite u
             INNER JOIN tb_article a ON u.idarticle = a.idarticle

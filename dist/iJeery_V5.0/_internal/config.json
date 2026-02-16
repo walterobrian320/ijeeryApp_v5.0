@@ -3,7 +3,7 @@
         "host": "localhost",
         "user": "postgres",
         "password": "root",
-        "database": "tsaravatsy_modif1302",
+        "database": "_tsaravatsy1602",
         "port": 5432
     }
 }

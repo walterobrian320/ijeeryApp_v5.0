@@ -592,12 +592,12 @@ class PagePmtFacture(ctk.CTkToplevel):
                     nouveau_stock = ancien_stock - qtvente
                     print(f"     📊 Calcul: {ancien_stock} - {qtvente} = {nouveau_stock}")
 
-                    # Vérification disponibilité (empêche validation si stock insuffisant)
-                    if ancien_stock < qtvente:
-                        print(f"     ❌ ERREUR: Stock insuffisant!")
-                        conn.rollback()
-                        messagebox.showerror("Stock insuffisant", f"Stock insuffisant pour l'article {codearticle or idarticle} (mag {idmag}). Ancien: {ancien_stock}, demandé: {qtvente}")
-                        return
+                    # ⚠️ TODO: Vérification disponibilité (empêche validation si stock insuffisant) - À DÉVELOPPER
+                    # if ancien_stock < qtvente:
+                    #     print(f"     ❌ ERREUR: Stock insuffisant!")
+                    #     conn.rollback()
+                    #     messagebox.showerror("Stock insuffisant", f"Stock insuffisant pour l'article {codearticle or idarticle} (mag {idmag}). Ancien: {ancien_stock}, demandé: {qtvente}")
+                    #     return
 
                     # Mise à jour du stock dans tb_stock (synchronisation du cache)
                     if codearticle:
@@ -637,93 +637,6 @@ class PagePmtFacture(ctk.CTkToplevel):
             except Exception as e:
                 conn.rollback()
                 print(f"\n❌ ERREUR lors de la mise à jour du stock: {e}\n")
-                messagebox.showerror("Erreur Stock", f"Erreur lors de la mise à jour du stock : {e}")
-                return
-
-            # 7. Préparer et générer le PDF (articles normalisés)
-            articles_pdf = []
-            for det in articles:
-                try:
-                    code = det[3]
-                    designation = det[4]
-                    unite = det[5]
-                    qte = det[6]
-                    prix_unit = det[7]
-                    montant = det[8]
-                    articles_pdf.append((code, designation, unite, qte, prix_unit, montant))
-                except Exception:
-                    continue
-
-            # Charger le paramètre d'impression depuis settings.json
-            settings = self.charger_settings()
-            imprimer_ticket = settings.get('ClientAPayer_ImpressionTicket', 1)
-                query_update_vente = """
-                    UPDATE tb_vente 
-                    SET idmode = %s, statut = 'VALIDEE'
-                    WHERE refvente = %s
-                """
-                cursor.execute(query_update_vente, (id_mode_selectionne, self.refvente))
-
-                # 2) Mettre à jour le stock et journaliser
-                for det in articles:
-                    idarticle = det[0]
-                    idunite = det[1]
-                    idmag = det[2]
-                    codearticle = det[3] or ''
-                    qtvente = float(det[6] or 0)
-
-                    # Chercher le stock : d'abord par codearticle (exact match), sinon par idarticle
-                    if codearticle:
-                        cursor.execute("SELECT qtstock FROM tb_stock WHERE codearticle = %s AND idmag = %s FOR UPDATE", (codearticle, idmag))
-                    else:
-                        cursor.execute("SELECT qtstock FROM tb_stock WHERE idarticle = %s AND idmag = %s FOR UPDATE", (idarticle, idmag))
-                    
-                    res_stock = cursor.fetchone()
-                    ancien_stock = float(res_stock[0]) if res_stock and res_stock[0] is not None else 0.0
-
-                    nouveau_stock = ancien_stock - qtvente
-
-                    # Vérification disponibilité (empêche validation si stock insuffisant)
-                    if ancien_stock < qtvente:
-                        conn.rollback()
-                        messagebox.showerror("Stock insuffisant", f"Stock insuffisant pour l'article {codearticle or idarticle} (mag {idmag}). Ancien: {ancien_stock}, demandé: {qtvente}")
-                        return
-
-                    # Mise à jour du stock avec la clé appropriée
-                    if codearticle:
-                        stock_key = codearticle
-                        key_name = 'codearticle'
-                    else:
-                        stock_key = idarticle
-                        key_name = 'idarticle'
-
-                    if res_stock:
-                        if key_name == 'codearticle':
-                            cursor.execute("UPDATE tb_stock SET qtstock = %s WHERE codearticle = %s AND idmag = %s", (nouveau_stock, stock_key, idmag))
-                        else:
-                            cursor.execute("UPDATE tb_stock SET qtstock = %s WHERE idarticle = %s AND idmag = %s", (nouveau_stock, stock_key, idmag))
-                    else:
-                        cursor.execute("INSERT INTO tb_stock (codearticle, idarticle, idmag, qtstock, qtalert, deleted) VALUES (%s, %s, %s, %s, 0, 0)", (codearticle if codearticle else None, idarticle, idmag, nouveau_stock))
-
-                    # Insérer le log de stock
-                    try:
-                        cursor.execute("SELECT setval(pg_get_serial_sequence('tb_log_stock', 'id'), COALESCE((SELECT MAX(id) FROM tb_log_stock), 0) + 1, false);")
-                    except Exception:
-                        pass
-
-                    cursor.execute(
-                        """
-                        INSERT INTO tb_log_stock (codearticle, idmag, ancien_stock, nouveau_stock, iduser, type_action, date_action) 
-                        VALUES (%s, %s, %s, %s, %s, %s, NOW())
-                        """,
-                        (codearticle if codearticle else None, idmag, ancien_stock, nouveau_stock, self.iduser, f"VENTE {self.refvente}")
-                    )
-
-                # Commit global (paiement + update vente + stock + log)
-                conn.commit()
-
-            except Exception as e:
-                conn.rollback()
                 messagebox.showerror("Erreur Stock", f"Erreur lors de la mise à jour du stock : {e}")
                 return
 

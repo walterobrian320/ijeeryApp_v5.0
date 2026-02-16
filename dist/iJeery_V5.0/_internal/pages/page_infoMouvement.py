@@ -1,8 +1,21 @@
 import customtkinter as ctk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 import psycopg2
 import json
+import os
+import sys
+import subprocess
+from datetime import datetime
 from resource_utils import get_config_path, safe_file_read
+
+# Imports pour génération PDF
+from reportlab.lib.pagesizes import A5, landscape
+from reportlab.lib import colors
+from reportlab.lib.units import cm, mm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageTemplate, Frame
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.pdfgen import canvas
 
 
 # Importation des pages existantes
@@ -11,6 +24,1306 @@ from pages.page_livrFrs import PageBonReception
 from pages.page_transfert import PageTransfert
 from pages.page_sortie import PageSortie
 from pages.page_SuiviCommande import PageSuiviCommande
+
+
+# ============ CLASSE CHANGEMENT D'ARTICLES ============
+
+class PageChangementArticle(ctk.CTkFrame):
+    """
+    CLASSE POUR GESTION DES CHANGEMENTS D'ARTICLES.
+    Permet les sorties et entrées d'articles avec interface verticale.
+    """
+    def __init__(self, master, iduser):
+        super().__init__(master, fg_color="white")
+        self.iduser = iduser
+        self.magasins = {}
+        self.idchg_charge = None
+        self.mode_modification = False
+        
+        # Données pour sorties (articles à changer)
+        self.articles_sortie = []
+        self.article_sortie_selectionne = None
+        
+        # Données pour entrées (articles reçus)
+        self.articles_entree = []
+        self.article_entree_selectionne = None
+        
+        self.setup_ui()
+        self.charger_magasins()
+        self.generer_reference()
+
+    def connect_db(self):
+        """Connexion à la base de données PostgreSQL"""
+        try:
+            with open(get_config_path('config.json')) as f:
+                config = json.load(f)
+                db_config = config['database']
+            conn = psycopg2.connect(
+                host=db_config['host'],
+                user=db_config['user'],
+                password=db_config['password'],
+                database=db_config['database'],
+                port=db_config['port']
+            )
+            return conn
+        except Exception as e:
+            messagebox.showerror("Erreur de connexion", f"Erreur: {str(e)}")
+            return None
+
+    def formater_nombre(self, nombre):
+        """Formate un nombre avec séparateur de milliers (1.000,00)"""
+        try:
+            nombre = float(nombre)
+            partie_entiere = int(nombre)
+            partie_decimale = abs(nombre - partie_entiere)
+            str_entiere = f"{partie_entiere:,}".replace(',', '.')
+            str_decimale = f"{partie_decimale:.2f}".split('.')[1]
+            return f"{str_entiere},{str_decimale}"
+        except:
+            return "0,00"
+
+    def parser_nombre(self, texte):
+        """Convertit un nombre formaté (1.000,00) en float"""
+        try:
+            texte_clean = texte.replace('.', '').replace(',', '.')
+            return float(texte_clean)
+        except:
+            return 0.0
+
+    def generer_reference(self):
+        """Génère la référence automatique au format 2025-CHG-00001"""
+        conn = self.connect_db()
+        if not conn:
+            return
+        try:
+            cursor = conn.cursor()
+            annee_courante = datetime.now().year
+            query = """
+                SELECT refchg FROM tb_changement 
+                WHERE refchg LIKE %s 
+                ORDER BY refchg DESC LIMIT 1
+            """
+            cursor.execute(query, (f"{annee_courante}-CHG-%",))
+            resultat = cursor.fetchone()
+            
+            if resultat:
+                dernier_num = int(resultat[0].split('-')[-1])
+                nouveau_num = dernier_num + 1
+            else:
+                nouveau_num = 1
+            
+            reference = f"{annee_courante}-CHG-{nouveau_num:05d}"
+            self.entry_ref.configure(state="normal")
+            self.entry_ref.delete(0, "end")
+            self.entry_ref.insert(0, reference)
+            self.entry_ref.configure(state="readonly")
+            
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de la génération: {str(e)}")
+        finally:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+
+    def charger_magasins(self):
+        """Charge la liste des magasins"""
+        conn = self.connect_db()
+        if not conn:
+            return
+        try:
+            cursor = conn.cursor()
+            query = "SELECT idmag, designationmag FROM tb_magasin WHERE deleted = 0 ORDER BY designationmag"
+            cursor.execute(query)
+            self.magasins = {row[1]: row[0] for row in cursor.fetchall()}
+            
+            noms_magasins = list(self.magasins.keys())
+            self.combo_mag_sortie.configure(values=noms_magasins)
+            self.combo_mag_entree.configure(values=noms_magasins)
+            
+            if noms_magasins:
+                self.combo_mag_sortie.set(noms_magasins[0])
+                self.combo_mag_entree.set(noms_magasins[0])
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur chargement magasins: {str(e)}")
+        finally:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+
+    def setup_ui(self):
+        """Construit l'interface utilisateur - DISPOSITION VERTICALE"""
+        # ============ EN-TÊTE ============
+        frame_entete = ctk.CTkFrame(self)
+        frame_entete.pack(fill="x", padx=20, pady=10)
+
+        titre = ctk.CTkLabel(frame_entete, text="Changement d'Articles", 
+                            font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"))
+        titre.pack(pady=10, anchor="w")
+
+        # Référence, Date, Charger sur une ligne
+        frame_ref_date = ctk.CTkFrame(frame_entete)
+        frame_ref_date.pack(fill="x", pady=(0, 10))
+
+        ctk.CTkLabel(frame_ref_date, text="Référence:").pack(side="left", padx=10)
+        self.entry_ref = ctk.CTkEntry(frame_ref_date, width=150, state="readonly")
+        self.entry_ref.pack(side="left", padx=5)
+
+        ctk.CTkLabel(frame_ref_date, text="Date:").pack(side="left", padx=10)
+        self.entry_date = ctk.CTkEntry(frame_ref_date, width=120, state="readonly")
+        self.entry_date.configure(state="normal")
+        self.entry_date.insert(0, datetime.now().strftime("%d/%m/%Y"))
+        self.entry_date.configure(state="readonly")
+        self.entry_date.pack(side="left", padx=5)
+
+        btn_charger = ctk.CTkButton(frame_ref_date, text="📂 Charger", 
+                                    command=self.ouvrir_recherche_changement, width=140,
+                                    fg_color="#1976d2", hover_color="#1565c0")
+        btn_charger.pack(side="left", padx=10)
+
+        # ============ CORPS PRINCIPAL (VERTICAL) ============
+        frame_contenu = ctk.CTkFrame(self, fg_color="transparent")
+        frame_contenu.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # ========== PANEL HAUT : SORTIES ==========
+        frame_sortie = ctk.CTkFrame(frame_contenu, fg_color="#FFF5F5", border_width=2, border_color="#D32F2F")
+        frame_sortie.pack(fill="both", expand=True, padx=0, pady=(0, 10))
+
+        # En-tête Sortie (Titre + Magasin)
+        frame_header_sortie = ctk.CTkFrame(frame_sortie, fg_color="transparent")
+        frame_header_sortie.pack(fill="x", padx=10, pady=10)
+        
+        titre_sortie = ctk.CTkLabel(frame_header_sortie, text="📤 ARTICLES À CHANGER (Sortie)", 
+                                    font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+                                    text_color="#D32F2F")
+        titre_sortie.pack(side="left", anchor="w")
+        
+        # Magasin Sortie (à droite)
+        frame_mag_sortie = ctk.CTkFrame(frame_header_sortie, fg_color="transparent")
+        frame_mag_sortie.pack(side="right", fill="x", expand=False)
+        ctk.CTkLabel(frame_mag_sortie, text="Magasin:").pack(side="left", padx=5)
+        self.combo_mag_sortie = ctk.CTkComboBox(frame_mag_sortie, width=200, state="readonly")
+        self.combo_mag_sortie.pack(side="left", padx=5)
+
+        # Ligne de saisie complète (Article, Charger, Quantité, Unité, Boutons)
+        frame_input_sortie = ctk.CTkFrame(frame_sortie, fg_color="transparent")
+        frame_input_sortie.pack(fill="x", padx=10, pady=5)
+
+        self.entry_article_sortie = ctk.CTkEntry(frame_input_sortie, placeholder_text="Rechercher article...", width=200)
+        self.entry_article_sortie.pack(side="left", padx=3)
+
+        btn_recherche_sortie = ctk.CTkButton(frame_input_sortie, text="🔍 Charger", 
+                                            command=self.ouvrir_recherche_article_sortie, width=100,
+                                            fg_color="#1976d2", hover_color="#1565c0")
+        btn_recherche_sortie.pack(side="left", padx=3)
+
+        self.entry_qty_sortie = ctk.CTkEntry(frame_input_sortie, placeholder_text="Qty", width=60)
+        self.entry_qty_sortie.pack(side="left", padx=3)
+
+        self.entry_unite_sortie = ctk.CTkEntry(frame_input_sortie, placeholder_text="Unité", width=60, state="readonly")
+        self.entry_unite_sortie.pack(side="left", padx=3)
+
+        self.btn_ajouter_sortie = ctk.CTkButton(frame_input_sortie, text="➕ Ajouter", 
+                                               command=self.ajouter_article_sortie, width=90,
+                                               fg_color="#2e7d32", hover_color="#1b5e20")
+        self.btn_ajouter_sortie.pack(side="left", padx=3)
+
+        self.btn_annuler_sortie = ctk.CTkButton(frame_input_sortie, text="❌ Annuler", 
+                                               command=self.annuler_sortie, width=80,
+                                               fg_color="#757575", hover_color="#616161")
+        self.btn_annuler_sortie.pack(side="left", padx=3)
+
+        # Tableau Sortie
+        frame_tree_sortie = ctk.CTkFrame(frame_sortie)
+        frame_tree_sortie.pack(fill="both", expand=True, padx=10, pady=10)
+        frame_tree_sortie.grid_rowconfigure(0, weight=1)
+        frame_tree_sortie.grid_columnconfigure(0, weight=1)
+
+        colonnes_sortie = ("Code", "Désignation", "Unité", "Magasin", "Quantité")
+        self.tree_sortie = ttk.Treeview(frame_tree_sortie, columns=colonnes_sortie, show="headings", height=4)
+
+        for col in colonnes_sortie:
+            self.tree_sortie.heading(col, text=col)
+            if col == "Désignation":
+                self.tree_sortie.column(col, width=200)
+            else:
+                self.tree_sortie.column(col, width=100)
+
+        scrollbar_sortie = ttk.Scrollbar(frame_tree_sortie, orient="vertical", command=self.tree_sortie.yview)
+        self.tree_sortie.configure(yscrollcommand=scrollbar_sortie.set)
+
+        self.tree_sortie.pack(side="left", fill="both", expand=True)
+        scrollbar_sortie.pack(side="right", fill="y")
+
+        # Bouton Supprimer Sortie
+        btn_supprimer_sortie = ctk.CTkButton(frame_sortie, text="🗑️ Supprimer Ligne", 
+                                            command=self.supprimer_article_sortie,
+                                            fg_color="#d32f2f", hover_color="#b71c1c", width=150)
+        btn_supprimer_sortie.pack(padx=10, pady=5, fill="x")
+
+        # ========== PANEL BAS : ENTRÉES ==========
+        frame_entree = ctk.CTkFrame(frame_contenu, fg_color="#F5F5FF", border_width=2, border_color="#1976D2")
+        frame_entree.pack(fill="both", expand=True, padx=0, pady=0)
+
+        # En-tête Entrée (Titre + Magasin)
+        frame_header_entree = ctk.CTkFrame(frame_entree, fg_color="transparent")
+        frame_header_entree.pack(fill="x", padx=10, pady=10)
+        
+        titre_entree = ctk.CTkLabel(frame_header_entree, text="📥 ARTICLES REÇUS (Entrée)", 
+                                   font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+                                   text_color="#1976D2")
+        titre_entree.pack(side="left", anchor="w")
+        
+        # Magasin Entrée (à droite)
+        frame_mag_entree = ctk.CTkFrame(frame_header_entree, fg_color="transparent")
+        frame_mag_entree.pack(side="right", fill="x", expand=False)
+        ctk.CTkLabel(frame_mag_entree, text="Magasin:").pack(side="left", padx=5)
+        self.combo_mag_entree = ctk.CTkComboBox(frame_mag_entree, width=200, state="readonly")
+        self.combo_mag_entree.pack(side="left", padx=5)
+
+        # Ligne de saisie (Article, Charger, Quantité, Unité, Ajouter, Annuler)
+        frame_input_entree = ctk.CTkFrame(frame_entree, fg_color="transparent")
+        frame_input_entree.pack(fill="x", padx=10, pady=5)
+
+        self.entry_article_entree = ctk.CTkEntry(frame_input_entree, placeholder_text="Rechercher article...", width=200)
+        self.entry_article_entree.pack(side="left", padx=3)
+
+        btn_recherche_entree = ctk.CTkButton(frame_input_entree, text="🔍 Charger", 
+                                            command=self.ouvrir_recherche_article_entree, width=100,
+                                            fg_color="#1976d2", hover_color="#1565c0")
+        btn_recherche_entree.pack(side="left", padx=3)
+
+        self.entry_qty_entree = ctk.CTkEntry(frame_input_entree, placeholder_text="Quantité", width=60)
+        self.entry_qty_entree.pack(side="left", padx=3)
+
+        self.entry_unite_entree = ctk.CTkEntry(frame_input_entree, placeholder_text="Unité", width=60, state="readonly")
+        self.entry_unite_entree.pack(side="left", padx=3)
+
+        self.btn_ajouter_entree = ctk.CTkButton(frame_input_entree, text="➕ Ajouter", 
+                                               command=self.ajouter_article_entree, width=90,
+                                               fg_color="#2e7d32", hover_color="#1b5e20")
+        self.btn_ajouter_entree.pack(side="left", padx=3)
+
+        self.btn_annuler_entree = ctk.CTkButton(frame_input_entree, text="❌ Annuler", 
+                                               command=self.annuler_entree, width=80,
+                                               fg_color="#757575", hover_color="#616161")
+        self.btn_annuler_entree.pack(side="left", padx=3)
+
+        # Tableau Entrée
+        frame_tree_entree = ctk.CTkFrame(frame_entree)
+        frame_tree_entree.pack(fill="both", expand=True, padx=10, pady=10)
+        frame_tree_entree.grid_rowconfigure(0, weight=1)
+        frame_tree_entree.grid_columnconfigure(0, weight=1)
+
+        colonnes_entree = ("Code", "Désignation", "Unité", "Magasin", "Quantité")
+        self.tree_entree = ttk.Treeview(frame_tree_entree, columns=colonnes_entree, show="headings", height=4)
+
+        for col in colonnes_entree:
+            self.tree_entree.heading(col, text=col)
+            if col == "Désignation":
+                self.tree_entree.column(col, width=200)
+            else:
+                self.tree_entree.column(col, width=100)
+
+        scrollbar_entree = ttk.Scrollbar(frame_tree_entree, orient="vertical", command=self.tree_entree.yview)
+        self.tree_entree.configure(yscrollcommand=scrollbar_entree.set)
+
+        self.tree_entree.pack(side="left", fill="both", expand=True)
+        scrollbar_entree.pack(side="right", fill="y")
+
+        # Bouton Supprimer Entrée
+        btn_supprimer_entree = ctk.CTkButton(frame_entree, text="🗑️ Supprimer Ligne", 
+                                            command=self.supprimer_article_entree,
+                                            fg_color="#d32f2f", hover_color="#b71c1c", width=150)
+        btn_supprimer_entree.pack(padx=10, pady=5, fill="x")
+
+        # ============ CHAMP NOTE ============
+        frame_note = ctk.CTkFrame(self, fg_color="transparent")
+        frame_note.pack(fill="x", padx=20, pady=(0, 10))
+        
+        ctk.CTkLabel(frame_note, text="📝 Note du changement:").pack(side="left", padx=5)
+        self.entry_note = ctk.CTkEntry(frame_note, placeholder_text="Entrez une note (optionnel)...")
+        self.entry_note.pack(side="left", fill="x", expand=True, padx=5)
+
+        # ============ FOOTER (COMMUN) ============
+        frame_footer = ctk.CTkFrame(self, fg_color="transparent")
+        frame_footer.pack(fill="x", padx=20, pady=10)
+
+        btn_imprimer = ctk.CTkButton(frame_footer, text="🖨️ Imprimer", 
+                                     command=self.imprimer_changement,
+                                     fg_color="#ff6f00", hover_color="#e65100")
+        btn_imprimer.pack(side="right", padx=10)
+
+        btn_enregistrer = ctk.CTkButton(frame_footer, text="💾 Enregistrer", 
+                                       command=self.enregistrer_changement,
+                                       fg_color="#2e7d32", hover_color="#1b5e20")
+        btn_enregistrer.pack(side="right", padx=10)
+
+    def ouvrir_recherche_article_sortie(self):
+        """Ouvre la fenêtre de recherche d'article pour SORTIE"""
+        self._ouvrir_recherche_article("sortie")
+
+    def ouvrir_recherche_article_entree(self):
+        """Ouvre la fenêtre de recherche d'article pour ENTRÉE"""
+        self._ouvrir_recherche_article("entree")
+
+    def calculer_stock_article(self, idarticle, idunite, idmag):
+        """
+        Calcule le stock consolidé en prenant en compte tous les mouvements.
+        Formule: (Réceptions + Transferts IN + Inventaires + Avoirs - Ventes - Sorties - Transferts OUT)
+        """
+        conn = self.connect_db()
+        if not conn: 
+            return 0
+    
+        try:
+            cursor = conn.cursor()
+            
+            # D'abord récupérer le codearticle pour tb_inventaire
+            cursor.execute("""
+                SELECT codearticle FROM tb_unite WHERE idarticle = %s AND idunite = %s
+            """, (idarticle, idunite))
+            result = cursor.fetchone()
+            codearticle = result[0] if result else None
+            
+            if not codearticle:
+                return 0
+            
+            # Réceptions (tb_livraisonfrs)
+            cursor.execute("""
+                SELECT COALESCE(SUM(qtlivrefrs), 0) 
+                FROM tb_livraisonfrs 
+                WHERE idarticle = %s AND idunite = %s AND deleted = 0 AND idmag = %s
+            """, (idarticle, idunite, idmag))
+            receptions = cursor.fetchone()[0] or 0
+        
+            # Ventes (tb_ventedetail)
+            cursor.execute("""
+                SELECT COALESCE(SUM(qtvente), 0) 
+                FROM tb_ventedetail 
+                WHERE idarticle = %s AND idunite = %s AND deleted = 0 AND idmag = %s
+            """, (idarticle, idunite, idmag))
+            ventes = cursor.fetchone()[0] or 0
+        
+            # Sorties (tb_sortiedetail)
+            cursor.execute("""
+                SELECT COALESCE(SUM(qtsortie), 0) 
+                FROM tb_sortiedetail 
+                WHERE idarticle = %s AND idunite = %s AND idmag = %s
+            """, (idarticle, idunite, idmag))
+            sorties = cursor.fetchone()[0] or 0
+        
+            # Transferts Entrée (tb_transfertdetail)
+            cursor.execute("""
+                SELECT COALESCE(SUM(qttransfert), 0) 
+                FROM tb_transfertdetail 
+                WHERE idarticle = %s AND idunite = %s AND deleted = 0 AND idmagentree = %s
+            """, (idarticle, idunite, idmag))
+            transferts_in = cursor.fetchone()[0] or 0
+            
+            # Transferts Sortie (tb_transfertdetail)
+            cursor.execute("""
+                SELECT COALESCE(SUM(qttransfert), 0) 
+                FROM tb_transfertdetail 
+                WHERE idarticle = %s AND idunite = %s AND deleted = 0 AND idmagsortie = %s
+            """, (idarticle, idunite, idmag))
+            transferts_out = cursor.fetchone()[0] or 0
+        
+            # Inventaires (tb_inventaire utilise codearticle)
+            cursor.execute("""
+                SELECT COALESCE(SUM(qtinventaire), 0) 
+                FROM tb_inventaire 
+                WHERE codearticle = %s AND idmag = %s
+            """, (codearticle, idmag))
+            inventaires = cursor.fetchone()[0] or 0
+
+            # Avoirs (augmentent le stock - annulation de vente)
+            cursor.execute("""
+                SELECT COALESCE(SUM(ad.qtavoir), 0) 
+                FROM tb_avoirdetail ad
+                INNER JOIN tb_avoir a ON ad.idavoir = a.id
+                WHERE ad.idarticle = %s AND ad.idunite = %s AND ad.idmag = %s
+                AND a.deleted = 0 AND ad.deleted = 0
+            """, (idarticle, idunite, idmag))
+            avoirs = cursor.fetchone()[0] or 0
+
+            # Calcul final : Stock = Entrées - Sorties
+            stock_total = (receptions + transferts_in + inventaires + avoirs) - (ventes + sorties + transferts_out)
+            
+            return max(0, stock_total)
+        
+        except Exception as e:
+            print(f"Erreur calcul stock: {e}")
+            return 0
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+
+    def _ouvrir_recherche_article(self, type_mouvement):
+        """Fenêtre générique de recherche d'article avec stocks consolidés (9 sources)"""
+        fenetre = ctk.CTkToplevel(self)
+        fenetre.title("Rechercher un article")
+        fenetre.geometry("1100x500")
+        fenetre.grab_set()
+
+        main_frame = ctk.CTkFrame(fenetre)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        titre = ctk.CTkLabel(main_frame, text="Sélectionner un article", 
+                            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"))
+        titre.pack(pady=(0, 10))
+
+        search_frame = ctk.CTkFrame(main_frame)
+        search_frame.pack(fill="x", pady=(0, 10))
+
+        ctk.CTkLabel(search_frame, text="🔍 Rechercher:").pack(side="left", padx=5)
+        entry_search = ctk.CTkEntry(search_frame, placeholder_text="Code ou désignation...", width=300)
+        entry_search.pack(side="left", padx=5, fill="x", expand=True)
+        
+        def charger_articles(filtre=""):
+            """Charge articles avec la même requête consolidée que page_sortie.py"""
+            for item in tree.get_children():
+                tree.delete(item)
+            
+            conn = self.connect_db()
+            if not conn:
+                return
+            try:
+                cur = conn.cursor()
+                filtre_like = f"%{filtre}%"
+
+                # ✅ Requête IDENTIQUE à page_sortie.py : consolidée (9 sources + coefficient hiérarchique)
+                query = """
+                WITH mouvements_bruts AS (
+                    -- Réceptions
+                    SELECT
+                        lf.idarticle,
+                        lf.idmag,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        lf.qtlivrefrs as quantite,
+                        'reception' as type_mouvement
+                    FROM tb_livraisonfrs lf
+                    INNER JOIN tb_unite u ON lf.idarticle = u.idarticle AND lf.idunite = u.idunite
+                    WHERE lf.deleted = 0
+
+                    UNION ALL
+
+                    -- Ventes
+                    SELECT
+                        vd.idarticle,
+                        v.idmag,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        vd.qtvente as quantite,
+                        'vente' as type_mouvement
+                    FROM tb_ventedetail vd
+                    INNER JOIN tb_vente v ON vd.idvente = v.id AND v.deleted = 0 AND v.statut = 'VALIDEE'
+                    INNER JOIN tb_unite u ON vd.idarticle = u.idarticle AND vd.idunite = u.idunite
+                    WHERE vd.deleted = 0
+
+                    UNION ALL
+
+                    -- Transferts entrants
+                    SELECT
+                        t.idarticle,
+                        t.idmagentree as idmag,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        t.qttransfert as quantite,
+                        'transfert_in' as type_mouvement
+                    FROM tb_transfertdetail t
+                    INNER JOIN tb_unite u ON t.idarticle = u.idarticle AND t.idunite = u.idunite
+                    WHERE t.deleted = 0
+
+                    UNION ALL
+
+                    -- Transferts sortants
+                    SELECT
+                        t.idarticle,
+                        t.idmagsortie as idmag,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        t.qttransfert as quantite,
+                        'transfert_out' as type_mouvement
+                    FROM tb_transfertdetail t
+                    INNER JOIN tb_unite u ON t.idarticle = u.idarticle AND t.idunite = u.idunite
+                    WHERE t.deleted = 0
+
+                    UNION ALL
+
+                    -- Sorties
+                    SELECT
+                        sd.idarticle,
+                        sd.idmag,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        sd.qtsortie as quantite,
+                        'sortie' as type_mouvement
+                    FROM tb_sortiedetail sd
+                    INNER JOIN tb_unite u ON sd.idarticle = u.idarticle AND sd.idunite = u.idunite
+
+                    UNION ALL
+
+                    -- Inventaires
+                    SELECT
+                        u.idarticle,
+                        i.idmag,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        i.qtinventaire as quantite,
+                        'inventaire' as type_mouvement
+                    FROM tb_inventaire i
+                    INNER JOIN tb_unite u ON i.codearticle = u.codearticle
+                    WHERE u.idunite IN (
+                        SELECT DISTINCT ON (idarticle) idunite
+                        FROM tb_unite
+                        WHERE deleted = 0
+                        ORDER BY idarticle, qtunite ASC
+                    )
+
+                    UNION ALL
+
+                    -- Avoirs
+                    SELECT
+                        ad.idarticle,
+                        ad.idmag,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        ad.qtavoir as quantite,
+                        'avoir' as type_mouvement
+                    FROM tb_avoir a
+                    INNER JOIN tb_avoirdetail ad ON a.id = ad.idavoir
+                    INNER JOIN tb_unite u ON ad.idarticle = u.idarticle AND ad.idunite = u.idunite
+                    WHERE a.deleted = 0 AND ad.deleted = 0
+
+                    UNION ALL
+
+                    -- Consommation interne
+                    SELECT
+                        cd.idarticle,
+                        cd.idmag,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        cd.qtconsomme as quantite,
+                        'consommation_interne' as type_mouvement
+                    FROM tb_consommationinterne_details cd
+                    INNER JOIN tb_unite u ON cd.idarticle = u.idarticle AND cd.idunite = u.idunite
+
+                    UNION ALL
+
+                    -- Échanges entrée
+                    SELECT
+                        dce.idarticle,
+                        dce.idmagasin,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        dce.quantite_entree as quantite,
+                        'echange_entree' as type_mouvement
+                    FROM tb_detailchange_entree dce
+                    INNER JOIN tb_unite u ON dce.idarticle = u.idarticle AND dce.idunite = u.idunite
+
+                    UNION ALL
+
+                    -- Échanges sortie
+                    SELECT
+                        dcs.idarticle,
+                        dcs.idmagasin,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        dcs.quantite_sortie as quantite,
+                        'echange_sortie' as type_mouvement
+                    FROM tb_detailchange_sortie dcs
+                    INNER JOIN tb_unite u ON dcs.idarticle = u.idarticle AND dcs.idunite = u.idunite
+                ),
+
+                solde_base_par_mag AS (
+                    SELECT
+                        idarticle,
+                        idmag,
+                        SUM(
+                            CASE type_mouvement
+                                WHEN 'reception'             THEN  quantite * qtunite_source
+                                WHEN 'transfert_in'          THEN  quantite * qtunite_source
+                                WHEN 'inventaire'            THEN  quantite * qtunite_source
+                                WHEN 'avoir'                 THEN  quantite * qtunite_source
+                                WHEN 'echange_entree'        THEN  quantite * qtunite_source
+                                WHEN 'vente'                 THEN -quantite * qtunite_source
+                                WHEN 'sortie'                THEN -quantite * qtunite_source
+                                WHEN 'transfert_out'         THEN -quantite * qtunite_source
+                                WHEN 'consommation_interne'  THEN -quantite * qtunite_source
+                                WHEN 'echange_sortie'        THEN -quantite * qtunite_source
+                                ELSE 0
+                            END
+                        ) as solde_base
+                    FROM mouvements_bruts
+                    GROUP BY idarticle, idmag
+                ),
+
+                solde_total AS (
+                    SELECT
+                        idarticle,
+                        SUM(solde_base) as solde_total
+                    FROM solde_base_par_mag
+                    GROUP BY idarticle
+                ),
+
+                unite_hierarchie AS (
+                    SELECT idarticle, idunite, niveau, qtunite, designationunite
+                    FROM tb_unite
+                    WHERE deleted = 0
+                ),
+
+                unite_coeff AS (
+                    SELECT
+                        idarticle,
+                        idunite,
+                        niveau,
+                        qtunite,
+                        designationunite,
+                        exp(sum(ln(NULLIF(CASE WHEN qtunite > 0 THEN qtunite ELSE 1 END, 0)))
+                            OVER (PARTITION BY idarticle ORDER BY niveau ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+                        ) as coeff_hierarchique
+                    FROM unite_hierarchie
+                ),
+
+                -- ✅ Dernier prix uniquement (CTE pour éviter les doublons)
+                dernier_prix AS (
+                    SELECT
+                        idarticle,
+                        idunite,
+                        prix,
+                        ROW_NUMBER() OVER (PARTITION BY idarticle, idunite ORDER BY id DESC) AS rn
+                    FROM tb_prix
+                )
+
+                SELECT
+                    u.idarticle,
+                    u.idunite,
+                    u.codearticle,
+                    a.designation,
+                    uc.designationunite,
+                    GREATEST(COALESCE(st.solde_total, 0) / NULLIF(COALESCE(uc.coeff_hierarchique, 1), 0), 0) as stock_total,
+                    COALESCE(p.prix, 0) as prix_unitaire
+                FROM tb_article a
+                INNER JOIN tb_unite u ON a.idarticle = u.idarticle
+                LEFT JOIN unite_coeff uc ON uc.idarticle = u.idarticle AND uc.idunite = u.idunite
+                LEFT JOIN solde_total st ON st.idarticle = u.idarticle
+                LEFT JOIN dernier_prix p ON a.idarticle = p.idarticle AND u.idunite = p.idunite AND p.rn = 1
+                WHERE a.deleted = 0
+                  AND (u.codearticle ILIKE %s OR a.designation ILIKE %s)
+                ORDER BY u.codearticle, u.idunite
+                """
+
+                cur.execute(query, (filtre_like, filtre_like))
+                resultats = cur.fetchall()
+
+                # Charger tous les articles avec stocks en une seule requête
+                for row in resultats:
+                    idarticle, idunite, code, designation, unite, stock, prix = row
+                    tree.insert('', 'end', values=(
+                        idarticle,
+                        idunite,
+                        code,
+                        designation,
+                        unite,
+                        f"{stock:.2f}" if stock else "0.00"
+                    ))
+
+                label_count.configure(text=f"Articles: {len(resultats)}")
+                
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Erreur: {str(e)}")
+                print(f"Erreur requête: {e}")
+            finally:
+                if 'cur' in locals() and cur:
+                    cur.close()
+                if conn:
+                    conn.close()
+
+        # ✅ Recherche en temps réel (au lieu d'un bouton)
+        def rechercher(*args):
+            """Déclenche la recherche à chaque frappe"""
+            charger_articles(entry_search.get())
+
+        entry_search.bind('<KeyRelease>', rechercher)
+
+        tree_frame = ctk.CTkFrame(main_frame)
+        tree_frame.pack(fill="both", expand=True, pady=(0, 10))
+
+        colonnes = ("ID", "ID_Unite", "Code", "Désignation", "Unité", "Stock Total")
+        tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
+
+        for col in colonnes:
+            tree.heading(col, text=col)
+        
+        tree.column("ID", width=0, stretch=False)
+        tree.column("ID_Unite", width=0, stretch=False)
+        tree.column("Code", width=100, anchor='w')
+        tree.column("Désignation", width=400, anchor='w')
+        tree.column("Unité", width=100, anchor='w')
+        tree.column("Stock Total", width=100, anchor='center')
+
+        scrollbar = ctk.CTkScrollbar(tree_frame, command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+        tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        label_count = ctk.CTkLabel(main_frame, text="Articles: 0")
+        label_count.pack(pady=5)
+
+        def valider_selection():
+            selection = tree.selection()
+            if not selection:
+                messagebox.showwarning("Attention", "Veuillez sélectionner un article")
+                return
+
+            values = tree.item(selection[0])['values']
+            idarticle = values[0]
+            idunite = values[1]
+            codeart = values[2]
+            designation = values[3]
+            unite = values[4]
+            stock = float(values[5]) if values[5] != "0.00" else 0.0
+
+            if type_mouvement == "sortie":
+                self.article_sortie_selectionne = {
+                    'idarticle': idarticle,
+                    'idunite': idunite,
+                    'designation': designation,
+                    'unite': unite,
+                    'code': codeart,
+                    'stock_disponible': stock
+                }
+                self.entry_article_sortie.delete(0, "end")
+                self.entry_article_sortie.insert(0, designation)
+                
+                self.entry_unite_sortie.configure(state="normal")
+                self.entry_unite_sortie.delete(0, "end")
+                self.entry_unite_sortie.insert(0, unite)
+                self.entry_unite_sortie.configure(state="readonly")
+            else:
+                self.article_entree_selectionne = {
+                    'idarticle': idarticle,
+                    'idunite': idunite,
+                    'designation': designation,
+                    'unite': unite,
+                    'code': codeart,
+                    'stock_disponible': stock
+                }
+                self.entry_article_entree.delete(0, "end")
+                self.entry_article_entree.insert(0, designation)
+                
+                self.entry_unite_entree.configure(state="normal")
+                self.entry_unite_entree.delete(0, "end")
+                self.entry_unite_entree.insert(0, unite)
+                self.entry_unite_entree.configure(state="readonly")
+
+            fenetre.destroy()
+
+        tree.bind('<Double-Button-1>', lambda e: valider_selection())
+
+        btn_frame = ctk.CTkFrame(main_frame)
+        btn_frame.pack(fill="x")
+
+        btn_annuler = ctk.CTkButton(btn_frame, text="❌ Annuler", command=fenetre.destroy, 
+                                    fg_color="#d32f2f", hover_color="#b71c1c")
+        btn_annuler.pack(side="left", padx=5, pady=5)
+
+        btn_valider = ctk.CTkButton(btn_frame, text="✅ Valider", command=valider_selection, 
+                                    fg_color="#2e7d32", hover_color="#1b5e20")
+        btn_valider.pack(side="right", padx=5, pady=5)
+
+        charger_articles()
+
+    def ajouter_article_sortie(self):
+        """Ajoute un article à la sortie"""
+        if not self.article_sortie_selectionne:
+            messagebox.showwarning("Attention", "Veuillez sélectionner un article")
+            return
+
+        try:
+            qty = self.parser_nombre(self.entry_qty_sortie.get())
+            if qty <= 0:
+                messagebox.showwarning("Attention", "Quantité doit être > 0")
+                return
+
+            # Vérifier le stock disponible
+            stock_dispo = self.article_sortie_selectionne['stock_disponible']
+            if qty > stock_dispo:
+                messagebox.showerror("Stock insuffisant", 
+                    f"Stock disponible: {self.formater_nombre(stock_dispo)}\n"
+                    f"Vous avez demandé: {self.formater_nombre(qty)}")
+                return
+
+            magasin = self.combo_mag_sortie.get()
+            designation = self.article_sortie_selectionne['designation']
+            unite = self.article_sortie_selectionne['unite']
+            code = self.article_sortie_selectionne['code']
+
+            self.tree_sortie.insert("", "end", values=(
+                code, designation, unite, magasin, self.formater_nombre(qty)
+            ))
+
+            self.articles_sortie.append({
+                'idarticle': self.article_sortie_selectionne['idarticle'],
+                'idunite': self.article_sortie_selectionne['idunite'],
+                'idmagasin': self.magasins[magasin],
+                'designation': designation,
+                'code': code,
+                'unite': unite,
+                'quantite': qty
+            })
+
+            self.annuler_sortie()
+            messagebox.showinfo("Succès", f"Article '{designation}' ajouté à la sortie")
+        except ValueError:
+            messagebox.showerror("Erreur", "Quantité invalide")
+
+    def ajouter_article_entree(self):
+        """Ajoute un article à l'entrée"""
+        if not self.article_entree_selectionne:
+            messagebox.showwarning("Attention", "Veuillez sélectionner un article")
+            return
+
+        try:
+            qty = self.parser_nombre(self.entry_qty_entree.get())
+            if qty <= 0:
+                messagebox.showwarning("Attention", "Quantité doit être > 0")
+                return
+
+            magasin = self.combo_mag_entree.get()
+            designation = self.article_entree_selectionne['designation']
+            unite = self.article_entree_selectionne['unite']
+            code = self.article_entree_selectionne['code']
+
+            self.tree_entree.insert("", "end", values=(
+                code, designation, unite, magasin, self.formater_nombre(qty)
+            ))
+
+            self.articles_entree.append({
+                'idarticle': self.article_entree_selectionne['idarticle'],
+                'idunite': self.article_entree_selectionne['idunite'],
+                'idmagasin': self.magasins[magasin],
+                'designation': designation,
+                'code': code,
+                'unite': unite,
+                'quantite': qty
+            })
+
+            self.annuler_entree()
+            messagebox.showinfo("Succès", f"Article '{designation}' ajouté à l'entrée")
+        except ValueError:
+            messagebox.showerror("Erreur", "Quantité invalide")
+
+    def annuler_sortie(self):
+        """Réinitialise les champs de sortie"""
+        self.article_sortie_selectionne = None
+        self.entry_article_sortie.delete(0, "end")
+        self.entry_unite_sortie.configure(state="normal")
+        self.entry_unite_sortie.delete(0, "end")
+        self.entry_unite_sortie.configure(state="readonly")
+        self.entry_qty_sortie.delete(0, "end")
+
+    def annuler_entree(self):
+        """Réinitialise les champs d'entrée"""
+        self.article_entree_selectionne = None
+        self.entry_article_entree.delete(0, "end")
+        self.entry_unite_entree.configure(state="normal")
+        self.entry_unite_entree.delete(0, "end")
+        self.entry_unite_entree.configure(state="readonly")
+        self.entry_qty_entree.delete(0, "end")
+
+    def supprimer_article_sortie(self):
+        """Supprime la ligne sélectionnée de la sortie"""
+        selection = self.tree_sortie.selection()
+        if not selection:
+            messagebox.showwarning("Attention", "Sélectionnez une ligne")
+            return
+
+        index = self.tree_sortie.index(selection[0])
+        self.tree_sortie.delete(selection[0])
+        self.articles_sortie.pop(index)
+
+    def supprimer_article_entree(self):
+        """Supprime la ligne sélectionnée de l'entrée"""
+        selection = self.tree_entree.selection()
+        if not selection:
+            messagebox.showwarning("Attention", "Sélectionnez une ligne")
+            return
+
+        index = self.tree_entree.index(selection[0])
+        self.tree_entree.delete(selection[0])
+        self.articles_entree.pop(index)
+
+    def ouvrir_recherche_changement(self):
+        """Ouvre le dialogue pour charger un changement existant"""
+        messagebox.showinfo("À venir", "Fonctionnalité de chargement à développer")
+
+    def enregistrer_changement(self):
+        """Enregistre le changement en base de données"""
+        if not self.articles_sortie and not self.articles_entree:
+            messagebox.showwarning("Attention", "Ajoutez au moins un article en sortie ou entrée")
+            return
+
+        conn = self.connect_db()
+        if not conn:
+            return
+
+        try:
+            cursor = conn.cursor()
+            
+            # 1. Récupérer la référence depuis entry_ref
+            refchg = self.entry_ref.get()
+            if not refchg:
+                messagebox.showerror("Erreur", "Référence vide")
+                return
+            
+            # 2. Insérer dans tb_changement
+            note = self.entry_note.get().strip() if self.entry_note.get() else ""
+            
+            # ✅ Si description vide, ajouter texte par défaut
+            if not note:
+                note = "Aucune description"
+            
+            cursor.execute("""
+                INSERT INTO tb_changement (refchg, datechg, iduser, note)
+                VALUES (%s, CURRENT_TIMESTAMP, %s, %s)
+                RETURNING idchg
+            """, (refchg, self.iduser, note))
+            
+            idchg = cursor.fetchone()[0]
+            
+            # 3. Insérer les articles en sortie
+            for article in self.articles_sortie:
+                cursor.execute("""
+                    INSERT INTO tb_detailchange_sortie 
+                    (idchg, idarticle, idunite, idmagasin, quantite_sortie)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (
+                    idchg,
+                    article['idarticle'],
+                    article['idunite'],
+                    article['idmagasin'],
+                    article['quantite']
+                ))
+            
+            # 4. Insérer les articles en entrée
+            for article in self.articles_entree:
+                cursor.execute("""
+                    INSERT INTO tb_detailchange_entree 
+                    (idchg, idarticle, idunite, idmagasin, quantite_entree)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (
+                    idchg,
+                    article['idarticle'],
+                    article['idunite'],
+                    article['idmagasin'],
+                    article['quantite']
+                ))
+            
+            conn.commit()
+            
+            messagebox.showinfo("Succès", 
+                              f"Changement enregistré avec succès!\n\n"
+                              f"Référence: {refchg}\n"
+                              f"Sorties: {len(self.articles_sortie)} articles\n"
+                              f"Entrées: {len(self.articles_entree)} articles")
+            
+            # Générer et imprimer le PDF automatiquement
+            self.generer_pdf_changement(refchg, idchg)
+            
+            # Réinitialiser après enregistrement
+            self.articles_sortie = []
+            self.articles_entree = []
+            self.tree_sortie.delete(*self.tree_sortie.get_children())
+            self.tree_entree.delete(*self.tree_entree.get_children())
+            self.entry_note.delete(0, "end")  # Vider le champ note
+            
+            # Générer nouvelle référence
+            self.generer_reference()
+            
+        except psycopg2.Error as e:
+            conn.rollback()
+            messagebox.showerror("Erreur Base de Données", f"Erreur: {str(e)}")
+        except Exception as e:
+            conn.rollback()
+            messagebox.showerror("Erreur", f"Erreur: {str(e)}")
+            print(f"Erreur enregistrement: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+
+
+    def generer_pdf_changement(self, refchg, idchg):
+        """Génère un PDF Paysage pour le changement d'articles avec layout Canvas - Pattern Bon de Sortie"""
+        try:
+            from reportlab.lib.pagesizes import landscape, A5
+            from reportlab.pdfgen import canvas as canvas_pdfgen
+            from reportlab.platypus import Table, TableStyle, Paragraph
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import mm
+            from reportlab.lib import colors
+            
+            filename = f"Changement_{refchg}.pdf"
+            
+            # Récupérer infos société et utilisateur
+            conn = self.connect_db()
+            societe_info = {
+                'nomsociete': 'IJEERY V5.0',
+                'adressesociete': 'N/A',
+                'villesociete': '',
+                'contactsociete': 'N/A',
+                'nifsociete': 'N/A',
+                'statsociete': 'N/A'
+            }
+            username = "Utilisateur"
+            
+            if conn:
+                try:
+                    cur = conn.cursor()
+                    
+                    # Récupérer infos société
+                    cur.execute("""
+                        SELECT nomsociete, adressesociete, villesociete, contactsociete, nifsociete, statsociete 
+                        FROM tb_infosociete LIMIT 1
+                    """)
+                    soc_res = cur.fetchone()
+                    if soc_res:
+                        societe_info = {
+                            'nomsociete': soc_res[0] or 'IJEERY V5.0',
+                            'adressesociete': soc_res[1] or 'N/A',
+                            'villesociete': soc_res[2] or '',
+                            'contactsociete': soc_res[3] or 'N/A',
+                            'nifsociete': soc_res[4] or 'N/A',
+                            'statsociete': soc_res[5] or 'N/A'
+                        }
+                    
+                    # Récupérer info utilisateur
+                    cur.execute("SELECT username FROM tb_users WHERE iduser = %s", (self.iduser,))
+                    user_res = cur.fetchone()
+                    username = user_res[0] if user_res else "Utilisateur"
+                    
+                    cur.close()
+                except:
+                    pass
+                finally:
+                    conn.close()
+            
+            # ✅ CRÉATION DU PDF AVEC CANVAS EN PAYSAGE
+            c = canvas_pdfgen.Canvas(filename, pagesize=landscape(A5))
+            width, height = landscape(A5)
+            
+            # ✅ 1. EN-TÊTE SOCIÉTÉ (DEUX COLONNES)
+            styles = getSampleStyleSheet()
+            style_p = ParagraphStyle('style_p', fontSize=9, leading=11, parent=styles['Normal'])
+            
+            # Formater texte en-tête gauche (Société)
+            villes_line = f"{societe_info['villesociete']}<br/>" if societe_info['villesociete'] else ""
+            gauche_text = (
+                f"<b><font size='11'>{societe_info['nomsociete']}</font></b><br/>"
+                f"{societe_info['adressesociete']}<br/>{villes_line}"
+                f"TEL: {societe_info['contactsociete']}<br/>"
+                f"NIF: {societe_info['nifsociete']} <br/>"
+                f"STAT: {societe_info['statsociete']}"
+            )
+            
+            # Formater texte en-tête droit (Changement)
+            droite_text = (
+                f"<b>Changement N°: {refchg}</b><br/>"
+                f"{datetime.now().strftime('%d/%m/%Y %H:%M')}<br/>"
+                f"<b>CHANGEMENT D'ARTICLES</b><br/><br/>"
+                f"<i>Opérateur: {username}</i><br/>"
+            )
+            
+            gauche = Paragraph(gauche_text, style_p)
+            droite = Paragraph(droite_text, style_p)
+            
+            header_table = Table([[gauche, droite]], colWidths=[100*mm, 48*mm])
+            header_table.setStyle(TableStyle([
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ]))
+            
+            header_table.wrapOn(c, width, height)
+            header_table.drawOn(c, 10*mm, height - 35*mm)
+            
+            # Footer fixe (10*mm du bas)
+            footer_y = 10*mm
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(15*mm, footer_y + 2*mm, "Le Magasinier")
+            c.drawCentredString(width/2, footer_y + 2*mm, "Le Contrôleur")
+            c.drawString(width - 35*mm, footer_y + 2*mm, "Le Responsable")
+            
+            # Zone disponible pour le contenu (entre en-tête et footer)
+            content_top = height - 40*mm
+            content_bottom = footer_y + 8*mm
+            content_height = content_top - content_bottom
+            
+            # Hauteur des lignes
+            row_height = 6*mm
+            header_height = 7*mm
+            spacing_between_sections = 6*mm
+            title_height = 5*mm
+            
+            col_widths = [18*mm, 60*mm, 15*mm, 20*mm, 25*mm]
+            
+            # ✅ 2. TABLEAU ARTICLES EN SORTIE (taille réelle au contenu)
+            table_data_sortie = [['Code', 'Désignation', 'Unité', 'Quantité', 'Magasin']]
+            
+            for art in self.articles_sortie:
+                code_art = str(art.get('code', ''))
+                desig_art = str(art.get('designation', ''))
+                unite_art = str(art.get('unite', ''))
+                qty_art = art.get('quantite', 0)
+                mag_art = str(art.get('idmagasin', ''))
+                
+                table_data_sortie.append([
+                    code_art,
+                    desig_art,
+                    unite_art,
+                    f"{float(qty_art):.2f}" if qty_art else "0.00",
+                    mag_art
+                ])
+            
+            # Calculer hauteur réelle (exclure l'en-tête)
+            num_articles_sortie = len(table_data_sortie) - 1  # Exclure en-tête
+            actual_height_sortie = (num_articles_sortie * row_height) + header_height
+            
+            # Titre SORTIE
+            current_y = content_top
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(10*mm, current_y, "📤 ARTICLES EN SORTIE")
+            current_y -= title_height
+            
+            # Cadre tableau sortie
+            c.setLineWidth(1)
+            table_bottom_sortie = current_y - actual_height_sortie
+            c.rect(10*mm, table_bottom_sortie, width - 20*mm, actual_height_sortie)
+            
+            # Lignes verticales
+            x_pos = 10*mm
+            for w in col_widths[:-1]:
+                x_pos += w
+                c.line(x_pos, current_y, x_pos, table_bottom_sortie)
+            
+            # Créer tableau sortie avec hauteurs différentes
+            row_heights_sortie = [header_height] + [row_height] * num_articles_sortie
+            
+            articles_table_sortie = Table(table_data_sortie, colWidths=col_widths, rowHeights=row_heights_sortie)
+            articles_table_sortie.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#D32F2F')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+                ('TOPPADDING', (0, 0), (-1, -1), 2),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ]))
+            
+            articles_table_sortie.wrapOn(c, width, height)
+            articles_table_sortie.drawOn(c, 10*mm, table_bottom_sortie)
+            
+            # ✅ 3. TABLEAU ARTICLES EN ENTREE (taille réelle au contenu)
+            table_data_entree = [['Code', 'Désignation', 'Unité', 'Quantité', 'Magasin']]
+            
+            for art in self.articles_entree:
+                code_art = str(art.get('code', ''))
+                desig_art = str(art.get('designation', ''))
+                unite_art = str(art.get('unite', ''))
+                qty_art = art.get('quantite', 0)
+                mag_art = str(art.get('idmagasin', ''))
+                
+                table_data_entree.append([
+                    code_art,
+                    desig_art,
+                    unite_art,
+                    f"{float(qty_art):.2f}" if qty_art else "0.00",
+                    mag_art
+                ])
+            
+            # Calculer hauteur réelle (exclure l'en-tête)
+            num_articles_entree = len(table_data_entree) - 1  # Exclure en-tête
+            actual_height_entree = (num_articles_entree * row_height) + header_height
+            
+            # Titre ENTRÉE avec espacement
+            current_y = table_bottom_sortie - spacing_between_sections
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(10*mm, current_y, "📥 ARTICLES EN ENTRÉE")
+            current_y -= title_height
+            
+            # Cadre tableau entrée
+            table_bottom_entree = current_y - actual_height_entree
+            c.rect(10*mm, table_bottom_entree, width - 20*mm, actual_height_entree)
+            
+            # Lignes verticales
+            x_pos = 10*mm
+            for w in col_widths[:-1]:
+                x_pos += w
+                c.line(x_pos, current_y, x_pos, table_bottom_entree)
+            
+            # Créer tableau entrée avec hauteurs différentes
+            row_heights_entree = [header_height] + [row_height] * num_articles_entree
+            
+            articles_table_entree = Table(table_data_entree, colWidths=col_widths, rowHeights=row_heights_entree)
+            articles_table_entree.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1976D2')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+                ('TOPPADDING', (0, 0), (-1, -1), 2),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ]))
+            
+            articles_table_entree.wrapOn(c, width, height)
+            articles_table_entree.drawOn(c, 10*mm, table_bottom_entree)
+            
+            # ✅ SAUVEGARDER LE PDF
+            try:
+                c.save()
+                print(f"✅ PDF Changement généré avec succès : {filename}")
+                
+                # Ouvrir le fichier
+                if sys.platform == 'win32':
+                    os.startfile(filename)
+                
+                return filename
+                
+            except Exception as e:
+                print(f"❌ Erreur sauvegarde PDF : {e}")
+                messagebox.showerror("Erreur", f"Erreur lors de la génération du PDF: {str(e)}")
+                return None
+            
+        except Exception as e:
+            print(f"❌ Erreur PDF: {e}")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Erreur", f"Erreur génération PDF: {str(e)}")
+            return None
+
+    def imprimer_changement(self):
+        """Imprime le changement"""
+        if not self.articles_sortie and not self.articles_entree:
+            messagebox.showwarning("Attention", "Aucun article à imprimer")
+            return
+
+        # Récupérer la référence
+        refchg = self.entry_ref.get()
+        if refchg:
+            self.generer_pdf_changement(refchg, None)
+        else:
+            messagebox.showwarning("Attention", "Référence requise pour imprimer")
+
+
 
 class PasswordDialog(ctk.CTkToplevel):
     def __init__(self, title, text):
@@ -122,7 +1435,8 @@ class PageInfoMouvementStock(ctk.CTkFrame):
             ("Mise à jour BR", "PageBonReception"),
             ("Mise à jour Transfert", "PageTransfert"),
             ("Mise à jour Sortie", "PageSortie"),
-            ("Suivi Commande", "PageSuiviCommande")
+            ("Suivi Commande", "PageSuiviCommande"),
+            ("Changement d'Articles", "PageChangementArticle")
         ]
         
         for idx, (menu_name, page_class) in enumerate(menus, start=1):
@@ -194,7 +1508,8 @@ class PageInfoMouvementStock(ctk.CTkFrame):
             "Mise à jour BR": PageBonReception,
             "Mise à jour Transfert": PageTransfert,
             "Mise à jour Sortie": PageSortie,
-            "Suivi Commande" : PageSuiviCommande
+            "Suivi Commande" : PageSuiviCommande,
+            "Changement d'Articles": PageChangementArticle
         }
         
         # Cacher la page actuelle
@@ -217,6 +1532,8 @@ class PageInfoMouvementStock(ctk.CTkFrame):
                     self.pages[menu_name] = page_class(self.content_frame, self.iduser)
                 elif page_class == PageSuiviCommande:
                     self.pages[menu_name] = page_class(self.content_frame) # Pas d'iduser ici
+                elif page_class == PageChangementArticle:
+                    self.pages[menu_name] = page_class(self.content_frame, self.iduser)
                 else:
                     self.pages[menu_name] = page_class(self.content_frame, self.iduser)
             except Exception as e:

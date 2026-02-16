@@ -403,6 +403,36 @@ class PageTransfert(ctk.CTkFrame):
                     INNER JOIN tb_avoirdetail ad ON a.id = ad.idavoir
                     INNER JOIN tb_unite u ON ad.idarticle = u.idarticle AND ad.idunite = u.idunite
                     WHERE a.deleted = 0 AND ad.deleted = 0
+
+                    UNION ALL
+
+                    SELECT
+                        ci.idarticle,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        ci.qtconsomme as quantite,
+                        'consommation_interne' as type_mouvement
+                    FROM tb_consommationinterne_details ci
+                    INNER JOIN tb_unite u ON ci.idarticle = u.idarticle AND ci.idunite = u.idunite
+
+                    UNION ALL
+
+                    SELECT
+                        dce.idarticle,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        dce.qtchange as quantite,
+                        'echange_entree' as type_mouvement
+                    FROM tb_detailchange_entree dce
+                    INNER JOIN tb_unite u ON dce.idarticle = u.idarticle AND dce.idunite = u.idunite
+
+                    UNION ALL
+
+                    SELECT
+                        dcs.idarticle,
+                        COALESCE(u.qtunite, 1) as qtunite_source,
+                        dcs.qtchange as quantite,
+                        'echange_sortie' as type_mouvement
+                    FROM tb_detailchange_sortie dcs
+                    INNER JOIN tb_unite u ON dcs.idarticle = u.idarticle AND dcs.idunite = u.idunite
                 ),
 
                 solde_base AS (
@@ -410,13 +440,16 @@ class PageTransfert(ctk.CTkFrame):
                         idarticle,
                         SUM(
                             CASE type_mouvement
-                                WHEN 'reception'     THEN  quantite * qtunite_source
-                                WHEN 'transfert_in'  THEN  quantite * qtunite_source
-                                WHEN 'inventaire'    THEN  quantite * qtunite_source
-                                WHEN 'avoir'         THEN  quantite * qtunite_source
-                                WHEN 'vente'         THEN -quantite * qtunite_source
-                                WHEN 'sortie'        THEN -quantite * qtunite_source
-                                WHEN 'transfert_out' THEN -quantite * qtunite_source
+                                WHEN 'reception'           THEN  quantite * qtunite_source
+                                WHEN 'transfert_in'        THEN  quantite * qtunite_source
+                                WHEN 'inventaire'          THEN  quantite * qtunite_source
+                                WHEN 'avoir'               THEN  quantite * qtunite_source
+                                WHEN 'echange_entree'      THEN  quantite * qtunite_source
+                                WHEN 'vente'               THEN -quantite * qtunite_source
+                                WHEN 'sortie'              THEN -quantite * qtunite_source
+                                WHEN 'transfert_out'       THEN -quantite * qtunite_source
+                                WHEN 'consommation_interne' THEN -quantite * qtunite_source
+                                WHEN 'echange_sortie'      THEN -quantite * qtunite_source
                                 ELSE 0
                             END
                         ) as solde
@@ -615,9 +648,37 @@ class PageTransfert(ctk.CTkFrame):
                 cursor.execute(q_avoir, p_avoir)
                 avoirs = cursor.fetchone()[0] or 0
 
+                # --- Consommation interne (RÉDUIT le stock) ---
+                q_consomm = "SELECT COALESCE(SUM(qtconsomme), 0) FROM tb_consommationinterne_details WHERE idarticle = %s AND idunite = %s"
+                p_consomm = [idarticle, idu_boucle]
+                if idmag:
+                    q_consomm += " AND idmag = %s"
+                    p_consomm.append(idmag)
+                cursor.execute(q_consomm, p_consomm)
+                consomm = cursor.fetchone()[0] or 0
+
+                # --- Échange entrant (AUGMENTE le stock) ---
+                q_echange_in = "SELECT COALESCE(SUM(qtchange), 0) FROM tb_detailchange_entree WHERE idarticle = %s AND idunite = %s"
+                p_echange_in = [idarticle, idu_boucle]
+                if idmag:
+                    q_echange_in += " AND idmagasin = %s"
+                    p_echange_in.append(idmag)
+                cursor.execute(q_echange_in, p_echange_in)
+                echange_in = cursor.fetchone()[0] or 0
+
+                # --- Échange sortant (RÉDUIT le stock) ---
+                q_echange_out = "SELECT COALESCE(SUM(qtchange), 0) FROM tb_detailchange_sortie WHERE idarticle = %s AND idunite = %s"
+                p_echange_out = [idarticle, idu_boucle]
+                if idmag:
+                    q_echange_out += " AND idmagasin = %s"
+                    p_echange_out.append(idmag)
+                cursor.execute(q_echange_out, p_echange_out)
+                echange_out = cursor.fetchone()[0] or 0
+
                 # Conversion en unité de base puis accumulation dans le réservoir
-                # Les avoirs s'AJOUTENT car c'est une annulation de vente (retour marchandise)
-                solde_unite = (receptions + t_in + inv + avoirs - ventes - t_out)
+                # Entrées: receptions, transferts entrants, inventaires, avoirs (retour), échanges entrants
+                # Sorties: ventes, sorties, transferts sortants, consommation interne, échanges sortants
+                solde_unite = (receptions + t_in + inv + avoirs + echange_in - ventes - t_out - consomm - echange_out)
                 total_stock_global_base += (solde_unite * qtunite_boucle)
 
             # 4. Conversion finale : réservoir / qtunite de l'unité cible

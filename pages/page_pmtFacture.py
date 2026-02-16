@@ -592,12 +592,12 @@ class PagePmtFacture(ctk.CTkToplevel):
                     nouveau_stock = ancien_stock - qtvente
                     print(f"     📊 Calcul: {ancien_stock} - {qtvente} = {nouveau_stock}")
 
-                    # Vérification disponibilité (empêche validation si stock insuffisant)
-                    if ancien_stock < qtvente:
-                        print(f"     ❌ ERREUR: Stock insuffisant!")
-                        conn.rollback()
-                        messagebox.showerror("Stock insuffisant", f"Stock insuffisant pour l'article {codearticle or idarticle} (mag {idmag}). Ancien: {ancien_stock}, demandé: {qtvente}")
-                        return
+                    # ⚠️ TODO: Vérification disponibilité (empêche validation si stock insuffisant) - À DÉVELOPPER
+                    # if ancien_stock < qtvente:
+                    #     print(f"     ❌ ERREUR: Stock insuffisant!")
+                    #     conn.rollback()
+                    #     messagebox.showerror("Stock insuffisant", f"Stock insuffisant pour l'article {codearticle or idarticle} (mag {idmag}). Ancien: {ancien_stock}, demandé: {qtvente}")
+                    #     return
 
                     # Mise à jour du stock dans tb_stock (synchronisation du cache)
                     if codearticle:

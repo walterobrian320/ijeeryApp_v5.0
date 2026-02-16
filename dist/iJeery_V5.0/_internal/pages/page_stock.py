@@ -195,21 +195,25 @@ class PageStock(ctk.CTkFrame):
             
             print("Chargement des stocks en cours...")
         
-            # ✅ REQUÊTE CORRIGÉE : Les articles liés (même idarticle, unités différentes)
-            # sont désormais reliés via qtunite de tb_unite.
-            # Exemple : une vente de 20 PIECES déclenche automatiquement -1 CARTON
-            # car qtunite du CARTON = 20 PIECE.
+            # ✅ REQUÊTE CONSOLIDÉE (V2) : Calcul du stock avec 10 SOURCES de données
+            # Les articles liés (même idarticle, unités différentes) sont reliés via qtunite de tb_unite.
             #
-            # AVOIRS : Les avoirs (tb_avoir/tb_avoirdetail.qtavoir) AUGMENTENT le stock 
-            # car ils représentent des annulations de ventes (retour de marchandises en stock).
+            # SOURCES INCLUSES :
+            #   ✅ Réceptions (tb_livraisonfrs)
+            #   ✅ Ventes validées (tb_ventedetail)
+            #   ✅ Sorties BS (tb_sortiedetail)
+            #   ✅ Transferts (tb_transfertdetail) - IN et OUT
+            #   ✅ Inventaires (tb_inventaire)
+            #   ✅ Avoirs (tb_avoirdetail) - Retours de marchandise
+            #   ✅ Consommation Interne (tb_consommationinterne_details) - NOUVEAU
+            #   ✅ Échanges Entrée (tb_detailchange_entree) - NOUVEAU
+            #   ✅ Échanges Sortie (tb_detailchange_sortie) - NOUVEAU
             #
             # LOGIQUE :
-            #   1) mouvements_bruts   → chaque mouvement est converti en "unité de base"
-            #                            en multipliant par le qtunite de son unité source.
-            #   2) solde_base_par_mag → on somme tous ces mouvements convertis par (idarticle, idmag).
-            #                            C'est le "réservoir commun" partagé entre toutes les unités.
-            #   3) Requête finale     → chaque ligne (codearticle) divise le réservoir commun
-            #                            par son propre qtunite pour obtenir son stock affiché.
+            #   1) mouvements_bruts   → chaque mouvement converti en "unité de base"
+            #   2) solde_base_par_mag → somme tous les mouvements par (idarticle, idmag) 
+            #   3) Requête finale     → divise par qtunite pour obtenir stock affiché
+            # ✅ Requête consolidée avec les 9 sources de mouvements + coefficient hiérarchique
             query_optimisee = """
             WITH mouvements_bruts AS (
                 -- Réceptions (tb_livraisonfrs)
@@ -265,7 +269,7 @@ class PageStock(ctk.CTkFrame):
 
                 UNION ALL
 
-                -- Sorties (tb_sortiedetail) - DIMINUENT le stock
+                -- Sorties (tb_sortiedetail)
                 SELECT
                     sd.idarticle,
                     sd.idmag,
@@ -277,11 +281,7 @@ class PageStock(ctk.CTkFrame):
 
                 UNION ALL
 
-                -- Inventaires (via codearticle → idunite pour avoir qtunite)
-                -- ⚠️ FIX: Ne compter les inventaires qu'UNE SEULE FOIS par article
-                -- (sélectionner uniquement l'unité de base pour chaque article)
-                -- Cela évite le double-comptage quand il y a plusieurs inventaires
-                -- pour différentes variantes d'unité du même article
+                -- Inventaires (une seule fois par article = unité de base)
                 SELECT
                     u.idarticle,
                     i.idmag,
@@ -291,8 +291,6 @@ class PageStock(ctk.CTkFrame):
                 FROM tb_inventaire i
                 INNER JOIN tb_unite u ON i.codearticle = u.codearticle
                 WHERE u.idunite IN (
-                    -- Sélectionner UNIQUEMENT l'unité de base (plus petit qtunite)
-                    -- pour chaque idarticle (DISTINCT ON nécessite PostgreSQL)
                     SELECT DISTINCT ON (idarticle) idunite
                     FROM tb_unite
                     WHERE deleted = 0
@@ -301,7 +299,7 @@ class PageStock(ctk.CTkFrame):
 
                 UNION ALL
 
-                -- Avoirs (tb_avoir/tb_avoirdetail) - AUGMENTENT le stock (annulation de vente)
+                -- Avoirs (augmentent le stock = retour marchandises)
                 SELECT
                     ad.idarticle,
                     ad.idmag,
@@ -312,23 +310,60 @@ class PageStock(ctk.CTkFrame):
                 INNER JOIN tb_avoirdetail ad ON a.id = ad.idavoir
                 INNER JOIN tb_unite u ON ad.idarticle = u.idarticle AND ad.idunite = u.idunite
                 WHERE a.deleted = 0 AND ad.deleted = 0
+
+                UNION ALL
+
+                -- Consommation interne (diminue le stock)
+                SELECT
+                    cd.idarticle,
+                    cd.idmag,
+                    COALESCE(u.qtunite, 1) as qtunite_source,
+                    cd.qtconsomme as quantite,
+                    'consommation_interne' as type_mouvement
+                FROM tb_consommationinterne_details cd
+                INNER JOIN tb_unite u ON cd.idarticle = u.idarticle AND cd.idunite = u.idunite
+
+                UNION ALL
+
+                -- Échanges entrée (augmentent le stock)
+                SELECT
+                    dce.idarticle,
+                    dce.idmagasin,
+                    COALESCE(u.qtunite, 1) as qtunite_source,
+                    dce.quantite_entree as quantite,
+                    'echange_entree' as type_mouvement
+                FROM tb_detailchange_entree dce
+                INNER JOIN tb_unite u ON dce.idarticle = u.idarticle AND dce.idunite = u.idunite
+
+                UNION ALL
+
+                -- Échanges sortie (diminuent le stock)
+                SELECT
+                    dcs.idarticle,
+                    dcs.idmagasin,
+                    COALESCE(u.qtunite, 1) as qtunite_source,
+                    dcs.quantite_sortie as quantite,
+                    'echange_sortie' as type_mouvement
+                FROM tb_detailchange_sortie dcs
+                INNER JOIN tb_unite u ON dcs.idarticle = u.idarticle AND dcs.idunite = u.idunite
             ),
 
             solde_base_par_mag AS (
-                -- On convertit chaque mouvement en unité de base (× qtunite_source)
-                -- puis on calcule le solde global par (idarticle, idmag)
                 SELECT
                     idarticle,
                     idmag,
                     SUM(
                         CASE type_mouvement
-                            WHEN 'reception'     THEN  quantite * qtunite_source
-                            WHEN 'transfert_in'  THEN  quantite * qtunite_source
-                            WHEN 'inventaire'    THEN  quantite * qtunite_source
-                            WHEN 'avoir'         THEN  quantite * qtunite_source  -- Les avoirs AUGMENTENT le stock (annulation vente)
-                            WHEN 'vente'         THEN -quantite * qtunite_source
-                            WHEN 'sortie'        THEN -quantite * qtunite_source  -- Les sorties DIMINUENT le stock
-                            WHEN 'transfert_out' THEN -quantite * qtunite_source
+                            WHEN 'reception'             THEN  quantite * qtunite_source
+                            WHEN 'transfert_in'          THEN  quantite * qtunite_source
+                            WHEN 'inventaire'            THEN  quantite * qtunite_source
+                            WHEN 'avoir'                 THEN  quantite * qtunite_source
+                            WHEN 'echange_entree'        THEN  quantite * qtunite_source
+                            WHEN 'vente'                 THEN -quantite * qtunite_source
+                            WHEN 'sortie'                THEN -quantite * qtunite_source
+                            WHEN 'transfert_out'         THEN -quantite * qtunite_source
+                            WHEN 'consommation_interne'  THEN -quantite * qtunite_source
+                            WHEN 'echange_sortie'        THEN -quantite * qtunite_source
                             ELSE 0
                         END
                     ) as solde_base
@@ -336,19 +371,12 @@ class PageStock(ctk.CTkFrame):
                 GROUP BY idarticle, idmag
             ),
 
-            -- ✅ CTE de HIÉRARCHIE : calcule le coefficient de conversion via la chaîne hiérarchique
             unite_hierarchie AS (
-                SELECT
-                    u.idarticle,
-                    u.idunite,
-                    u.niveau,
-                    u.qtunite,
-                    u.designationunite
-                FROM tb_unite u
-                WHERE u.deleted = 0
+                SELECT idarticle, idunite, niveau, qtunite, designationunite
+                FROM tb_unite
+                WHERE deleted = 0
             ),
 
-            -- Coefficient cumulatif pour chaque unité (produit des qtunite de la chaîne)
             unite_coeff AS (
                 SELECT
                     idarticle,
@@ -356,7 +384,7 @@ class PageStock(ctk.CTkFrame):
                     niveau,
                     qtunite,
                     designationunite,
-                    exp(sum(ln(NULLIF(CASE WHEN qtunite > 0 THEN qtunite ELSE 1 END, 0))) 
+                    exp(sum(ln(NULLIF(CASE WHEN qtunite > 0 THEN qtunite ELSE 1 END, 0)))
                         OVER (PARTITION BY idarticle ORDER BY niveau ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
                     ) as coeff_hierarchique
                 FROM unite_hierarchie
@@ -379,8 +407,6 @@ class PageStock(ctk.CTkFrame):
                 u.idarticle,
                 u.idunite,
                 m.idmag,
-                -- ✅ Division par le coefficient hiérarchique (pas seulement qtunite)
-                -- Gère les hiérarchies multi-niveaux : u3 = 5*u2, u2 = 10*u1
                 COALESCE(sb.solde_base, 0) / NULLIF(COALESCE(uc.coeff_hierarchique, 1), 0) as stock
             FROM tb_unite u
             INNER JOIN tb_article a ON u.idarticle = a.idarticle
@@ -478,17 +504,20 @@ class PageStock(ctk.CTkFrame):
 
     def calculer_stock_article(self, idarticle, idunite_cible, idmag=None):
         """
-        ✅ CALCUL CONSOLIDÉ : 
+        ✅ CALCUL CONSOLIDÉ (V2) : 
         Relie tous les mouvements de toutes les unités (PIECE, CARTON, etc.) 
         d'un même idarticle via le coefficient 'qtunite' de tb_unite.
         
-        Prend en compte :
+        Prend en compte 10 SOURCES de données :
         - Réceptions (tb_livraisonfrs) → +stock
         - Ventes (tb_ventedetail) → -stock
-        - Sorties (tb_sortiedetail) → -stock
+        - Sorties BS (tb_sortiedetail) → -stock
         - Transferts IN et OUT (tb_transfertdetail) → +/- stock
         - Inventaires (tb_inventaire) → +stock
-        - Avoirs (tb_avoir/tb_avoirdetail.qtavoir) → +stock (annulation de vente, retour marchandise)
+        - Avoirs (tb_avoir/tb_avoirdetail.qtavoir) → +stock (retour marchandise)
+        - Consommation Interne (tb_consommationinterne_details) → -stock
+        - Échanges Entrée (tb_detailchange_entree) → +stock
+        - Échanges Sortie (tb_detailchange_sortie) → -stock
         """
         conn = self.connect_db()
         if not conn: return 0
@@ -571,9 +600,31 @@ class PageStock(ctk.CTkFrame):
                 cursor.execute(q_avoir, p_avoir)
                 avoirs = cursor.fetchone()[0] or 0
 
-                # Normalisation : (Solde unité) * (Son poids)
-                # Les avoirs s'AJOUTENT car c'est une annulation de vente (retour marchandise)
-                solde_unite = (receptions + t_in + inv + avoirs - ventes - sorties - t_out)
+                # Consommation Interne (DIMINUE le stock)
+                q_conso = "SELECT COALESCE(SUM(qtconsomme), 0) FROM tb_consommationinterne_details WHERE idarticle = %s AND idunite = %s"
+                p_conso = [idarticle, idu_boucle]
+                if idmag: q_conso += " AND idmag = %s"; p_conso.append(idmag)
+                cursor.execute(q_conso, p_conso)
+                consommations = cursor.fetchone()[0] or 0
+
+                # Échanges Entrée (AUGMENTE le stock)
+                q_echange_in = "SELECT COALESCE(SUM(quantite_entree), 0) FROM tb_detailchange_entree WHERE idarticle = %s AND idunite = %s"
+                p_echange_in = [idarticle, idu_boucle]
+                if idmag: q_echange_in += " AND idmagasin = %s"; p_echange_in.append(idmag)
+                cursor.execute(q_echange_in, p_echange_in)
+                echange_entrees = cursor.fetchone()[0] or 0
+
+                # Échanges Sortie (DIMINUE le stock)
+                q_echange_out = "SELECT COALESCE(SUM(quantite_sortie), 0) FROM tb_detailchange_sortie WHERE idarticle = %s AND idunite = %s"
+                p_echange_out = [idarticle, idu_boucle]
+                if idmag: q_echange_out += " AND idmagasin = %s"; p_echange_out.append(idmag)
+                cursor.execute(q_echange_out, p_echange_out)
+                echange_sorties = cursor.fetchone()[0] or 0
+
+                # ✅ Normalisation finale avec les 10 sources de données
+                # ENTRÉES (+): Réceptions, Transferts IN, Inventaires, Avoirs, Échanges Entrée
+                # SORTIES (-): Ventes, Sorties BS, Transferts OUT, Consomm. Interne, Échanges Sortie
+                solde_unite = (receptions + t_in + inv + avoirs + echange_entrees - ventes - sorties - t_out - consommations - echange_sorties)
                 total_stock_global_base += (solde_unite * qtunite_boucle)
 
             # 4. Conversion finale pour l'affichage

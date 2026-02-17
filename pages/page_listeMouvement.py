@@ -248,6 +248,8 @@ class PageListeMouvement(ctk.CTkFrame):
         self.tree.grid(row=0, column=0, sticky="nsew")
         scrollbar_y.grid(row=0, column=1, sticky="ns")
         scrollbar_x.grid(row=1, column=0, sticky="ew")
+        # Double-clic sur une ligne -> afficher les détails selon le type de mouvement
+        self.tree.bind("<Double-1>", lambda e: self.on_row_double_click())
         
         # --- Footer (statistiques) ---
         self.footer_frame = ctk.CTkFrame(content_frame, fg_color="#F0F0F0", corner_radius=8, border_width=1, border_color="#E0E0E0")
@@ -363,105 +365,76 @@ class PageListeMouvement(ctk.CTkFrame):
         """
         queries = {
             "entree": """
-                SELECT 
-                    ROW_NUMBER() OVER (ORDER BY em.iddentree DESC) as "N°",
-                    em.datedentree as "Date",
-                    em.refdentree as "Référence",
-                    a.designation as "Article",
-                    emd.qtdentree as "Quantité",
-                    u.designationunite as "Unité",
-                    m.nommagasin as "Magasin",
-                    p.nompesonnel as "Utilisateur",
-                    em.observationdentree as "Observations"
-                FROM tb_dentree em
-                LEFT JOIN tb_dentreedetail emd ON em.iddentree = emd.iddentree
-                LEFT JOIN tb_article a ON emd.idarticle = a.idarticle
-                LEFT JOIN tb_unite u ON emd.idunite = u.idunite
-                LEFT JOIN tb_magasin m ON em.idmagasin = m.idmagasin
-                LEFT JOIN tb_personnel p ON em.iduser = p.idpersonnel
-                WHERE em.deleted = 0
-                ORDER BY em.iddentree DESC
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY c.idcom DESC) as "N°",
+                    c.datecom as "Date",
+                    c.refcom as "Référence",
+                    COALESCE(f.nomfrs, '') as "Article",
+                    NULL::numeric as "Quantité",
+                    '' as "Unité",
+                    '' as "Magasin",
+                    CONCAT(p.nom, ' ', COALESCE(p.prenom,'')) as "Utilisateur",
+                    c.descriptioncom as "Observations"
+                FROM tb_commande c
+                LEFT JOIN tb_fournisseur f ON c.idfrs = f.idfrs
+                LEFT JOIN tb_personnel p ON c.iduser = p.id
+                WHERE c.deleted = 0
+                ORDER BY c.idcom DESC
             """,
             "sortie": """
-                SELECT 
-                    ROW_NUMBER() OVER (ORDER BY sm.idsortie DESC) as "N°",
-                    sm.datesortie as "Date",
-                    sm.refsortie as "Référence",
-                    a.designation as "Article",
-                    smd.qtsortie as "Quantité",
-                    u.designationunite as "Unité",
-                    m.nommagasin as "Magasin",
-                    p.nompesonnel as "Utilisateur",
-                    sm.observationsortie as "Observations"
-                FROM tb_sortie sm
-                LEFT JOIN tb_sortiedetail smd ON sm.idsortie = smd.idsortie
-                LEFT JOIN tb_article a ON smd.idarticle = a.idarticle
-                LEFT JOIN tb_unite u ON smd.idunite = u.idunite
-                LEFT JOIN tb_magasin m ON sm.idmagasin = m.idmagasin
-                LEFT JOIN tb_personnel p ON sm.iduser = p.idpersonnel
-                WHERE sm.deleted = 0
-                ORDER BY sm.idsortie DESC
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY s.id DESC) as "N°",
+                    s.dateregistre as "Date",
+                    s.refsortie as "Référence",
+                    s.description as "Description",
+                    CONCAT(COALESCE(p.nom,''), ' ', COALESCE(p.prenom,'')) as "Utilisateur",
+                    s.iduser as "iduser"
+                FROM tb_sortie s
+                LEFT JOIN tb_personnel p ON s.iduser = p.id
+                LEFT JOIN tb_users u ON s.iduser = u.iduser
+                WHERE s.deleted = 0
+                ORDER BY s.id DESC
             """,
             "transfert": """
-                SELECT 
-                    ROW_NUMBER() OVER (ORDER BY tr.idtransfert DESC) as "N°",
-                    tr.datetransfert as "Date",
-                    tr.reftransfert as "Référence",
-                    a.designation as "Article",
-                    trd.qttransfert as "Quantité",
-                    u.designationunite as "Unité",
-                    m1.nommagasin as "Magasin",
-                    p.nompesonnel as "Utilisateur",
-                    tr.observationtransfert as "Observations"
-                FROM tb_transfert tr
-                LEFT JOIN tb_transfertdetail trd ON tr.idtransfert = trd.idtransfert
-                LEFT JOIN tb_article a ON trd.idarticle = a.idarticle
-                LEFT JOIN tb_unite u ON trd.idunite = u.idunite
-                LEFT JOIN tb_magasin m1 ON tr.idmagasin = m1.idmagasin
-                LEFT JOIN tb_personnel p ON tr.iduser = p.idpersonnel
-                WHERE tr.deleted = 0
-                ORDER BY tr.idtransfert DESC
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY t.idtransfert DESC) as "N°",
+                    t.dateregistre as "Date",
+                    t.reftransfert as "Référence",
+                    t.description as "Description",
+                    ms.designationmag || ' → ' || me.designationmag as "Magasin",
+                    CONCAT(COALESCE(p.nom,''), ' ', COALESCE(p.prenom,'')) as "Utilisateur"
+                FROM tb_transfert t
+                LEFT JOIN tb_magasin ms ON t.idmagsortie = ms.idmag
+                LEFT JOIN tb_magasin me ON t.idmagentree = me.idmag
+                LEFT JOIN tb_personnel p ON t.iduser = p.id
+                LEFT JOIN tb_users u ON t.iduser = u.iduser
+                WHERE t.deleted = 0
+                ORDER BY t.idtransfert DESC
             """,
             "consommation": """
-                SELECT 
-                    ROW_NUMBER() OVER (ORDER BY ci.idconsint DESC) as "N°",
-                    ci.dateconsint as "Date",
-                    ci.refconsint as "Référence",
-                    a.designation as "Article",
-                    cid.qtconsint as "Quantité",
-                    u.designationunite as "Unité",
-                    m.nommagasin as "Magasin",
-                    p.nompesonnel as "Utilisateur",
-                    ci.observationconsint as "Observations"
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY ci.id DESC) as "N°",
+                    ci.dateregistre as "Date",
+                    ci.refconsommation as "Référence",
+                    ci.observation as "Description",
+                    ci.valeur_totale as "ValeurTotale",
+                    CONCAT(COALESCE(p.nom,''), ' ', COALESCE(p.prenom,'')) as "Utilisateur"
                 FROM tb_consommationinterne ci
-                LEFT JOIN tb_consommationinternedetail cid ON ci.idconsint = cid.idconsint
-                LEFT JOIN tb_article a ON cid.idarticle = a.idarticle
-                LEFT JOIN tb_unite u ON cid.idunite = u.idunite
-                LEFT JOIN tb_magasin m ON ci.idmagasin = m.idmagasin
-                LEFT JOIN tb_personnel p ON ci.iduser = p.idpersonnel
-                WHERE ci.deleted = 0
-                ORDER BY ci.idconsint DESC
+                LEFT JOIN tb_personnel p ON ci.iduser = p.id
+                LEFT JOIN tb_users u ON ci.iduser = u.iduser
+                ORDER BY ci.id DESC
             """,
             "changement": """
-                SELECT 
-                    ROW_NUMBER() OVER (ORDER BY chg.idchg DESC) as "N°",
-                    chg.datechg as "Date",
-                    chg.refchg as "Référence",
-                    CONCAT(a.designation, ' → ', a2.designation) as "Article",
-                    chgd.qtchg as "Quantité",
-                    u.designationunite as "Unité",
-                    m.nommagasin as "Magasin",
-                    p.nompesonnel as "Utilisateur",
-                    chg.observationchg as "Observations"
-                FROM tb_changement chg
-                LEFT JOIN tb_changementdetail chgd ON chg.idchg = chgd.idchg
-                LEFT JOIN tb_article a ON chgd.idarticle = a.idarticle
-                LEFT JOIN tb_article a2 ON chgd.idarticle_nouveau = a2.idarticle
-                LEFT JOIN tb_unite u ON chgd.idunite = u.idunite
-                LEFT JOIN tb_magasin m ON chg.idmagasin = m.idmagasin
-                LEFT JOIN tb_personnel p ON chg.iduser = p.idpersonnel
-                WHERE chg.deleted = 0
-                ORDER BY chg.idchg DESC
+                SELECT
+                    ROW_NUMBER() OVER (ORDER BY ch.idchg DESC) as "N°",
+                    ch.datechg as "Date",
+                    ch.refchg as "Référence",
+                    ch.note as "Description",
+                    CONCAT(COALESCE(p.nom,''), ' ', COALESCE(p.prenom,'')) as "Utilisateur"
+                FROM tb_changement ch
+                LEFT JOIN tb_personnel p ON ch.iduser = p.id
+                LEFT JOIN tb_users u ON ch.iduser = u.iduser
+                ORDER BY ch.idchg DESC
             """
         }
         
@@ -477,7 +450,19 @@ class PageListeMouvement(ctk.CTkFrame):
         """
         # Vider le tableau
         self.clear_tree()
-        
+
+        # Reconfigurer les colonnes du Treeview pour correspondre au DataFrame
+        try:
+            cols = list(df.columns)
+        except Exception:
+            cols = ["N°", "Date", "Référence", "Article", "Quantité", "Unité", "Magasin", "Utilisateur", "Observations"]
+
+        self.tree.configure(columns=cols)
+        for col in cols:
+            self.tree.heading(col, text=col)
+            # taille par défaut
+            self.tree.column(col, width=120, anchor="w")
+
         # Insérer les nouvelles lignes
         for idx, row in df.iterrows():
             tag = 'row_white' if idx % 2 == 0 else 'row_gray'
@@ -561,3 +546,250 @@ class PageListeMouvement(ctk.CTkFrame):
         
         except Exception as e:
             messagebox.showerror("Erreur", f"Erreur lors de l'export: {str(e)}")
+
+
+    # ========================================================
+    # DÉTAILS LIGNE (DOUBLE-CLIC)
+    # ========================================================
+    def on_row_double_click(self):
+        selection = self.tree.selection()
+        if not selection:
+            return
+        item = self.tree.item(selection[0])
+        values = item.get('values', [])
+        # Trouver la colonne 'Référence' si présente
+        ref = None
+        try:
+            cols = list(self.tree['columns'])
+            if 'Référence' in cols:
+                idx = cols.index('Référence')
+                if idx < len(values):
+                    ref = values[idx]
+            else:
+                # fallback: 3ème colonne
+                if len(values) >= 3:
+                    ref = values[2]
+        except Exception:
+            if len(values) >= 3:
+                ref = values[2]
+
+        # Ouvrir la fenêtre de détails selon le type de mouvement
+        try:
+            if self.type_mouvement_actif == 'entree':
+                self.show_commande_details_by_ref(ref)
+            elif self.type_mouvement_actif == 'sortie':
+                self.show_sortie_details_by_ref(ref)
+            elif self.type_mouvement_actif == 'transfert':
+                self.show_transfert_details_by_ref(ref)
+            elif self.type_mouvement_actif == 'consommation':
+                self.show_consommation_details_by_ref(ref)
+            elif self.type_mouvement_actif == 'changement':
+                self.show_changement_details_by_ref(ref)
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur ouverture détails: {e}")
+
+    def _open_details_window(self, title, columns, rows):
+        win = ctk.CTkToplevel(self)
+        win.title(title)
+        win.geometry('900x500')
+        frame = ctk.CTkFrame(win)
+        frame.pack(fill='both', expand=True, padx=10, pady=10)
+
+        tree = ttk.Treeview(frame, columns=columns, show='headings')
+        for col in columns:
+            tree.heading(col, text=col)
+            tree.column(col, width=120)
+        ysb = ttk.Scrollbar(frame, orient='vertical', command=tree.yview)
+        xsb = ttk.Scrollbar(frame, orient='horizontal', command=tree.xview)
+        tree.configure(yscrollcommand=ysb.set, xscrollcommand=xsb.set)
+        tree.grid(row=0, column=0, sticky='nsew')
+        ysb.grid(row=0, column=1, sticky='ns')
+        xsb.grid(row=1, column=0, sticky='ew')
+        frame.grid_rowconfigure(0, weight=1)
+        frame.grid_columnconfigure(0, weight=1)
+
+        for r in rows:
+            tree.insert('', 'end', values=r)
+
+    def show_commande_details_by_ref(self, refcom):
+        if not refcom:
+            messagebox.showwarning('Attention', 'Référence commande introuvable')
+            return
+        conn = self.connect_db()
+        if not conn: return
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT idcom FROM tb_commande WHERE refcom = %s LIMIT 1", (refcom,))
+            row = cur.fetchone()
+            if not row:
+                messagebox.showinfo('Info', 'Commande non trouvée')
+                return
+            idcom = row[0]
+
+            # Détails commande
+            cur.execute("""
+                SELECT cd.id, a.designation, u.designationunite, cd.qtcmd, cd.qtlivre, cd.punitcmd
+                FROM tb_commandedetail cd
+                LEFT JOIN tb_article a ON cd.idarticle = a.idarticle
+                LEFT JOIN tb_unite u ON cd.idunite = u.idunite
+                WHERE cd.idcom = %s
+            """, (idcom,))
+            details = cur.fetchall()
+
+            # Livraisons liées
+            cur.execute("""
+                SELECT idlivfrs, reflivfrs, idarticle, idunite, qtlivrefrs, dateregistre
+                FROM tb_livraisonfrs
+                WHERE idcom = %s
+            """, (idcom,))
+            livraisons = cur.fetchall()
+
+            # Affichage: concaténation des deux listes
+            rows = []
+            for d in details:
+                rows.append(( 'DETAIL', ) + tuple(d))
+            for l in livraisons:
+                rows.append(( 'LIVRAISON', ) + tuple(l))
+
+            cols = ('Type','ID','Désignation/Ref','Unité/IDUnite','QtCmd/QT','QtLiv/QT','PrixUnit/Date')
+            norm_rows = []
+            for r in rows:
+                r = tuple(str(x) for x in r)
+                if len(r) < len(cols):
+                    r = r + tuple([''] * (len(cols) - len(r)))
+                norm_rows.append(r[:len(cols)])
+
+            self._open_details_window(f'Détails Commande {refcom}', cols, norm_rows)
+
+        finally:
+            conn.close()
+
+    def show_sortie_details_by_ref(self, refsortie):
+        if not refsortie:
+            messagebox.showwarning('Attention', 'Référence sortie introuvable')
+            return
+        conn = self.connect_db()
+        if not conn: return
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT id FROM tb_sortie WHERE refsortie = %s LIMIT 1", (refsortie,))
+            row = cur.fetchone()
+            if not row:
+                messagebox.showinfo('Info', 'Sortie non trouvée')
+                return
+            idsortie = row[0]
+            cur.execute("""
+                SELECT sd.id, a.designation, u.designationunite, sd.qtsortie
+                FROM tb_sortiedetail sd
+                LEFT JOIN tb_article a ON sd.idarticle = a.idarticle
+                LEFT JOIN tb_unite u ON sd.idunite = u.idunite
+                WHERE sd.idsortie = %s
+            """, (idsortie,))
+            details = cur.fetchall()
+            cols = ('ID','Désignation','Unité','Quantité')
+            self._open_details_window(f'Détails Sortie {refsortie}', cols, details)
+        finally:
+            conn.close()
+
+    def show_transfert_details_by_ref(self, reftrans):
+        if not reftrans:
+            messagebox.showwarning('Attention', 'Référence transfert introuvable')
+            return
+        conn = self.connect_db()
+        if not conn: return
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT idtransfert FROM tb_transfert WHERE reftransfert = %s LIMIT 1", (reftrans,))
+            row = cur.fetchone()
+            if not row:
+                messagebox.showinfo('Info', 'Transfert non trouvé')
+                return
+            idtr = row[0]
+            cur.execute("""
+                SELECT td.id, a.designation, u.designationunite, td.qttransfert, td.idmagsortie, td.idmagentree
+                FROM tb_transfertdetail td
+                LEFT JOIN tb_article a ON td.idarticle = a.idarticle
+                LEFT JOIN tb_unite u ON td.idunite = u.idunite
+                WHERE td.idtransfert = %s
+            """, (idtr,))
+            details = cur.fetchall()
+            cols = ('ID','Désignation','Unité','Quantité','Magasin Sortie','Magasin Entrée')
+            self._open_details_window(f'Détails Transfert {reftrans}', cols, details)
+        finally:
+            conn.close()
+
+    def show_consommation_details_by_ref(self, refcons):
+        if not refcons:
+            messagebox.showwarning('Attention', 'Référence consommation introuvable')
+            return
+        conn = self.connect_db()
+        if not conn: return
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT id FROM tb_consommationinterne WHERE refconsommation = %s LIMIT 1", (refcons,))
+            row = cur.fetchone()
+            if not row:
+                messagebox.showinfo('Info', 'Consommation non trouvée')
+                return
+            idc = row[0]
+            cur.execute("""
+                SELECT d.id, a.designation, u.designationunite, d.qtconsomme, d.prixunit, d.montant_total
+                FROM tb_consommationinterne_details d
+                LEFT JOIN tb_article a ON d.idarticle = a.idarticle
+                LEFT JOIN tb_unite u ON d.idunite = u.idunite
+                WHERE d.idconsommation = %s
+            """, (idc,))
+            details = cur.fetchall()
+            cols = ('ID','Désignation','Unité','Qté','Prix Unit.','Montant')
+            self._open_details_window(f'Détails Consommation {refcons}', cols, details)
+        finally:
+            conn.close()
+
+    def show_changement_details_by_ref(self, refchg):
+        if not refchg:
+            messagebox.showwarning('Attention', 'Référence changement introuvable')
+            return
+        conn = self.connect_db()
+        if not conn: return
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT idchg FROM tb_changement WHERE refchg = %s LIMIT 1", (refchg,))
+            row = cur.fetchone()
+            if not row:
+                messagebox.showinfo('Info', 'Changement non trouvé')
+                return
+            idchg = row[0]
+            cur.execute("""
+                SELECT s.iddetail, a.designation, u.designationunite, s.quantite_sortie
+                FROM tb_detailchange_sortie s
+                LEFT JOIN tb_article a ON s.idarticle = a.idarticle
+                LEFT JOIN tb_unite u ON s.idunite = u.idunite
+                WHERE s.idchg = %s
+            """, (idchg,))
+            sortie = cur.fetchall()
+            cur.execute("""
+                SELECT e.iddetail, a.designation, u.designationunite, e.quantite_entree
+                FROM tb_detailchange_entree e
+                LEFT JOIN tb_article a ON e.idarticle = a.idarticle
+                LEFT JOIN tb_unite u ON e.idunite = u.idunite
+                WHERE e.idchg = %s
+            """, (idchg,))
+            entree = cur.fetchall()
+
+            rows = []
+            for s in sortie:
+                rows.append(('SORTIE',) + tuple(s))
+            for e in entree:
+                rows.append(('ENTRÉE',) + tuple(e))
+
+            cols = ('Type','ID','Désignation','Unité','Quantité')
+            norm_rows = []
+            for r in rows:
+                r = tuple(str(x) for x in r)
+                if len(r) < len(cols):
+                    r = r + tuple([''] * (len(cols) - len(r)))
+                norm_rows.append(r[:len(cols)])
+
+            self._open_details_window(f'Détails Changement {refchg}', cols, norm_rows)
+        finally:
+            conn.close()

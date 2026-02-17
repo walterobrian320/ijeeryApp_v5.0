@@ -149,6 +149,10 @@
             "PageFactureListe"
         ],
         [
+            "Liste mouvements",
+            "PageListeMouvement"
+        ],
+        [
             "Liste Personnel",
             "AppMain"
         ],

@@ -1027,12 +1027,8 @@ class PageSortie(ctk.CTkFrame):
             return
 
         # --- NOUVELLE VÉRIFICATION DE STOCK ---
-        # On calcule le stock spécifiquement pour l'article, l'unité et le magasin choisis
-        stock_disponible = self.calculer_stock_article(
-            self.article_selectionne['idarticle'], 
-            self.article_selectionne['idunite'], 
-            idmag=idmag
-        )
+        # Utiliser la valeur du stock affichée dans le tableau de sélection d'article
+        stock_disponible = self.article_selectionne.get('stock_disponible', 0)
 
         if stock_disponible <= 0:
             messagebox.showerror(
@@ -1804,16 +1800,12 @@ class PageSortie(ctk.CTkFrame):
             header_table.wrapOn(c, width, height)
             header_table.drawOn(c, 10*mm, height - 38*mm)
             
-            # Footer fixe (10mm du bas)
-            footer_y = 10*mm
-            c.setFont("Helvetica-Bold", 10)
-            c.drawString(40*mm, footer_y + 2*mm, "Le Magasinier")
-            c.drawString(110*mm, footer_y + 2*mm, "Le Contrôleur")
-            
             # Zone contenu (tableau articles)
             content_top = height - 42*mm
-            content_bottom = footer_y + 8*mm
             row_height = 5*mm
+            motif_height = 12*mm  # Espace réservé au motif
+            signature_height = 10*mm  # Espace réservé aux signatures
+            separator_height = 3*mm  # Espace entre motif et signatures
             
             # TABLEAU ARTICLES
             table_data = [['Code', 'Désignation', 'Unité', 'Quantité', 'Magasin']]
@@ -1828,7 +1820,12 @@ class PageSortie(ctk.CTkFrame):
                 ])
             
             num_articles = len(table_data)
+            # Ajuster la hauteur du tableau en fonction du nombre d'articles
             actual_height = num_articles * row_height
+            available_space = content_top - (motif_height + signature_height + separator_height + 10*mm)
+            # Limiter la hauteur du tableau à l'espace disponible
+            if actual_height > available_space:
+                actual_height = available_space
             
             col_widths = [18*mm, 60*mm, 15*mm, 18*mm, 27*mm]
             
@@ -1870,6 +1867,20 @@ class PageSortie(ctk.CTkFrame):
             
             articles_table.wrapOn(c, width, height)
             articles_table.drawOn(c, 10*mm, table_bottom)
+            
+            # Ajouter le MOTIF juste en bas du tableau
+            motif_y = table_bottom - 3*mm
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(10*mm, motif_y, "Motif:")
+            c.setFont("Helvetica", 8)
+            motif_text = self.entry_motif.get().strip() if self.entry_motif else ""
+            c.drawString(35*mm, motif_y, motif_text[:70])  # Limiter à 70 caractères
+            
+            # Footer avec signatures
+            footer_y = table_bottom - motif_height - separator_height
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(40*mm, footer_y, "Le Magasinier")
+            c.drawString(110*mm, footer_y, "Le Contrôleur")
             
             c.save()
             print(f"✅ PDF Bon de Sortie généré : {filename}")
@@ -1958,16 +1969,12 @@ class PageSortie(ctk.CTkFrame):
             header_table.wrapOn(c, width, height)
             header_table.drawOn(c, 10*mm, height - 38*mm)
             
-            # Footer fixe (10mm du bas)
-            footer_y = 10*mm
-            c.setFont("Helvetica-Bold", 10)
-            c.drawString(40*mm, footer_y + 2*mm, "Le Magasinier")
-            c.drawString(110*mm, footer_y + 2*mm, "Le Contrôleur")
-            
             # Zone contenu (tableau articles)
             content_top = height - 42*mm
-            content_bottom = footer_y + 8*mm
             row_height = 5*mm
+            motif_height = 12*mm  # Espace réservé au motif
+            signature_height = 10*mm  # Espace réservé aux signatures
+            separator_height = 3*mm  # Espace entre motif et signatures
             
             # TABLEAU ARTICLES
             table_data = [['Code', 'Désignation', 'Unité', 'Quantité', 'P.U.', 'Montant']]
@@ -1984,7 +1991,12 @@ class PageSortie(ctk.CTkFrame):
                 ])
             
             num_articles = len(table_data)
+            # Ajuster la hauteur du tableau en fonction du nombre d'articles
             actual_height = num_articles * row_height
+            available_space = content_top - (motif_height + signature_height + separator_height + 10*mm)
+            # Limiter la hauteur du tableau à l'espace disponible
+            if actual_height > available_space:
+                actual_height = available_space
             
             col_widths = [15*mm, 40*mm, 12*mm, 13*mm, 16*mm, 22*mm]
             
@@ -2028,6 +2040,20 @@ class PageSortie(ctk.CTkFrame):
             
             articles_table.wrapOn(c, width, height)
             articles_table.drawOn(c, 10*mm, table_bottom)
+            
+            # Ajouter le MOTIF juste en bas du tableau
+            motif_y = table_bottom - 3*mm
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(10*mm, motif_y, "Motif:")
+            c.setFont("Helvetica", 8)
+            motif_text = self.entry_motif.get().strip() if self.entry_motif else ""
+            c.drawString(35*mm, motif_y, motif_text[:70])  # Limiter à 70 caractères
+            
+            # Footer avec signatures
+            footer_y = table_bottom - motif_height - separator_height
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(40*mm, footer_y, "Le Magasinier")
+            c.drawString(110*mm, footer_y, "Le Contrôleur")
             
             c.save()
             print(f"✅ PDF Consommation Interne généré : {filename}")

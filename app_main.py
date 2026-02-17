@@ -637,7 +637,7 @@ class App(ctk.CTk):
                                    menu.startswith("Prx d'article") or
                                    menu.startswith("Livraison Client") or
                                    menu.startswith("Mouvement Stock") or
-                                   menu.startswith("Liste Mouvements") # Menu pour consulter les listes de mouvements d'articles
+                                   menu.startswith("Liste mouvements") # Menu pour consulter les listes de mouvements d'articles
                                    for menu in self.authorized_menus)
 
         if admin_submenus_exist:
@@ -1166,7 +1166,7 @@ class App(ctk.CTk):
 
         # --- NOUVEAU MENU: Liste Mouvements ---
         # Menu permettant de consulter les listes des différents mouvements d'articles
-        if "Liste Mouvements" in self.authorized_menus:
+        if "Liste mouvements" in self.authorized_menus:
             btn_liste_mvmt = ctk.CTkButton(self.admin_submenu_frame, text="📊 Liste Mouvements", corner_radius=10, height=40,
                                       fg_color="#034787", text_color="white", hover_color="#0565c9",
                                       font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageListeMouvement"]))

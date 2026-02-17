@@ -1502,12 +1502,25 @@ class PageSortie(ctk.CTkFrame):
             return
         idmag = result[0]
         
-        # 1. Insérer en-tête de sortie (sans idmag - idmag est seulement dans les détails)
+        # Récupérer iduser depuis session.json
+        try:
+            session_path = get_session_path()
+            with open(session_path, 'r', encoding='utf-8') as f:
+                session = json.load(f)
+                iduser = session.get('user_id')
+            if not iduser:
+                messagebox.showerror("Erreur", "Utilisateur non identifié. Reconnectez-vous.")
+                return
+        except Exception as e:
+            messagebox.showerror("Erreur Session", f"Impossible de récupérer l'utilisateur: {e}")
+            return
+        
+        # 1. Insérer en-tête de sortie avec iduser
         sql_sortie = """
-            INSERT INTO tb_sortie (refsortie, dateregistre, description, deleted)
-            VALUES (%s, %s, %s, 0) RETURNING id
+            INSERT INTO tb_sortie (refsortie, iduser, dateregistre, description, deleted)
+            VALUES (%s, %s, %s, %s, 0) RETURNING id
         """
-        cursor.execute(sql_sortie, (ref_sortie, date_sortie, motif_sortie))
+        cursor.execute(sql_sortie, (ref_sortie, iduser, date_sortie, motif_sortie))
         idsortie = cursor.fetchone()[0]
 
         # 2. Insérer les détails

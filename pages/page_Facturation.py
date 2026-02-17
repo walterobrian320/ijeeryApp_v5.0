@@ -185,7 +185,7 @@ class PageFacturation(ctk.CTkFrame):
                    a.designationarticle, u.designationunite
             FROM tb_article a
             CROSS JOIN tb_unite u
-            WHERE a.deleted = 0 AND u.deleted = 0
+            WHERE a.deleted = 0
             ORDER BY a.designationarticle
         """)
         

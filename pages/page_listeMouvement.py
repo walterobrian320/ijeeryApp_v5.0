@@ -12,13 +12,17 @@ Module permettant la consultation des listes de mouvements d'articles avec:
 """
 
 import customtkinter as ctk
-from tkinter import messagebox, ttk
+from tkinter import messagebox, ttk, filedialog
 import psycopg2
 import json
 import pandas as pd
 import os
 from datetime import datetime
 from resource_utils import get_config_path, safe_file_read
+try:
+    from EtatsPDF_Mouvements import EtatPDFMouvements
+except ImportError:
+    EtatPDFMouvements = None
 
 
 # ============================================================
@@ -368,7 +372,10 @@ class PageListeMouvement(ctk.CTkFrame):
                     c.refcom as "Référence",
                     COALESCE(f.nomfrs, 'N/A') as "Fournisseur",
                     COUNT(DISTINCT cd.idarticle) as "Articles",
-                    COALESCE(SUM(CAST(cd.total AS NUMERIC)), 0) as "Montant Total",
+                    CASE 
+                        WHEN COALESCE(SUM(CAST(cd.total AS NUMERIC)), 0) = 0 THEN '-'
+                        ELSE CAST(COALESCE(SUM(CAST(cd.total AS NUMERIC)), 0) AS TEXT)
+                    END as "Montant Total",
                     CASE 
                         WHEN EXISTS (
                             SELECT 1 FROM tb_livraisonfrs lf 
@@ -579,7 +586,44 @@ class PageListeMouvement(ctk.CTkFrame):
     # ========================================================
     # DÉTAILS LIGNE (DOUBLE-CLIC)
     # ========================================================
-    def on_row_double_click(self):
+    
+    def _imprimer_pdf(self, reference, type_mouvement):
+        """
+        Imprime un PDF pour le mouvement sélectionné.
+        
+        Args:
+            reference: Référence du mouvement
+            type_mouvement: Type de mouvement (entree, sortie, etc.)
+        """
+        if not EtatPDFMouvements:
+            messagebox.showerror("Erreur", "Le module EtatsPDF_Mouvements n'est pas disponible.\nVérifiez que le fichier existe.")
+            return
+        
+        try:
+            # Demander le chemin de sauvegarde
+            filetypes = [("PDF files", "*.pdf"), ("All files", "*.*")]
+            file_path = filedialog.asksaveasfilename(
+                defaultextension=".pdf",
+                filetypes=filetypes,
+                initialfile=f"Bon_{type_mouvement}_{reference}.pdf"
+            )
+            
+            if not file_path:
+                return  # L'utilisateur a annulé
+            
+            # Générer le PDF
+            etat_gen = EtatPDFMouvements()
+            success = etat_gen.generer_etat(type_mouvement, reference, file_path)
+            etat_gen.close_db()
+            
+            if success:
+                messagebox.showinfo("Succès", f"PDF généré avec succès:\n{file_path}")
+            else:
+                messagebox.showerror("Erreur", f"Erreur lors de la génération du PDF pour {reference}")
+        
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de l'impression: {str(e)}")
+    
         selection = self.tree.selection()
         if not selection:
             return
@@ -616,12 +660,22 @@ class PageListeMouvement(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Erreur", f"Erreur ouverture détails: {e}")
 
-    def _open_details_window(self, title, columns, rows):
+    def _open_details_window(self, title, columns, rows, reference=None, type_mouvement=None):
         win = ctk.CTkToplevel(self)
         win.title(title)
-        win.geometry('900x500')
-        frame = ctk.CTkFrame(win)
-        frame.pack(fill='both', expand=True, padx=10, pady=10)
+        win.geometry('900x600')
+        
+        # Frame principale
+        main_frame = ctk.CTkFrame(win)
+        main_frame.pack(fill='both', expand=True, padx=10, pady=10)
+        main_frame.grid_rowconfigure(0, weight=1)
+        main_frame.grid_columnconfigure(0, weight=1)
+        
+        # Frame pour le tableau
+        frame = ctk.CTkFrame(main_frame)
+        frame.grid(row=0, column=0, sticky='nsew', padx=0, pady=(0, 10))
+        frame.grid_rowconfigure(0, weight=1)
+        frame.grid_columnconfigure(0, weight=1)
 
         tree = ttk.Treeview(frame, columns=columns, show='headings')
         for col in columns:
@@ -638,6 +692,72 @@ class PageListeMouvement(ctk.CTkFrame):
 
         for r in rows:
             tree.insert('', 'end', values=r)
+        
+        # Frame pour les boutons (en bas)
+        button_frame = ctk.CTkFrame(main_frame, fg_color="#F5F5F5")
+        button_frame.grid(row=1, column=0, sticky='ew', padx=0, pady=0)
+        button_frame.grid_columnconfigure(1, weight=1)
+        
+        # Bouton Fermer
+        btn_fermer = ctk.CTkButton(
+            button_frame,
+            text="Fermer",
+            command=win.destroy,
+            fg_color="#666666",
+            hover_color="#444444",
+            width=100
+        )
+        btn_fermer.pack(side='right', padx=5, pady=5)
+        
+        # Bouton Imprimer PDF
+        if reference and type_mouvement:
+            btn_imprimer = ctk.CTkButton(
+                button_frame,
+                text="📄 Imprimer PDF",
+                command=lambda: self._imprimer_pdf(reference, type_mouvement),
+                fg_color="#2e7d32",
+                hover_color="#1b5e20",
+                width=130
+            )
+            btn_imprimer.pack(side='right', padx=5, pady=5)
+    
+    def on_row_double_click(self):
+        """Gère le double-clic sur une ligne du tableau."""
+        selection = self.tree.selection()
+        if not selection:
+            return
+        item = self.tree.item(selection[0])
+        values = item.get('values', [])
+        # Trouver la colonne 'Référence' si présente
+        ref = None
+        try:
+            cols = list(self.tree['columns'])
+            if 'Référence' in cols:
+                idx = cols.index('Référence')
+                if idx < len(values):
+                    ref = values[idx]
+            else:
+                # fallback: 3ème colonne
+                if len(values) >= 3:
+                    ref = values[2]
+        except Exception:
+            if len(values) >= 3:
+                ref = values[2]
+
+        # Ouvrir la fenêtre de détails selon le type de mouvement
+        try:
+            if self.type_mouvement_actif == 'entree':
+                self.show_commande_details_by_ref(ref)
+            elif self.type_mouvement_actif == 'sortie':
+                self.show_sortie_details_by_ref(ref)
+            elif self.type_mouvement_actif == 'transfert':
+                self.show_transfert_details_by_ref(ref)
+            elif self.type_mouvement_actif == 'consommation':
+                self.show_consommation_details_by_ref(ref)
+            elif self.type_mouvement_actif == 'changement':
+                self.show_changement_details_by_ref(ref)
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur ouverture détails: {e}")
 
     def show_commande_details_by_ref(self, refcom):
         """Affiche les détails d'une entrée avec colonnes: Code Article, Désignation, Unité, Qté commandé, Qté livrés, Montant."""
@@ -663,7 +783,10 @@ class PageListeMouvement(ctk.CTkFrame):
                     u.designationunite as "Unité",
                     cd.qtcmd as "Qté commandé",
                     COALESCE(cd.qtlivre, 0) as "Qté livrés",
-                    cd.total as "Montant"
+                    CASE 
+                        WHEN COALESCE(CAST(cd.total AS NUMERIC), 0) = 0 THEN '-'
+                        ELSE CAST(cd.total AS TEXT)
+                    END as "Montant"
                 FROM tb_commandedetail cd
                 LEFT JOIN tb_article a ON cd.idarticle = a.idarticle
                 LEFT JOIN tb_unite u ON cd.idunite = u.idunite
@@ -673,7 +796,7 @@ class PageListeMouvement(ctk.CTkFrame):
             details = cur.fetchall()
 
             cols = ('Code Article', 'Désignation', 'Unité', 'Qté commandé', 'Qté livrés', 'Montant')
-            self._open_details_window(f'Détails Entrée {refcom}', cols, details)
+            self._open_details_window(f'Détails Entrée {refcom}', cols, details, refcom, 'entree')
 
         finally:
             conn.close()
@@ -707,7 +830,7 @@ class PageListeMouvement(ctk.CTkFrame):
             """, (idsortie,))
             details = cur.fetchall()
             cols = ('Code Article', 'Désignation', 'Unité', 'Sortie (Quantité)')
-            self._open_details_window(f'Détails Sortie {refsortie}', cols, details)
+            self._open_details_window(f'Détails Sortie {refsortie}', cols, details, refsortie, 'sortie')
         finally:
             conn.close()
 
@@ -734,7 +857,7 @@ class PageListeMouvement(ctk.CTkFrame):
             """, (idtr,))
             details = cur.fetchall()
             cols = ('ID','Désignation','Unité','Quantité','Magasin Sortie','Magasin Entrée')
-            self._open_details_window(f'Détails Transfert {reftrans}', cols, details)
+            self._open_details_window(f'Détails Transfert {reftrans}', cols, details, reftrans, 'transfert')
         finally:
             conn.close()
 
@@ -769,7 +892,7 @@ class PageListeMouvement(ctk.CTkFrame):
             """, (idc,))
             details = cur.fetchall()
             cols = ('Code Article', 'Désignation', 'Unité', 'Sortie (Quantité)', 'Prix Unitaire', 'Montant')
-            self._open_details_window(f'Détails Consommation {refcons}', cols, details)
+            self._open_details_window(f'Détails Consommation {refcons}', cols, details, refcons, 'consommation')
         finally:
             conn.close()
 
@@ -831,6 +954,6 @@ class PageListeMouvement(ctk.CTkFrame):
             details.extend(details_entree)
             
             cols = ('Code Article', 'Désignation', 'Unité', 'Sortie (Quantité)', 'Entrée (Quantité)')
-            self._open_details_window(f'Détails Changement {refchg}', cols, details)
+            self._open_details_window(f'Détails Changement {refchg}', cols, details, refchg, 'changement')
         finally:
             conn.close()

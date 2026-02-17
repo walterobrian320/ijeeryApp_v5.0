@@ -237,7 +237,7 @@ class PagePrixSaisie(ctk.CTkFrame):
                     SELECT a.idarticle, u.codearticle::TEXT, a.designation, u.designationunite, u.idunite
                     FROM tb_unite u
                     INNER JOIN tb_article a ON u.idarticle = a.idarticle
-                    WHERE u.deleted = 0 AND a.deleted = 0
+                    WHERE a.deleted = 0
                     ORDER BY u.codearticle
                 """)
         

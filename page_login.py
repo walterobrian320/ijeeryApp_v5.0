@@ -163,6 +163,7 @@ class LoginWindow(ctk.CTk):
         threading.Thread(target=run_app, daemon=True).start()
 
     def import_and_run_app(self, session_data):
+        
         """Import et lancement direct de l'application"""
         try:
             # Import tardif pour éviter les conflits

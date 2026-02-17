@@ -222,7 +222,7 @@ class PagePrixListe(ctk.CTkFrame):
                 FROM tb_prix 
                 WHERE deleted = 0
             ) prix_recent ON u.idunite = prix_recent.idunite AND prix_recent.rn = 1
-            WHERE u.deleted = 0 AND a.deleted = 0
+            WHERE a.deleted = 0
             """
 
             params = []

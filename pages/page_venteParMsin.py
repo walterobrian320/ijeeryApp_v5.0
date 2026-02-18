@@ -253,8 +253,6 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         
         # Charger les paramètres d'impression
         self.settings = self.load_settings()
-        # Flag pour éviter les double-clicks rapides sur Enregistrer
-        self._processing_save = False
         
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=0)  # En-tête - pas de resize
@@ -1056,9 +1054,8 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                                           # fg_color="#00695c", hover_color="#004d40", state="disabled")
         # self.btn_imprimer.grid(row=0, column=3, padx=5, pady=5, sticky="ew") 
         
-        # Stocker le bouton et utiliser un wrapper pour empêcher les double-clics
-        self.btn_enregistrer = ctk.CTkButton(btn_action_frame, text="💾 Enregistrer la Facture", command=self._on_enregistrer_click, 
-                             font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"))
+        self.btn_enregistrer = ctk.CTkButton(btn_action_frame, text="💾 Enregistrer la Facture", command=self.enregistrer_facture, 
+                                             font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"))
         self.btn_enregistrer.grid(row=0, column=4, padx=5, pady=5, sticky="e")
 
         # Initialisation des totaux
@@ -1099,33 +1096,6 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
             messagebox.showerror("Erreur", f"Erreur de vérification : {str(e)}")
         finally:
             conn.close()
-            
-    def _on_enregistrer_click(self):
-        """Wrapper pour empêcher les double-clicks rapides sur le bouton Enregistrer."""
-        if getattr(self, '_processing_save', False):
-            return
-
-        try:
-            self._processing_save = True
-            try:
-                self.btn_enregistrer.configure(state="disabled")
-            except Exception:
-                pass
-
-            # Appeler la fonction d'enregistrement
-            self.enregistrer_facture()
-
-        finally:
-            # Si la fenêtre existe toujours et le bouton existe, réactiver
-            try:
-                if getattr(self, 'winfo_exists', lambda: False)() and hasattr(self, 'btn_enregistrer'):
-                    self._processing_save = False
-                    try:
-                        self.btn_enregistrer.configure(state="normal")
-                    except Exception:
-                        pass
-            except Exception:
-                pass
             
     def verifier_alerte_stock_silencieuse(self):
         """Vérifie le stock et affiche/cache la cloche de notification"""
@@ -2549,11 +2519,15 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                 except Exception as e:
                     messagebox.showerror("Erreur Impression", f"La vente est enregistrée mais l'impression a échoué : {e}")
 
-                # Mettre à jour l'interface - Désactiver le bouton jusqu'à 'Nouvelle Facture'
-                self.mode_modification = True
-                self.btn_enregistrer.configure(state="disabled")
-                # self.btn_imprimer.configure(state="normal")
-                self.btn_charger_proforma.configure(state="disabled")
+                # Après enregistrement: réinitialiser le formulaire pour une nouvelle facture
+                try:
+                    self.nouveau_facture()
+                except Exception:
+                    # Fallback: réactiver le bouton d'enregistrement si nouveau_facture échoue
+                    try:
+                        self.btn_enregistrer.configure(state="normal", text="💾 Enregistrer la Facture", fg_color="#2196f3", hover_color="#1976d2")
+                    except Exception:
+                        pass
 
             except psycopg2.errors.UniqueViolation as e:
                 conn.rollback()

@@ -565,7 +565,7 @@ class EtatPDFMouvements:
             return self._build_pdf_a5(
                 output_path, "BON D'ENTRÉE", ref,
                 datecom.strftime("%d/%m/%Y") if datecom else "N/A",
-                "Magasin Principal", fournisseur or "N/A",
+                "Magasin TSARAVATSY", fournisseur or "N/A",
                 table_data, f"Fournisseur: {fournisseur or 'N/A'}",
                 "Réceptionnaire", "Responsable Magasin"
             )
@@ -619,7 +619,7 @@ class EtatPDFMouvements:
             return self._build_pdf_a5(
                 output_path, "BON DE SORTIE", ref,
                 date_sortie.strftime("%d/%m/%Y") if date_sortie else "N/A",
-                "Magasin Principal", operateur or "N/A",
+                "Magasin TSARAVATSY", operateur or "N/A",
                 table_data, description or "Sortie de stock",
                 "Magasinier", "Responsable Magasin"
             )
@@ -730,7 +730,7 @@ class EtatPDFMouvements:
             return self._build_pdf_a5(
                 output_path, "CONSOMMATION INTERNE", ref,
                 date_conso.strftime("%d/%m/%Y") if date_conso else "N/A",
-                "Magasin Principal", operateur or "N/A",
+                "Magasin TSARAVATSY", operateur or "N/A",
                 table_data, observation or "Consommation interne",
                 "Responsable Magasin", "Gestionnaire Stock"
             )
@@ -796,7 +796,7 @@ class EtatPDFMouvements:
             return self._build_pdf_a5(
                 output_path, "CHANGEMENT D'ARTICLE", ref,
                 date_chg.strftime("%d/%m/%Y") if date_chg else "N/A",
-                "Magasin Principal", operateur or "N/A",
+                "Magasin TSARAVATSY", operateur or "N/A",
                 table_data, observation or "Changement effectué",
                 "Magasinier", "Responsable Magasin"
             )

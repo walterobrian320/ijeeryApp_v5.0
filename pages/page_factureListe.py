@@ -421,7 +421,7 @@ class PageFactureListe(ctk.CTkFrame):
                 
                 # Construire la description avec le dépôt
                 if premier_magasin:
-                    description_avec_depot = f"Dépôt {premier_magasin}"
+                    description_avec_depot = f"{premier_magasin}"
                     if description and description.strip() and premier_magasin not in description:
                         description_clean = description.strip().strip('-').strip()
                         if description_clean:
@@ -466,9 +466,9 @@ class PageFactureListe(ctk.CTkFrame):
             
             self.data_df = pd.DataFrame(data_list)
             
-            self.total_cmd_label.configure(text=f"Total Facture: {self.format_currency(total_factures)}")
+            self.total_cmd_label.configure(text=f"Total Facture: Ar {self.format_currency(total_factures)}")
             self.total_paye_label.configure(text=f"Total Payé: {self.format_currency(total_paye)}")
-            self.total_solde_label.configure(text=f"Total Solde: {self.format_currency(total_solde)}")
+            self.total_solde_label.configure(text=f"Total Solde: Ar {self.format_currency(total_solde)}")
             self.count_label.configure(text=f"Nombre de factures: {count}")
             
         except Exception as e:

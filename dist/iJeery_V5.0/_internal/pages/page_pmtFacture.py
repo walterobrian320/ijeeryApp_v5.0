@@ -40,6 +40,9 @@ class PagePmtFacture(ctk.CTkToplevel):
         self.geometry("600x550")
         self.grab_set()
         self.focus_set()
+        # Flag pour éviter double-clics rapides
+        self._processing_payment = False
+
         self._construire_interface()
 
     def _construire_interface(self):
@@ -91,7 +94,9 @@ class PagePmtFacture(ctk.CTkToplevel):
 
         btns_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         btns_frame.pack(fill="x", pady=20)
-        ctk.CTkButton(btns_frame, text="Valider & Imprimer PDF", fg_color="#2e7d32", command=self.valider_paiement).pack(side="left", padx=10, expand=True)
+        # Bouton validateur stocké pour pouvoir le désactiver rapidement
+        self.btn_valider = ctk.CTkButton(btns_frame, text="Valider & Imprimer PDF", fg_color="#2e7d32", command=self._on_valider_click)
+        self.btn_valider.pack(side="left", padx=10, expand=True)
         ctk.CTkButton(btns_frame, text="Annuler", fg_color="#d32f2f", command=self.destroy).pack(side="left", padx=10, expand=True)
 
     def connect_db(self):
@@ -411,6 +416,36 @@ class PagePmtFacture(ctk.CTkToplevel):
         dialog.wait_window()
         
         return autorisation_valide[0]
+
+    def _on_valider_click(self):
+        """Wrapper pour empêcher les double-clicks rapides sur le bouton Valider."""
+        # Si déjà en cours, ignorer
+        if getattr(self, '_processing_payment', False):
+            return
+
+        # Désactiver le bouton et marquer comme en cours
+        try:
+            self._processing_payment = True
+            try:
+                self.btn_valider.configure(state="disabled")
+            except Exception:
+                pass
+
+            # Appeler la logique principale
+            self.valider_paiement()
+
+        finally:
+            # Si la fenêtre existe toujours (la validation a pu échouer), réactiver
+            try:
+                if self.winfo_exists():
+                    self._processing_payment = False
+                    try:
+                        self.btn_valider.configure(state="normal")
+                    except Exception:
+                        pass
+            except Exception:
+                # Si winfo_exists lève une exception, ignorer
+                pass
 
     def valider_paiement(self):
         montant_saisi_str = self.entry_montant.get().replace(' ', '').replace(',', '.')

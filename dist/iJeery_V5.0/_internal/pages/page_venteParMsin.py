@@ -1027,10 +1027,10 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                                                  fg_color="#d32f2f", hover_color="#b71c1c")
         self.btn_supprimer_ligne.grid(row=0, column=1, padx=5, pady=5, sticky="w")
         
-        btn_nouveau_bs = ctk.CTkButton(btn_action_frame, text="📄 Nouvelle Facture", 
-                               command=self.nouveau_facture, 
-                               fg_color="#0288d1", hover_color="#01579b")
-        btn_nouveau_bs.grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        self.btn_nouveau_bs = ctk.CTkButton(btn_action_frame, text="📄 Nouvelle Facture", 
+                       command=self.nouveau_facture, 
+                       fg_color="#0288d1", hover_color="#01579b")
+        self.btn_nouveau_bs.grid(row=0, column=0, padx=5, pady=5, sticky="w")
         
         self.btn_creer_avoir = ctk.CTkButton(
             self, 
@@ -1054,8 +1054,8 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                                           # fg_color="#00695c", hover_color="#004d40", state="disabled")
         # self.btn_imprimer.grid(row=0, column=3, padx=5, pady=5, sticky="ew") 
         
-        self.btn_enregistrer = ctk.CTkButton(btn_action_frame, text="💾 Enregistrer la Facture", command=self.enregistrer_facture, 
-                                             font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"))
+        self.btn_enregistrer = ctk.CTkButton(btn_action_frame, text="💾 Enregistrer la Facture", command=self._on_enregistrer_click, 
+                             font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"))
         self.btn_enregistrer.grid(row=0, column=4, padx=5, pady=5, sticky="e")
 
         # Initialisation des totaux
@@ -2519,11 +2519,15 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                 except Exception as e:
                     messagebox.showerror("Erreur Impression", f"La vente est enregistrée mais l'impression a échoué : {e}")
 
-                # Mettre à jour l'interface - Désactiver le bouton jusqu'à 'Nouvelle Facture'
-                self.mode_modification = True
-                self.btn_enregistrer.configure(state="disabled")
-                # self.btn_imprimer.configure(state="normal")
-                self.btn_charger_proforma.configure(state="disabled")
+                # Après enregistrement: réinitialiser le formulaire pour une nouvelle facture
+                try:
+                    self.nouveau_facture()
+                except Exception:
+                    # Fallback: réactiver le bouton d'enregistrement si nouveau_facture échoue
+                    try:
+                        self.btn_enregistrer.configure(state="normal", text="💾 Enregistrer la Facture", fg_color="#2196f3", hover_color="#1976d2")
+                    except Exception:
+                        pass
 
             except psycopg2.errors.UniqueViolation as e:
                 conn.rollback()
@@ -2542,7 +2546,44 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
     
         finally:
             self._enregistrement_en_cours = False
-            self.btn_enregistrer.configure(state="normal")
+            try:
+                self.btn_enregistrer.configure(state="normal")
+            except Exception:
+                pass
+
+    def _on_enregistrer_click(self):
+        """Disable the Enregistrer button immediately, run enregistrer_facture,
+        then trigger nouvelle facture (either via stored button or method).
+        """
+        if getattr(self, '_enregistrement_en_cours', False):
+            return
+
+        try:
+            self.btn_enregistrer.configure(state='disabled')
+        except Exception:
+            pass
+
+        try:
+            # Perform the normal save (this method has its own guard)
+            self.enregistrer_facture()
+        finally:
+            # Trigger nouvelle facture to reset the form
+            try:
+                if hasattr(self, 'btn_nouveau_bs'):
+                    try:
+                        self.btn_nouveau_bs.invoke()
+                    except Exception:
+                        self.nouveau_facture()
+                else:
+                    self.nouveau_facture()
+            except Exception:
+                pass
+
+            # Re-enable the enregistrer button if still present
+            try:
+                self.btn_enregistrer.configure(state='normal')
+            except Exception:
+                pass
 
     def open_impression_dialogue(self):
         """Ouvre un dialogue pour choisir quelle facture imprimer."""

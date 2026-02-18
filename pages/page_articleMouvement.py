@@ -532,7 +532,7 @@ class PageArticleMouvement(ctk.CTkFrame):
         )
         self.combo_type = ctk.CTkComboBox(
             filter_frame,
-            values=["Tous", "Entrée", "Sortie", "Vente", "Transfert", "Inventaire", "Avoir"],
+            values=["Tous", "Entrée", "Sortie", "Vente", "Transfert", "Inventaire", "Avoir", "Consommation interne", "Changement"],
             width=180,
             height=35
         )
@@ -944,6 +944,111 @@ class PageArticleMouvement(ctk.CTkFrame):
             queries.append(query_avoir)
             params.append(query_params)
         
+        # --- CONSOMMATION INTERNE ---
+        if type_doc in ["Tous", "Consommation interne"]:
+            query_conso = """
+                SELECT 
+                    ci.dateregistre,
+                    ci.refconsommation,
+                    a.designation,
+                    'Consommation interne',
+                    0,
+                    cid.qtconsomme,
+                    COALESCE(m.designationmag, 'N/A'),
+                    COALESCE(usr.username, 'N/A'),
+                    u.idunite,
+                    u.codearticle
+                FROM tb_consommationinterne ci
+                INNER JOIN tb_consommationinterne_details cid ON ci.id = cid.idconsommation
+                INNER JOIN tb_unite u ON cid.idunite = u.idunite
+                INNER JOIN tb_article a ON u.idarticle = a.idarticle
+                LEFT JOIN tb_magasin m ON cid.idmag = m.idmag
+                LEFT JOIN tb_users usr ON ci.iduser = usr.iduser
+                WHERE DATE(ci.dateregistre) BETWEEN %s AND %s
+            """
+            query_params = [date_debut, date_fin]
+            
+            if self.selected_idarticle:
+                query_conso += " AND a.idarticle = %s"
+                query_params.append(int(self.selected_idarticle))
+            
+            if idmag:
+                query_conso += " AND cid.idmag = %s"
+                query_params.append(idmag)
+            
+            queries.append(query_conso)
+            params.append(query_params)
+        
+        # --- CHANGEMENT (Sortie + Entrée) ---
+        if type_doc in ["Tous", "Changement"]:
+            # Changement Sortie
+            query_chg_sortie = """
+                SELECT 
+                    chg.datechg,
+                    chg.refchg,
+                    a.designation,
+                    'Changement (Sortie)',
+                    0,
+                    dcs.quantite_sortie,
+                    COALESCE(m.designationmag, 'N/A'),
+                    COALESCE(usr.username, 'N/A'),
+                    u.idunite,
+                    u.codearticle
+                FROM tb_changement chg
+                INNER JOIN tb_detailchange_sortie dcs ON chg.idchg = dcs.idchg
+                INNER JOIN tb_unite u ON dcs.idunite = u.idunite
+                INNER JOIN tb_article a ON u.idarticle = a.idarticle
+                LEFT JOIN tb_magasin m ON dcs.idmagasin = m.idmag
+                LEFT JOIN tb_users usr ON chg.iduser = usr.iduser
+                WHERE DATE(chg.datechg) BETWEEN %s AND %s
+            """
+            query_params = [date_debut, date_fin]
+            
+            if self.selected_idarticle:
+                query_chg_sortie += " AND a.idarticle = %s"
+                query_params.append(int(self.selected_idarticle))
+            
+            if idmag:
+                query_chg_sortie += " AND dcs.idmagasin = %s"
+                query_params.append(idmag)
+            
+            queries.append(query_chg_sortie)
+            params.append(query_params.copy())
+            
+            # Changement Entrée
+            query_chg_entree = """
+                SELECT 
+                    chg.datechg,
+                    chg.refchg,
+                    a.designation,
+                    'Changement (Entrée)',
+                    dce.quantite_entree,
+                    0,
+                    COALESCE(m.designationmag, 'N/A'),
+                    COALESCE(usr.username, 'N/A'),
+                    u.idunite,
+                    u.codearticle
+                FROM tb_changement chg
+                INNER JOIN tb_detailchange_entree dce ON chg.idchg = dce.idchg
+                INNER JOIN tb_unite u ON dce.idunite = u.idunite
+                INNER JOIN tb_article a ON u.idarticle = a.idarticle
+                LEFT JOIN tb_magasin m ON dce.idmagasin = m.idmag
+                LEFT JOIN tb_users usr ON chg.iduser = usr.iduser
+                WHERE DATE(chg.datechg) BETWEEN %s AND %s
+            """
+            query_params = [date_debut, date_fin]
+            
+            if self.selected_idarticle:
+                query_chg_entree += " AND a.idarticle = %s"
+                query_params.append(int(self.selected_idarticle))
+            
+            if idmag:
+                query_chg_entree += " AND dce.idmagasin = %s"
+                query_params.append(idmag)
+            
+            queries.append(query_chg_entree)
+            params.append(query_params)
+        
         return queries, params
     
     def load_mouvements(self):
@@ -1038,8 +1143,8 @@ class PageArticleMouvement(ctk.CTkFrame):
                     type_doc_display,
                     article_designation,
                     unite_display,
-                    self.formater_nombre(entree),
-                    self.formater_nombre(sortie),
+                    '-' if entree == 0 else self.formater_nombre(entree),
+                    '-' if sortie == 0 else self.formater_nombre(sortie),
                     magasin_display,
                     username
                 )

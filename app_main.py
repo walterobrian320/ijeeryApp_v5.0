@@ -218,7 +218,29 @@ class App(ctk.CTk):
     def __init__(self, session_data):
         super().__init__()
         self.title("iJerry - Tableau de Bord")
-        self.geometry("1000x600")
+        self.geometry("1200x760")
+        self.minsize(900, 560)
+
+        # Responsive state
+        self._base_window_width = 1200
+        self._base_window_height = 760
+        self._ui_scale = 1.0
+        self._sidebar_expanded_width = 220
+        self._sidebar_collapsed_width = 44
+        self._main_button_height = 60
+        self._submenu_button_height = 40
+        self._main_font_size = 14
+        self._submenu_font_size = 12
+        self._toggle_font_size = 16
+        self._menu_pad_x = 10
+        self._menu_pad_y = 5
+        self._submenu_pad_x = 5
+        self._submenu_pad_y = 2
+        self._menu_corner_radius = 10
+        self._sidebar_logo_path = None
+        self._sidebar_logo_size = None
+        self._last_resize_update = 0.0
+        self.sidebar_title_label = None
         
         self.sidebar_expand = True
         self.session_data = session_data
@@ -244,10 +266,12 @@ class App(ctk.CTk):
 
         self.sidebar_frame = ctk.CTkFrame(self, width=200, corner_radius=0, fg_color="#25a9e1")
         self.sidebar_frame.grid(row=0, column=0, sticky="ns")
+        self.sidebar_frame.grid_propagate(False)
 
         # Charger et afficher le logo
         logo_path = resource_path("image/logo 3.png")
         if os.path.exists(logo_path):
+            self._sidebar_logo_path = logo_path
             logo_image = ctk.CTkImage(
                 light_image=Image.open(logo_path),
                 dark_image=Image.open(logo_path),
@@ -269,6 +293,7 @@ class App(ctk.CTk):
                 font=ctk.CTkFont(family="Britannic Bold", size=25, weight="bold")
             )
             title_label.pack(pady=(0, 20))
+        self.sidebar_title_label = title_label
 
         self.toggle_button = ctk.CTkButton(
             self.sidebar_frame, text="≡", corner_radius=10, fg_color="#034787",
@@ -394,6 +419,8 @@ class App(ctk.CTk):
         # Update title bar
         self.update_title_bar()
         self.after(1000, self.update_title_bar_time_only)
+        self.bind("<Configure>", self._on_window_resize)
+        self.after(120, self._apply_responsive_layout)
 
     def open_db_config_window(self):
         """Ouvre la fenetre de configuration de la base de données"""
@@ -742,10 +769,165 @@ class App(ctk.CTk):
                                                    fg_color="#034787", text_color="white", hover_color="#0565c9",
                                                    font=("Arial", 14), command=self.show_examen_blanc_submenu)
             self.btn_examen_blanc.pack(pady=5, padx=10, fill="x")
+        self._apply_menu_responsive_styles()
+
+    @staticmethod
+    def _clamp(value, min_value, max_value):
+        return max(min_value, min(max_value, int(value)))
+
+    def _iter_submenu_frames(self):
+        return [
+            self.admin_submenu_frame,
+            self.personnel_submenu_frame,
+            self.tresorerie_submenu_frame,
+            self.database_submenu_frame,
+            self.examen_blanc_submenu_frame
+        ]
+
+    def _on_window_resize(self, event):
+        if event.widget is not self:
+            return
+
+        now = time.time()
+        if now - self._last_resize_update < 0.08:
+            return
+
+        self._last_resize_update = now
+        self._apply_responsive_layout(event.width, event.height)
+
+    def _update_responsive_metrics(self, width, height):
+        width = max(1, width)
+        height = max(1, height)
+        scale_w = width / self._base_window_width
+        scale_h = height / self._base_window_height
+        self._ui_scale = max(0.80, min(1.45, min(scale_w, scale_h)))
+
+        self._sidebar_expanded_width = self._clamp(width * 0.22, 170, 340)
+        # Collapsed width must be 20% of expanded width
+        self._sidebar_collapsed_width = self._clamp(self._sidebar_expanded_width * 0.20, 34, 80)
+        self._main_button_height = self._clamp(60 * self._ui_scale, 44, 80)
+        self._submenu_button_height = self._clamp(40 * self._ui_scale, 32, 56)
+        self._main_font_size = self._clamp(14 * self._ui_scale, 11, 18)
+        self._submenu_font_size = self._clamp(12 * self._ui_scale, 10, 15)
+        self._toggle_font_size = self._clamp(16 * self._ui_scale, 12, 20)
+        self._menu_pad_x = self._clamp(10 * self._ui_scale, 6, 16)
+        self._menu_pad_y = self._clamp(5 * self._ui_scale, 3, 10)
+        self._submenu_pad_x = self._clamp(5 * self._ui_scale, 3, 10)
+        self._submenu_pad_y = self._clamp(2 * self._ui_scale, 1, 5)
+        self._menu_corner_radius = self._clamp(10 * self._ui_scale, 8, 16)
+
+    def _update_sidebar_logo(self):
+        if not self.sidebar_title_label:
+            return
+
+        sidebar_width = self._sidebar_expanded_width if self.sidebar_expand else self._sidebar_collapsed_width
+
+        if self._sidebar_logo_path:
+            # Logo scales with both global UI scale and current sidebar width.
+            width_factor = max(0.50, min(1.0, sidebar_width / float(self._sidebar_expanded_width or 1)))
+            logo_size = (
+                self._clamp(150 * self._ui_scale * width_factor, 85, 230),
+                self._clamp(50 * self._ui_scale * width_factor, 28, 80)
+            )
+            if logo_size != self._sidebar_logo_size:
+                try:
+                    logo_image = ctk.CTkImage(
+                        light_image=Image.open(self._sidebar_logo_path),
+                        dark_image=Image.open(self._sidebar_logo_path),
+                        size=logo_size
+                    )
+                    self.sidebar_title_label.configure(image=logo_image)
+                    self.sidebar_title_label.image = logo_image
+                    self._sidebar_logo_size = logo_size
+                except Exception as e:
+                    print(f"Erreur mise à jour logo responsive: {e}")
+        else:
+            title_font_size = self._clamp(25 * self._ui_scale, 18, 34)
+            self.sidebar_title_label.configure(
+                font=ctk.CTkFont(family="Britannic Bold", size=title_font_size, weight="bold")
+            )
+
+        if self.sidebar_title_label.winfo_manager() == "pack":
+            self.sidebar_title_label.pack_configure(pady=(0, self._clamp(20 * self._ui_scale, 12, 28)))
+
+    def _apply_menu_responsive_styles(self):
+        main_font = ("Arial", self._main_font_size)
+        submenu_font = ("Arial", self._submenu_font_size)
+        submenu_frames = self._iter_submenu_frames()
+
+        for widget in self.nav_area_frame.winfo_children():
+            if isinstance(widget, ctk.CTkButton):
+                widget.configure(
+                    height=self._main_button_height,
+                    font=main_font,
+                    corner_radius=self._menu_corner_radius
+                )
+                if widget.winfo_manager() == "pack":
+                    widget.pack_configure(padx=self._menu_pad_x, pady=self._menu_pad_y, fill="x")
+            elif isinstance(widget, ctk.CTkFrame) and widget in submenu_frames:
+                if widget.winfo_manager() == "pack":
+                    widget.pack_configure(
+                        padx=self._menu_pad_x,
+                        pady=(0, self._menu_pad_y),
+                        fill="x"
+                    )
+                for sub_widget in widget.winfo_children():
+                    if isinstance(sub_widget, ctk.CTkButton):
+                        sub_widget.configure(
+                            height=self._submenu_button_height,
+                            font=submenu_font,
+                            corner_radius=max(8, self._menu_corner_radius - 2)
+                        )
+                        if sub_widget.winfo_manager() == "pack":
+                            sub_widget.pack_configure(
+                                padx=self._submenu_pad_x,
+                                pady=self._submenu_pad_y,
+                                fill="x"
+                            )
+
+    def _apply_responsive_layout(self, width=None, height=None):
+        if width is None:
+            width = self.winfo_width()
+        if height is None:
+            height = self.winfo_height()
+
+        self._update_responsive_metrics(width, height)
+
+        sidebar_width = self._sidebar_expanded_width if self.sidebar_expand else self._sidebar_collapsed_width
+        self.sidebar_frame.configure(width=sidebar_width)
+        self.content_frame.configure(corner_radius=self._clamp(15 * self._ui_scale, 8, 24))
+
+        self.toggle_button.configure(
+            font=("Arial", self._toggle_font_size),
+            height=self._clamp(self._main_button_height * 0.85, 36, 68),
+            corner_radius=self._menu_corner_radius
+        )
+        if self.toggle_button.winfo_manager() == "pack":
+            self.toggle_button.pack_configure(
+                padx=self._menu_pad_x,
+                pady=self._clamp(10 * self._ui_scale, 6, 16),
+                fill="x"
+            )
+
+        self.logout_button.configure(
+            height=self._main_button_height,
+            font=("Arial", self._main_font_size),
+            corner_radius=self._menu_corner_radius
+        )
+        if self.logout_button.winfo_manager() == "pack":
+            self.logout_button.pack_configure(
+                padx=self._menu_pad_x,
+                pady=self._clamp(10 * self._ui_scale, 6, 16),
+                fill="x",
+                side="bottom"
+            )
+
+        self._update_sidebar_logo()
+        self._apply_menu_responsive_styles()
 
     def toggle_sidebar(self):
         if self.sidebar_expand:
-            self.sidebar_frame.configure(width=50)
+            self.sidebar_frame.configure(width=self._sidebar_collapsed_width)
             self.toggle_button.configure(text="→")
             self.scrollable_frame.pack_forget()
             self.logout_button.pack_forget()
@@ -753,7 +935,7 @@ class App(ctk.CTk):
             # Close any open submenus when collapsing
             self._close_all_submenus()
         else:
-            self.sidebar_frame.configure(width=200)
+            self.sidebar_frame.configure(width=self._sidebar_expanded_width)
             self.toggle_button.configure(text="≡")           
 
             # Re-pack the scrollable frame
@@ -773,8 +955,14 @@ class App(ctk.CTk):
             elif self.current_submenu_open == "EXAMEN_BLANC":
                 self._repack_examen_blanc_submenu()       
 
-            self.logout_button.pack(pady=10, padx=10, fill="x", side="bottom")
+            self.logout_button.pack(
+                pady=self._clamp(10 * self._ui_scale, 6, 16),
+                padx=self._menu_pad_x,
+                fill="x",
+                side="bottom"
+            )
             self.sidebar_expand = True
+        self._apply_responsive_layout()
 
     def clear_dashboard(self):
         for widget in self.content_frame.winfo_children():
@@ -1071,13 +1259,22 @@ class App(ctk.CTk):
             all_widgets[i].pack_forget()
 
         # Pack the submenu frame right after its parent button
-        submenu_frame.pack(pady=(0,5), padx=10, fill="x", after=submenu_parent_btn)
+        submenu_frame.pack(
+            pady=(0, self._menu_pad_y),
+            padx=self._menu_pad_x,
+            fill="x",
+            after=submenu_parent_btn
+        )
 
         # Repack the forgotten widgets in their original order, after the submenu frame
         for i in range(parent_btn_index + 1, len(all_widgets)):
             # Skip the submenu frame itself if it's in the list
             if all_widgets[i] is not submenu_frame:
-                all_widgets[i].pack(pady=5, padx=10, fill="x")
+                all_widgets[i].pack(
+                    pady=self._menu_pad_y,
+                    padx=self._menu_pad_x,
+                    fill="x"
+                )
 
     def show_commerciale_submenu(self):
         if self.current_submenu_open == "COMMERCIALE":  # ✅ CORRECTION ICI
@@ -1232,6 +1429,7 @@ class App(ctk.CTk):
             btn_evenement.pack(pady=2, padx=5, fill="x")
    
         self.current_submenu_open = "COMMERCIALE"  # ✅ CORRECTION ICI
+        self._apply_menu_responsive_styles()
 
     def _repack_commerciale_submenu(self):
         if hasattr(self, 'btn_administration') and self.btn_administration.winfo_ismapped():
@@ -1341,6 +1539,7 @@ class App(ctk.CTk):
             btn_salaire_base_.pack(pady=2, padx=5, fill="x")
 
         self.current_submenu_open = "PERSONNEL"
+        self._apply_menu_responsive_styles()
         # The repacking is handled by _repack_main_buttons_after_submenu, no need for the line below
         # self._repack_main_buttons_after_submenu(self.btn_personnel, self.personnel_submenu_frame)
 
@@ -1439,6 +1638,7 @@ class App(ctk.CTk):
         
 
         self.current_submenu_open = "TRESORERIE"
+        self._apply_menu_responsive_styles()
         # self._repack_main_buttons_after_submenu(self.btn_tresorerie, self.tresorerie_submenu_frame)
 
     def show_database_submenu(self):
@@ -1518,6 +1718,7 @@ class App(ctk.CTk):
             btn_aa.pack(pady=2, padx=5, fill="x")
 
         self.current_submenu_open = "DATABASE"
+        self._apply_menu_responsive_styles()
         # self._repack_main_buttons_after_submenu(self.btn_database, self.database_submenu_frame)
 
     def show_examen_blanc_submenu(self):
@@ -1566,6 +1767,7 @@ class App(ctk.CTk):
 
 
         self.current_submenu_open = "EXAMEN_BLANC"
+        self._apply_menu_responsive_styles()
         # self._repack_main_buttons_after_submenu(self.btn_examen_blanc, self.examen_blanc_submenu_frame)
 
 

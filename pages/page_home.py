@@ -118,19 +118,32 @@ def get_db_connection():
 
 def get_total_factures_client():
     """
-    Calcule le montant total général des factures effectuées à la date du jour.
+    Calcule le total client du jour à partir des paiements client
+    (tb_pmtfacture + tb_pmtcredit), hors banque.
     """
     conn = get_db_connection()
     if conn:
         try:
-            cursor = conn.cursor()            
-            
-            # Requête pour sommer le montant des factures de la date du jour
-            # Note : Remplacez 'date_facture' et 'montant_total' par les noms exacts 
-            # de vos colonnes dans 'tb_client' ou votre table de facturation.
-            query = "SELECT COALESCE(SUM(totmtvente), 0) FROM tb_vente WHERE DATE(dateregistre) = CURRENT_DATE"
-            
-            cursor.execute(query)
+            cursor = conn.cursor()
+            d_str = date.today()
+            f_str = date.today()
+
+            query = """
+                SELECT COALESCE(SUM(CASE WHEN idtypeoperation = 1 THEN mtpaye ELSE -mtpaye END), 0)
+                FROM (
+                    SELECT idtypeoperation, mtpaye
+                    FROM tb_pmtfacture
+                    WHERE datepmt::date BETWEEN %s AND %s
+                      AND id_banque IS NULL
+                    UNION ALL
+                    SELECT idtypeoperation, mtpaye
+                    FROM tb_pmtcredit
+                    WHERE datepmt::date BETWEEN %s AND %s
+                      AND id_banque IS NULL
+                ) AS clients
+            """
+
+            cursor.execute(query, (d_str, f_str, d_str, f_str))
             total_factures_jour = cursor.fetchone()[0]
             
             # Retourne le montant formaté (ou brut selon votre préférence)
@@ -351,7 +364,7 @@ def get_solde_caisse():
             """) 
             solde = cursor.fetchone()[0] or 0
             # Formater le montant avec des séparateurs de milliers et décimales
-            return f"{solde:,.2f}".replace(",", " ").replace(".", ",") + " Ar"
+            return f"{solde:,.0f}".replace(",", " ").replace(".", ",") + " Ar"
         except psycopg2.Error as e:
             print(f"Erreur lors du calcul du solde de caisse: {e}")
             return "0 Ar"

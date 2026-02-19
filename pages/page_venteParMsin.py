@@ -2579,10 +2579,14 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                 pass
 
     def _on_enregistrer_click(self):
-        """Disable the Enregistrer button immediately, run enregistrer_facture,
-        then trigger nouvelle facture (either via stored button or method).
-        """
+        """Garde-fou UI avant enregistrement, puis délègue à enregistrer_facture()."""
         if getattr(self, '_enregistrement_en_cours', False):
+            return
+
+        # Vérification client AVANT toute étape d'enregistrement / reset formulaire.
+        client_nom = self.entry_client.get().strip()
+        if client_nom == "":
+            messagebox.showwarning("Attention", "Veuillez entrer ou choisir un client.")
             return
 
         try:
@@ -2591,22 +2595,10 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
             pass
 
         try:
-            # Perform the normal save (this method has its own guard)
+            # Exécute le flux d'enregistrement métier existant.
             self.enregistrer_facture()
         finally:
-            # Trigger nouvelle facture to reset the form
-            try:
-                if hasattr(self, 'btn_nouveau_bs'):
-                    try:
-                        self.btn_nouveau_bs.invoke()
-                    except Exception:
-                        self.nouveau_facture()
-                else:
-                    self.nouveau_facture()
-            except Exception:
-                pass
-
-            # Re-enable the enregistrer button if still present
+            # Réactive le bouton si présent (enregistrer_facture gère déjà son état interne).
             try:
                 self.btn_enregistrer.configure(state='normal')
             except Exception:

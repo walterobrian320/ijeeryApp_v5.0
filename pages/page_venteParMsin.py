@@ -237,6 +237,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
             print(f"✅ Utilisateur connecté - ID: {self.id_user_connecte}") 
         self.conn: Optional[psycopg2.connection] = None
         self.article_selectionne = None
+        self.stock_temporaire_selection = None
         self.detail_vente = []
         self.index_ligne_selectionnee = None
         self.magasin_map = {}
@@ -1682,9 +1683,15 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
             values = tree.item(selection[0])['values']
             stock_texte = values[6]
             stock_reel = self.parser_nombre(stock_texte)
+            print(f"[DEBUG] Stock récupéré (sélection article): {stock_reel} | brut='{stock_texte}'")
 
             if stock_reel <= 0:
-                if not messagebox.askyesno("Stock faible", f"Le stock disponible ({stock_texte} {values[4]}) est nul ou négatif. Voulez-vous continuer la sortie?"):
+                if not messagebox.askyesno(
+                    "Avertissement",
+                    f"Quantité en stock insuffisante ({stock_texte} {values[4]}).\n"
+                    "Voulez-vous continuer quand même ?",
+                    icon="warning"
+                ):
                     return
         
             article_data = {
@@ -1697,6 +1704,8 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
             # Utilise le prix unitaire affiché dans la liste
             last_price = self.parser_nombre(values[5])
             article_data['prixunit'] = last_price
+            article_data['stock_temporaire'] = stock_reel
+            self.stock_temporaire_selection = stock_reel
         
             fenetre_recherche.destroy()
             self.on_article_selected(article_data)
@@ -1722,6 +1731,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
     def on_article_selected(self, article_data):
         """Met à jour les champs après sélection d'un article."""
         self.article_selectionne = article_data
+        self.stock_temporaire_selection = article_data.get("stock_temporaire", self.stock_temporaire_selection)
 
         # Affichage Article
         designation_complete = f"[{article_data.get('code_article', 'N/A')}] {article_data['nom_article']}"
@@ -1852,26 +1862,42 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
             messagebox.showerror("Erreur", "Veuillez entrer une quantité, un prix unitaire et une remise valides.")
             return
 
-        if qtvente <= 0 or prixunit <= 0:
-            messagebox.showwarning("Attention", "La quantité vendue et le prix unitaire doivent être positifs.")
+        if qtvente <= 0:
+            messagebox.showwarning("Avertissement", "La quantité vendue doit être supérieure à 0.", icon="warning")
+            return
+
+        if prixunit <= 0:
+            messagebox.showwarning("Attention", "Le prix unitaire doit être positif.")
             return
     
         if remise < 0:
             messagebox.showwarning("Attention", "La remise ne peut pas être négative.")
             return
 
-        # Vérification du stock
-        if self.index_ligne_selectionnee is None: 
-            stock_disponible = self.calculer_stock_article(
-                self.article_selectionne['idarticle'], 
-                self.article_selectionne['idunite'], 
-                None
-            )
-               
-            if qtvente > stock_disponible:
-                if not messagebox.askyesno("Stock Insuffisant", 
-                              f"Stock disponible ({self.formater_nombre(stock_disponible)} {self.article_selectionne['nom_unite']}) est inférieur à la quantité demandée. Continuer?"):
+        # Vérification AVANT ajout au tableau par rapport au stock temporairement stocké lors de la sélection.
+        if self.index_ligne_selectionnee is None and self.stock_temporaire_selection is not None:
+            if qtvente > self.stock_temporaire_selection:
+                if not messagebox.askyesno(
+                    "Avertissement",
+                    f"Quantité saisie ({self.formater_nombre(qtvente)} {self.article_selectionne['nom_unite']}) "
+                    f"dépasse le stock disponible ({self.formater_nombre(self.stock_temporaire_selection)} {self.article_selectionne['nom_unite']}).\n"
+                    "Voulez-vous continuer quand même ?",
+                    icon="warning"
+                ):
                     return
+
+        # Vérification du stock
+        #if self.index_ligne_selectionnee is None: 
+        #    stock_disponible = self.calculer_stock_article(
+        #        self.article_selectionne['idarticle'], 
+        #        self.article_selectionne['idunite'], 
+        #        None
+        #    )
+               
+        #    if qtvente > stock_disponible:
+        #        if not messagebox.askyesno("Stock Insuffisant", 
+        #                      f"Stock disponible ({self.formater_nombre(stock_disponible)} {self.article_selectionne['nom_unite']}) est inférieur à la quantité demandée. Continuer?"):
+        #            return
 
         # Ajout de la remise dans le dictionnaire
         nouveau_detail = {
@@ -1964,6 +1990,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
     def reset_detail_form(self):
         """Réinitialise les champs de saisie de détail."""
         self.article_selectionne = None
+        self.stock_temporaire_selection = None
         self.index_ligne_selectionnee = None
         
         self.entry_article.configure(state="normal")

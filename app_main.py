@@ -242,16 +242,33 @@ class App(ctk.CTk):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
-        self.sidebar_frame = ctk.CTkFrame(self, width=200, corner_radius=15, fg_color="#25a9e1")
+        self.sidebar_frame = ctk.CTkFrame(self, width=200, corner_radius=0, fg_color="#25a9e1")
         self.sidebar_frame.grid(row=0, column=0, sticky="ns")
 
-        title_label = ctk.CTkLabel(
-            self.sidebar_frame,
-            text="iJeery_V5.0",
-            text_color="white",  # Définit la couleur du texte en blanc
-            font=ctk.CTkFont(family="Britannic Bold", size=25, weight="bold")  # Définit la police
-        )
-        title_label.pack(pady=(0, 20))
+        # Charger et afficher le logo
+        logo_path = resource_path("image/logo 3.png")
+        if os.path.exists(logo_path):
+            logo_image = ctk.CTkImage(
+                light_image=Image.open(logo_path),
+                dark_image=Image.open(logo_path),
+                size=(150, 50)
+            )
+            title_label = ctk.CTkLabel(
+                self.sidebar_frame,
+                image=logo_image,
+                text=""
+            )
+            title_label.image = logo_image  # Garder une référence
+            title_label.pack(pady=(0, 20))
+        else:
+            # Fallback au texte si l'image n'existe pas
+            title_label = ctk.CTkLabel(
+                self.sidebar_frame,
+                text="iJeery_V5.0",
+                text_color="white",
+                font=ctk.CTkFont(family="Britannic Bold", size=25, weight="bold")
+            )
+            title_label.pack(pady=(0, 20))
 
         self.toggle_button = ctk.CTkButton(
             self.sidebar_frame, text="≡", corner_radius=10, fg_color="#034787",
@@ -277,7 +294,7 @@ class App(ctk.CTk):
         self.create_menu_buttons()
 
         self.logout_button = ctk.CTkButton(
-            self.sidebar_frame, text="Déconnexion", corner_radius=10,
+            self.sidebar_frame, text="🚪 Déconnexion", corner_radius=10,
             fg_color="#034787", text_color="white", hover_color="#c0392b",
             font=("Arial", 14), command=self.logout
         )
@@ -610,13 +627,13 @@ class App(ctk.CTk):
 
         # Always add Dashboard if authorized
         if "TABLEAU DE BORD" in self.authorized_menus:
-            self.btn_dashboard = ctk.CTkButton(self.nav_area_frame, text="TABLEAU DE BORD", corner_radius=10, height=60,
+            self.btn_dashboard = ctk.CTkButton(self.nav_area_frame, text="📊 TABLEAU DE BORD", corner_radius=10, height=60,
                                                 fg_color="#268908", text_color="white", hover_color="#4CE01F",
                                                 font=("Arial", 14), command=lambda: self.show_page(page_home))
             self.btn_dashboard.pack(pady=5, padx=10, fill="x")
 
         if "CHAT INTERNE" in self.authorized_menus:
-            self.btn_dashboard = ctk.CTkButton(self.nav_area_frame, text="CHAT INTERNE", corner_radius=10, height=60,
+            self.btn_dashboard = ctk.CTkButton(self.nav_area_frame, text="💬 CHAT INTERNE", corner_radius=10, height=60,
                                                 fg_color="#A19407", text_color="white", hover_color="#cad256",
                                                 font=("Arial", 14), command=lambda: self.show_page(PageChat))
             self.btn_dashboard.pack(pady=5, padx=10, fill="x")
@@ -641,7 +658,7 @@ class App(ctk.CTk):
                                    for menu in self.authorized_menus)
 
         if admin_submenus_exist:
-            self.btn_administration = ctk.CTkButton(self.nav_area_frame, text="COMMERCIALE", corner_radius=10, height=60,
+            self.btn_administration = ctk.CTkButton(self.nav_area_frame, text="🛒 COMMERCIALE", corner_radius=10, height=60,
                                                      fg_color="#034787", text_color="white", hover_color="#0565c9",
                                                      font=("Arial", 14), command=self.show_commerciale_submenu)
             self.btn_administration.pack(pady=5, padx=10, fill="x")
@@ -665,7 +682,7 @@ class App(ctk.CTk):
                                        for menu in self.authorized_menus)
 
         if personnel_submenus_exist:
-            self.btn_personnel = ctk.CTkButton(self.nav_area_frame, text="PERSONNEL", corner_radius=10, height=60,
+            self.btn_personnel = ctk.CTkButton(self.nav_area_frame, text="👥 PERSONNEL", corner_radius=10, height=60,
                                                 fg_color="#036C6B", text_color="white", hover_color="#2ec8cd",
                                                 font=("Arial", 14), command=self.show_personnel_submenu)
             self.btn_personnel.pack(pady=5, padx=10, fill="x")
@@ -687,7 +704,7 @@ class App(ctk.CTk):
                                         for menu in self.authorized_menus)
 
         if tresorerie_submenus_exist:
-            self.btn_tresorerie = ctk.CTkButton(self.nav_area_frame, text="TRESORERIE", corner_radius=10, height=60,
+            self.btn_tresorerie = ctk.CTkButton(self.nav_area_frame, text="💰 TRESORERIE", corner_radius=10, height=60,
                                                  fg_color="#87035D", text_color="white", hover_color="#c936c2",
                                                  font=("Arial", 14), command=self.show_tresorerie_submenu)
             self.btn_tresorerie.pack(pady=5, padx=10, fill="x")
@@ -707,7 +724,7 @@ class App(ctk.CTk):
                                        for menu in self.authorized_menus)
 
         if database_submenus_exist:
-            self.btn_database = ctk.CTkButton(self.nav_area_frame, text="BASE DE DONNEES", corner_radius=10, height=60,
+            self.btn_database = ctk.CTkButton(self.nav_area_frame, text="🗄️ BASE DE DONNEES", corner_radius=10, height=60,
                                                fg_color="#874903", text_color="white", hover_color="#d7956e",
                                                font=("Arial", 14), command=self.show_database_submenu)
             self.btn_database.pack(pady=5, padx=10, fill="x")           
@@ -721,7 +738,7 @@ class App(ctk.CTk):
                                           for menu in self.authorized_menus)
 
         if examen_blanc_submenus_exist:
-            self.btn_examen_blanc = ctk.CTkButton(self.nav_area_frame, text="EXAMEN BLANC", corner_radius=10, height=60,
+            self.btn_examen_blanc = ctk.CTkButton(self.nav_area_frame, text="📚 EXAMEN BLANC", corner_radius=10, height=60,
                                                    fg_color="#034787", text_color="white", hover_color="#0565c9",
                                                    font=("Arial", 14), command=self.show_examen_blanc_submenu)
             self.btn_examen_blanc.pack(pady=5, padx=10, fill="x")
@@ -1079,31 +1096,31 @@ class App(ctk.CTk):
 
         # Dynamically add COMMERCIALE sub-menu buttons based on authorized menus
         if "Article Liste" in self.authorized_menus:
-            btn_articleListe = ctk.CTkButton(self.admin_submenu_frame, text="Article Liste", corner_radius=10, height=40,
+            btn_articleListe = ctk.CTkButton(self.admin_submenu_frame, text="📦 Article Liste", corner_radius=10, height=40,
                                       fg_color="#034787", text_color="white", hover_color="#0565c9",
                                       font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["page_listeArticle"]))
             btn_articleListe.pack(pady=2, padx=5, fill="x")
 
         if "Client" in self.authorized_menus:
-            btn_client = ctk.CTkButton(self.admin_submenu_frame, text="Client", corner_radius=10, height=40,
+            btn_client = ctk.CTkButton(self.admin_submenu_frame, text="👤 Client", corner_radius=10, height=40,
                                       fg_color="#034787", text_color="white", hover_color="#0565c9",
                                       font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageClient"]))
             btn_client.pack(pady=2, padx=5, fill="x")
 
         if "Fournisseur" in self.authorized_menus:
-            btn_fournisseur = ctk.CTkButton(self.admin_submenu_frame, text="Fournisseur", corner_radius=10, height=40,
+            btn_fournisseur = ctk.CTkButton(self.admin_submenu_frame, text="🏭 Fournisseur", corner_radius=10, height=40,
                                           fg_color="#034787", text_color="white", hover_color="#0565c9",
                                           font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageFournisseur"]))
             btn_fournisseur.pack(pady=2, padx=5, fill="x")
 
         if "Magasin" in self.authorized_menus:
-            btn_magasin = ctk.CTkButton(self.admin_submenu_frame, text="Magasin", corner_radius=10, height=40,
+            btn_magasin = ctk.CTkButton(self.admin_submenu_frame, text="🏬 Magasin", corner_radius=10, height=40,
                                           fg_color="#034787", text_color="white", hover_color="#0565c9",
                                           font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageMagasin"]))
             btn_magasin.pack(pady=2, padx=5, fill="x")
 
         if "Ventes" in self.authorized_menus:
-            btn_vente = ctk.CTkButton(self.admin_submenu_frame, text="Ventes", corner_radius=10, height=40,
+            btn_vente = ctk.CTkButton(self.admin_submenu_frame, text="📊 Ventes", corner_radius=10, height=40,
                                           fg_color="#034787", text_color="white", hover_color="#0565c9",
                                           font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageVente"]))
             btn_vente.pack(pady=2, padx=5, fill="x")
@@ -1129,37 +1146,37 @@ class App(ctk.CTk):
             # btn_vpd.pack(pady=2, padx=5, fill="x")
             
         if "Facturation" in self.authorized_menus:
-            btn_facturation = ctk.CTkButton(self.admin_submenu_frame, text="Facturation", corner_radius=10, height=40,
+            btn_facturation = ctk.CTkButton(self.admin_submenu_frame, text="📄 Facturation", corner_radius=10, height=40,
                                           fg_color="#034787", text_color="white", hover_color="#0565c9",
                                           font=("Arial", 12), command=self.open_vente_window)
             btn_facturation.pack(pady=2, padx=5, fill="x")
 
         if "Liste Facture" in self.authorized_menus:
-            btn_listfact = ctk.CTkButton(self.admin_submenu_frame, text="Liste Facture", corner_radius=10, height=40,
+            btn_listfact = ctk.CTkButton(self.admin_submenu_frame, text="📋 Liste Facture", corner_radius=10, height=40,
                                           fg_color="#034787", text_color="white", hover_color="#0565c9",
                                           font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageListeFacture"]))
             btn_listfact.pack(pady=2, padx=5, fill="x")
 
         if "Stock Article" in self.authorized_menus:
-            btn_stock = ctk.CTkButton(self.admin_submenu_frame, text="Stock Article", corner_radius=10, height=40,
+            btn_stock = ctk.CTkButton(self.admin_submenu_frame, text="📦 Stock Article", corner_radius=10, height=40,
                                       fg_color="#034787", text_color="white", hover_color="#0565c9",
                                       font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageStock"]))
             btn_stock.pack(pady=2, padx=5, fill="x")
             
         if "Stock Livraison" in self.authorized_menus:
-            btn_sl = ctk.CTkButton(self.admin_submenu_frame, text="Stock Livraion", corner_radius=10, height=40,
+            btn_sl = ctk.CTkButton(self.admin_submenu_frame, text="🚚 Stock Livraion", corner_radius=10, height=40,
                                       fg_color="#034787", text_color="white", hover_color="#0565c9",
                                       font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageStockLivraison"]))
             btn_sl.pack(pady=2, padx=5, fill="x")
 
         if "Mouvement d'article" in self.authorized_menus:
-            btn_ma = ctk.CTkButton(self.admin_submenu_frame, text="Mouvement d'article", corner_radius=10, height=40,
+            btn_ma = ctk.CTkButton(self.admin_submenu_frame, text="🔄 Mouvement d'article", corner_radius=10, height=40,
                                       fg_color="#034787", text_color="white", hover_color="#0565c9",
                                       font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageArticleMouvement"]))
             btn_ma.pack(pady=2, padx=5, fill="x")        
 
         if "Mouvement Stock" in self.authorized_menus:
-            btn_movmtstock = ctk.CTkButton(self.admin_submenu_frame, text="Mouvement Stock", corner_radius=10, height=40,
+            btn_movmtstock = ctk.CTkButton(self.admin_submenu_frame, text="📊 Mouvement Stock", corner_radius=10, height=40,
                                       fg_color="#034787", text_color="white", hover_color="#0565c9",
                                       font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageInfoMouvementStock"]))
             btn_movmtstock.pack(pady=2, padx=5, fill="x")
@@ -1173,43 +1190,43 @@ class App(ctk.CTk):
             btn_liste_mvmt.pack(pady=2, padx=5, fill="x")
 
         if "Suivi Commande" in self.authorized_menus:
-            btn_sc = ctk.CTkButton(self.admin_submenu_frame, text="Suivi Commande", corner_radius=10, height=40,
+            btn_sc = ctk.CTkButton(self.admin_submenu_frame, text="📍 Suivi Commande", corner_radius=10, height=40,
                                           fg_color="#034787", text_color="white", hover_color="#0565c9",
                                           font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageSuiviCommande"]))
             btn_sc.pack(pady=2, padx=5, fill="x")
 
         if "Prix d'article" in self.authorized_menus:
-            btn_pda = ctk.CTkButton(self.admin_submenu_frame, text="Prix d'article", corner_radius=10, height=40,
+            btn_pda = ctk.CTkButton(self.admin_submenu_frame, text="💲 Prix d'article", corner_radius=10, height=40,
                                           fg_color="#034787", text_color="white", hover_color="#0565c9",
                                           font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PagePrixListe"]))
             btn_pda.pack(pady=2, padx=5, fill="x")
             
         if "Livraison Client" in self.authorized_menus:
-            btn_lc = ctk.CTkButton(self.admin_submenu_frame, text="Livraison client", corner_radius=10, height=40,
+            btn_lc = ctk.CTkButton(self.admin_submenu_frame, text="🚚 Livraison client", corner_radius=10, height=40,
                                           fg_color="#034787", text_color="white", hover_color="#0565c9",
                                           font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageLivraisonClient"]))
             btn_lc.pack(pady=2, padx=5, fill="x")
 
         if "Matières" in self.authorized_menus:
-            btn_matiere = ctk.CTkButton(self.admin_submenu_frame, text="Matières", corner_radius=10, height=40,
+            btn_matiere = ctk.CTkButton(self.admin_submenu_frame, text="📚 Matières", corner_radius=10, height=40,
                                       fg_color="#034787", text_color="white", hover_color="#0565c9",
                                       font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageMatiere"]))
             btn_matiere.pack(pady=2, padx=5, fill="x")
 
         if "Notes" in self.authorized_menus:
-            btn_notes = ctk.CTkButton(self.admin_submenu_frame, text="Notes", corner_radius=10, height=40,
+            btn_notes = ctk.CTkButton(self.admin_submenu_frame, text="📝 Notes", corner_radius=10, height=40,
                                       fg_color="#0565c9", text_color="white", hover_color="#034787",
                                       font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["NoteManagementPage"]))
             btn_notes.pack(pady=2, padx=5, fill="x")
 
         if "Activités" in self.authorized_menus:
-            btn_activite = ctk.CTkButton(self.admin_submenu_frame, text="Activités", corner_radius=10, height=40,
+            btn_activite = ctk.CTkButton(self.admin_submenu_frame, text="🎯 Activités", corner_radius=10, height=40,
                                       fg_color="#0565c9", text_color="white", hover_color="#034787",
                                       font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageActivitePrix"]))
             btn_activite.pack(pady=2, padx=5, fill="x")
 
         if "Evènements" in self.authorized_menus:
-            btn_evenement = ctk.CTkButton(self.admin_submenu_frame, text="Evènements", corner_radius=10, height=40,
+            btn_evenement = ctk.CTkButton(self.admin_submenu_frame, text="📅 Evènements", corner_radius=10, height=40,
                                           fg_color="#0565c9", text_color="white", hover_color="#034787",
                                           font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageEvenement"]))
             btn_evenement.pack(pady=2, padx=5, fill="x")
@@ -1238,37 +1255,37 @@ class App(ctk.CTk):
             widget.destroy()
 
         if "Liste Personnel" in self.authorized_menus:
-            btn_personnel_main = ctk.CTkButton(self.personnel_submenu_frame, text="Liste Personnel", corner_radius=10, height=40,
+            btn_personnel_main = ctk.CTkButton(self.personnel_submenu_frame, text="👥 Liste Personnel", corner_radius=10, height=40,
                                                  fg_color="#036C6B", text_color="white", hover_color="#2ec8cd",
                                                  font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageMainPersonnel"]))
             btn_personnel_main.pack(pady=2, padx=5, fill="x")
 
         if "Absence" in self.authorized_menus:
-            btn_absence = ctk.CTkButton(self.personnel_submenu_frame, text="Absence", corner_radius=10, height=40,
+            btn_absence = ctk.CTkButton(self.personnel_submenu_frame, text="❌ Absence", corner_radius=10, height=40,
                                                  fg_color="#036C6B", text_color="white", hover_color="#2ec8cd",
                                                  font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageAbsence"]))
             btn_absence.pack(pady=2, padx=5, fill="x")
             
         if "Présence" in self.authorized_menus:
-            btn_presence = ctk.CTkButton(self.personnel_submenu_frame, text="Présence", corner_radius=10, height=40,
+            btn_presence = ctk.CTkButton(self.personnel_submenu_frame, text="✅ Présence", corner_radius=10, height=40,
                                                  fg_color="#036C6B", text_color="white", hover_color="#2ec8cd",
                                                  font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PagePresence"]))
             btn_presence.pack(pady=2, padx=5, fill="x")
 
         if "Avance 15e" in self.authorized_menus:
-            btn_avance15e = ctk.CTkButton(self.personnel_submenu_frame, text="Avance 15e", corner_radius=10, height=40,
+            btn_avance15e = ctk.CTkButton(self.personnel_submenu_frame, text="💸 Avance 15e", corner_radius=10, height=40,
                                            fg_color="#036C6B", text_color="white", hover_color="#2ec8cd",
                                            font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageAVQ"]))
             btn_avance15e.pack(pady=2, padx=5, fill="x")
 
         if "Avance Spéciale" in self.authorized_menus:
-            btn_avance_speciale = ctk.CTkButton(self.personnel_submenu_frame, text="Avance Spéciale", corner_radius=10, height=40,
+            btn_avance_speciale = ctk.CTkButton(self.personnel_submenu_frame, text="💰 Avance Spéciale", corner_radius=10, height=40,
                                                  fg_color="#036C6B", text_color="white", hover_color="#2ec8cd",
                                                  font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["FenetreAvanceSpec"]))
             btn_avance_speciale.pack(pady=2, padx=5, fill="x")
 
         if "Fonction" in self.authorized_menus:
-            btn_fonction = ctk.CTkButton(self.personnel_submenu_frame, text="Fonction", corner_radius=10, height=40,
+            btn_fonction = ctk.CTkButton(self.personnel_submenu_frame, text="👔 Fonction", corner_radius=10, height=40,
                                            fg_color="#036C6B", text_color="white", hover_color="#2ec8cd",
                                            font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageFonction"]))
             btn_fonction.pack(pady=2, padx=5, fill="x")
@@ -1281,44 +1298,44 @@ class App(ctk.CTk):
 
         
         if "Salaire Horaire" in self.authorized_menus:
-            btn_salaire_horaire = ctk.CTkButton(self.personnel_submenu_frame, text="Salaire Horaire", corner_radius=10, height=40,
+            btn_salaire_horaire = ctk.CTkButton(self.personnel_submenu_frame, text="⏰ Salaire Horaire", corner_radius=10, height=40,
                                                  fg_color="#036C6B", text_color="white", hover_color="#2ec8cd",
                                                  font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageEtatSalaireHoraire"]))
             btn_salaire_horaire.pack(pady=2, padx=5, fill="x")
 
         if "Paramètres Personnel" in self.authorized_menus: # This seems to map to page_settings
-            btn_settings_personnel = ctk.CTkButton(self.personnel_submenu_frame, text="Paramètres Personnel", corner_radius=10, height=40,
+            btn_settings_personnel = ctk.CTkButton(self.personnel_submenu_frame, text="⚙️ Paramètres Personnel", corner_radius=10, height=40,
                                                     fg_color="#036C6B", text_color="white", hover_color="#2ec8cd",
                                                     font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["page_settings"]))
             btn_settings_personnel.pack(pady=2, padx=5, fill="x")
         
         # This button maps to page_salaireBase_, not page_settings, so it should be distinct
         if "Nouveau SB" in self.authorized_menus: 
-            btn_salaire_base_ = ctk.CTkButton(self.personnel_submenu_frame, text="Nouveau SB", corner_radius=10, height=40,
+            btn_salaire_base_ = ctk.CTkButton(self.personnel_submenu_frame, text="📋 Nouveau SB", corner_radius=10, height=40,
                                                    fg_color="#036C6B", text_color="white", hover_color="#2ec8cd",
                                                    font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageSalaireBase"]))
             btn_salaire_base_.pack(pady=2, padx=5, fill="x")
         
         if "Etat de Salaire" in self.authorized_menus: 
-            btn_es_ = ctk.CTkButton(self.personnel_submenu_frame, text="Etat de Salaire", corner_radius=10, height=40,
+            btn_es_ = ctk.CTkButton(self.personnel_submenu_frame, text="📊 Etat de Salaire", corner_radius=10, height=40,
                                                    fg_color="#036C6B", text_color="white", hover_color="#2ec8cd",
                                                    font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageSalaireEtatSB"]))
             btn_es_.pack(pady=2, padx=5, fill="x")
             
         if "Etat de Salaire Horaire" in self.authorized_menus: 
-            btn_esh_ = ctk.CTkButton(self.personnel_submenu_frame, text="Etat de Salaire Horaire", corner_radius=10, height=40,
+            btn_esh_ = ctk.CTkButton(self.personnel_submenu_frame, text="📊 Etat de Salaire Horaire", corner_radius=10, height=40,
                                                    fg_color="#036C6B", text_color="white", hover_color="#2ec8cd",
                                                    font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageEtatSalaireHoraire"]))
             btn_esh_.pack(pady=2, padx=5, fill="x")
 
         if "Taux Horaire" in self.authorized_menus: 
-            btn_salaire_base_ = ctk.CTkButton(self.personnel_submenu_frame, text="Taux Horaire", corner_radius=10, height=40,
+            btn_salaire_base_ = ctk.CTkButton(self.personnel_submenu_frame, text="💲 Taux Horaire", corner_radius=10, height=40,
                                                    fg_color="#036C6B", text_color="white", hover_color="#2ec8cd",
                                                    font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageTauxHoraire"]))
             btn_salaire_base_.pack(pady=2, padx=5, fill="x")
 
         if "Paiement Salaire" in self.authorized_menus: 
-            btn_salaire_base_ = ctk.CTkButton(self.personnel_submenu_frame, text="Paiement Salaire", corner_radius=10, height=40,
+            btn_salaire_base_ = ctk.CTkButton(self.personnel_submenu_frame, text="💳 Paiement Salaire", corner_radius=10, height=40,
                                                    fg_color="#036C6B", text_color="white", hover_color="#2ec8cd",
                                                    font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageValidationSalaire"]))
             btn_salaire_base_.pack(pady=2, padx=5, fill="x")
@@ -1342,49 +1359,49 @@ class App(ctk.CTk):
             widget.destroy()
 
         if "Caisse" in self.authorized_menus:
-            btn_caisse = ctk.CTkButton(self.tresorerie_submenu_frame, text="Caisse", corner_radius=10, height=40,
+            btn_caisse = ctk.CTkButton(self.tresorerie_submenu_frame, text="🏧 Caisse", corner_radius=10, height=40,
                                        fg_color="#87035D", text_color="white", hover_color="#c936c2",
                                        font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageCaisse"]))
             btn_caisse.pack(pady=2, padx=5, fill="x")
 
         if "Facture Liste" in self.authorized_menus:
-            btn_facap = ctk.CTkButton(self.tresorerie_submenu_frame, text="Client à Payer", corner_radius=10, height=40,
+            btn_facap = ctk.CTkButton(self.tresorerie_submenu_frame, text="💳 Client à Payer", corner_radius=10, height=40,
                                             fg_color="#87035D", text_color="white", hover_color="#c936c2",
                                             font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageFactureListe"]))
             btn_facap.pack(pady=2, padx=5, fill="x")
             
         if "Fournisseur Dettes" in self.authorized_menus:
-            btn_fd = ctk.CTkButton(self.tresorerie_submenu_frame, text="Fournisseur à Payer", corner_radius=10, height=40,
+            btn_fd = ctk.CTkButton(self.tresorerie_submenu_frame, text="💰 Fournisseur à Payer", corner_radius=10, height=40,
                                             fg_color="#87035D", text_color="white", hover_color="#c936c2",
                                             font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageFrsDette"]))
             btn_fd.pack(pady=2, padx=5, fill="x")
 
         if "Banque" in self.authorized_menus:
-            btn_banque = ctk.CTkButton(self.tresorerie_submenu_frame, text="Banque", corner_radius=10, height=40,
+            btn_banque = ctk.CTkButton(self.tresorerie_submenu_frame, text="🏦 Banque", corner_radius=10, height=40,
                                        fg_color="#87035D", text_color="white", hover_color="#c936c2",
                                        font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageBanque"]))
             btn_banque.pack(pady=2, padx=5, fill="x")
 
         if "Ajout Banque" in self.authorized_menus:
-            btn_ajoutbanque = ctk.CTkButton(self.tresorerie_submenu_frame, text="Ajout Banque", corner_radius=10, height=40,
+            btn_ajoutbanque = ctk.CTkButton(self.tresorerie_submenu_frame, text="➕ Ajout Banque", corner_radius=10, height=40,
                                        fg_color="#87035D", text_color="white", hover_color="#c936c2",
                                        font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageBanqueNv"]))
             btn_ajoutbanque.pack(pady=2, padx=5, fill="x")
 
         if "Transfert Banque" in self.authorized_menus:
-            btn_transfertbanque = ctk.CTkButton(self.tresorerie_submenu_frame, text="Transfert Banque", corner_radius=10, height=40,
+            btn_transfertbanque = ctk.CTkButton(self.tresorerie_submenu_frame, text="🔄 Transfert Banque", corner_radius=10, height=40,
                                        fg_color="#87035D", text_color="white", hover_color="#c936c2",
                                        font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageTransfertBanque"]))
             btn_transfertbanque.pack(pady=2, padx=5, fill="x")
 
         if "Transfert Caisse" in self.authorized_menus:
-            btn_transfertcaisse = ctk.CTkButton(self.tresorerie_submenu_frame, text="Transfert Caisse", corner_radius=10, height=40,
+            btn_transfertcaisse = ctk.CTkButton(self.tresorerie_submenu_frame, text="🔄 Transfert Caisse", corner_radius=10, height=40,
                                        fg_color="#87035D", text_color="white", hover_color="#c936c2",
                                        font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageTransfertCaisse"]))
             btn_transfertcaisse.pack(pady=2, padx=5, fill="x")
 
         if "Decaissement" in self.authorized_menus:
-            btn_decaissement = ctk.CTkButton(self.tresorerie_submenu_frame, text="Décaissement", corner_radius=10, height=40,
+            btn_decaissement = ctk.CTkButton(self.tresorerie_submenu_frame, text="💸 Décaissement", corner_radius=10, height=40,
                                             fg_color="#87035D", text_color="white", hover_color="#c936c2",
                                             font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageDecaissement"]))
             btn_decaissement.pack(pady=2, padx=5, fill="x")
@@ -1396,7 +1413,7 @@ class App(ctk.CTk):
             btn_decaissement.pack(pady=2, padx=5, fill="x")
 
         if "Encaissement" in self.authorized_menus:
-            btn_encaissement = ctk.CTkButton(self.tresorerie_submenu_frame, text="Encaissement", corner_radius=10, height=40,
+            btn_encaissement = ctk.CTkButton(self.tresorerie_submenu_frame, text="📥 Encaissement", corner_radius=10, height=40,
                                             fg_color="#87035D", text_color="white", hover_color="#c936c2",
                                             font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageEncaissement"]))
             btn_encaissement.pack(pady=2, padx=5, fill="x")
@@ -1408,13 +1425,13 @@ class App(ctk.CTk):
             btn_encaissement.pack(pady=2, padx=5, fill="x")
 
         if "Etat de Dépenses" in self.authorized_menus:
-            btn_depense = ctk.CTkButton(self.tresorerie_submenu_frame, text="Etat de dépenses", corner_radius=10, height=40,
+            btn_depense = ctk.CTkButton(self.tresorerie_submenu_frame, text="📊 Etat de dépenses", corner_radius=10, height=40,
                                             fg_color="#87035D", text_color="white", hover_color="#c936c2",
                                             font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageDepParCat"]))
             btn_depense.pack(pady=2, padx=5, fill="x")
 
         if "Catégorie" in self.authorized_menus:
-            btn_categorie = ctk.CTkButton(self.tresorerie_submenu_frame, text="Catégorie", corner_radius=10, height=40,
+            btn_categorie = ctk.CTkButton(self.tresorerie_submenu_frame, text="🏷️ Catégorie", corner_radius=10, height=40,
                                             fg_color="#87035D", text_color="white", hover_color="#c936c2",
                                             font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageCategorie"]))
             btn_categorie.pack(pady=2, padx=5, fill="x")
@@ -1439,63 +1456,63 @@ class App(ctk.CTk):
             widget.destroy()
 
         if "Autorisation" in self.authorized_menus:
-            btn_autorisation = ctk.CTkButton(self.database_submenu_frame, text="Autorisation", corner_radius=10, height=40,
+            btn_autorisation = ctk.CTkButton(self.database_submenu_frame, text="🔐 Autorisation", corner_radius=10, height=40,
                                              fg_color="#874903", text_color="white", hover_color="#d7956e",
                                              font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageAutorisation"]))
             btn_autorisation.pack(pady=2, padx=5, fill="x")
 
         if "Evenements" in self.authorized_menus:
-            btn_events = ctk.CTkButton(self.database_submenu_frame, text="Evenements", corner_radius=10, height=40,
+            btn_events = ctk.CTkButton(self.database_submenu_frame, text="📅 Evenements", corner_radius=10, height=40,
                                              fg_color="#874903", text_color="white", hover_color="#d7956e",
                                              font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageEvenement"]))
             btn_events.pack(pady=2, padx=5, fill="x")    
 
         if "Sauvegarde" in self.authorized_menus:
-            btn_sauvegarde = ctk.CTkButton(self.database_submenu_frame, text="Sauvegarde", corner_radius=10, height=40,
+            btn_sauvegarde = ctk.CTkButton(self.database_submenu_frame, text="💾 Sauvegarde", corner_radius=10, height=40,
                                            fg_color="#874903", text_color="white", hover_color="#d7956e",
                                            font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageSauvegarde"]))
             btn_sauvegarde.pack(pady=2, padx=5, fill="x")
 
         if "Utilisateurs" in self.authorized_menus:
-            btn_users = ctk.CTkButton(self.database_submenu_frame, text="Utilisateurs", corner_radius=10, height=40,
+            btn_users = ctk.CTkButton(self.database_submenu_frame, text="👨‍💻 Utilisateurs", corner_radius=10, height=40,
                                       fg_color="#874903", text_color="white", hover_color="#d7956e",
                                       font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageUsers"]))                                      
             btn_users.pack(pady=2, padx=5, fill="x")
 
         # Example of adding the "Paramètres de la BD" button
         if "Paramètres BD" in self.authorized_menus: # Make sure this menu item exists in your DB for permissions
-            btn_db_settings = ctk.CTkButton(self.database_submenu_frame, text="Paramètres BD", corner_radius=10, height=40,
+            btn_db_settings = ctk.CTkButton(self.database_submenu_frame, text="⚙️ Paramètres BD", corner_radius=10, height=40,
                                             fg_color="#874903", text_color="white", hover_color="#d7956e",
                                             font=("Arial", 12), command=self.open_db_config_window)
             btn_db_settings.pack(pady=2, padx=5, fill="x")
 
         
         if "Paramètre Reseau" in self.authorized_menus:
-            btn_users = ctk.CTkButton(self.database_submenu_frame, text="Paramètre Reseau", corner_radius=10, height=40,
+            btn_users = ctk.CTkButton(self.database_submenu_frame, text="🌐 Paramètre Reseau", corner_radius=10, height=40,
                                       fg_color="#874903", text_color="white", hover_color="#d7956e",
                                       font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageParamReseau"]))                                      
             btn_users.pack(pady=2, padx=5, fill="x")
 
         if "Init DB" in self.authorized_menus:
-            btn_users = ctk.CTkButton(self.database_submenu_frame, text="Init DB", corner_radius=10, height=40,
+            btn_users = ctk.CTkButton(self.database_submenu_frame, text="🔧 Init DB", corner_radius=10, height=40,
                                       fg_color="#874903", text_color="white", hover_color="#d7956e",
                                       font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["DBInitializerApp"]))                                      
             btn_users.pack(pady=2, padx=5, fill="x")
         
         if "Menu" in self.authorized_menus:
-            btn_menu = ctk.CTkButton(self.database_submenu_frame, text="Menu", corner_radius=10, height=40,
+            btn_menu = ctk.CTkButton(self.database_submenu_frame, text="📋 Menu", corner_radius=10, height=40,
                                       fg_color="#874903", text_color="white", hover_color="#d7956e",
                                       font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageMenu"]))                                      
             btn_menu.pack(pady=2, padx=5, fill="x")
        
         if "Base Liste" in self.authorized_menus:
-            btn_bl = ctk.CTkButton(self.database_submenu_frame, text="Base Liste", corner_radius=10, height=40,
+            btn_bl = ctk.CTkButton(self.database_submenu_frame, text="📚 Base Liste", corner_radius=10, height=40,
                                       fg_color="#874903", text_color="white", hover_color="#d7956e",
                                       font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageBaseListe"]))                                      
             btn_bl.pack(pady=2, padx=5, fill="x")
             
         if "Autorisation Admin" in self.authorized_menus:
-            btn_aa = ctk.CTkButton(self.database_submenu_frame, text="Autorisation Admin", corner_radius=10, height=40,
+            btn_aa = ctk.CTkButton(self.database_submenu_frame, text="🔐 Autorisation Admin", corner_radius=10, height=40,
                                       fg_color="#874903", text_color="white", hover_color="#d7956e",
                                       font=("Arial", 12), command=lambda: self.show_page(self.page_mapping["PageCodeAutorisation"]))                                      
             btn_aa.pack(pady=2, padx=5, fill="x")

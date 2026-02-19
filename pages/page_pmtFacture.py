@@ -42,6 +42,9 @@ class PagePmtFacture(ctk.CTkToplevel):
         self.focus_set()
         # Flag pour éviter double-clics rapides
         self._processing_payment = False
+        # Flag pour garantir un seul popup succès et une seule finalisation.
+        self._payment_finalized = False
+        self._success_popup_shown = False
 
         self._construire_interface()
 
@@ -420,7 +423,7 @@ class PagePmtFacture(ctk.CTkToplevel):
     def _on_valider_click(self):
         """Wrapper pour empêcher les double-clicks rapides sur le bouton Valider."""
         # Si déjà en cours, ignorer
-        if getattr(self, '_processing_payment', False):
+        if getattr(self, '_processing_payment', False) or getattr(self, '_payment_finalized', False):
             return
 
         # Désactiver le bouton et marquer comme en cours
@@ -437,7 +440,7 @@ class PagePmtFacture(ctk.CTkToplevel):
         finally:
             # Si la fenêtre existe toujours (la validation a pu échouer), réactiver
             try:
-                if self.winfo_exists():
+                if self.winfo_exists() and not self._payment_finalized:
                     self._processing_payment = False
                     try:
                         self.btn_valider.configure(state="normal")
@@ -448,6 +451,9 @@ class PagePmtFacture(ctk.CTkToplevel):
                 pass
 
     def valider_paiement(self):
+        if self._payment_finalized:
+            return
+
         montant_saisi_str = self.entry_montant.get().replace(' ', '').replace(',', '.')
         nom_mode_pmt = self.option_mode_pmt.get()
         
@@ -699,8 +705,12 @@ class PagePmtFacture(ctk.CTkToplevel):
             
             # Message de confirmation
             msg_impression = " (impression lancée)" if imprimer_ticket == 1 else " (sans impression)"
-            messagebox.showinfo("Succès", f"Paiement enregistré avec succès!{msg_impression}\nRéférence: {refpmt}")
-            self.destroy()
+            self._payment_finalized = True
+            self._show_success_once(f"Paiement enregistré avec succès!{msg_impression}\nRéférence: {refpmt}")
+            try:
+                self.destroy()
+            except Exception:
+                pass
 
         except Exception as e:
             conn.rollback()
@@ -708,6 +718,13 @@ class PagePmtFacture(ctk.CTkToplevel):
             traceback.print_exc()
         finally:
             conn.close()
+
+    def _show_success_once(self, message: str):
+        """Affiche une seule fois le popup succès pour éviter les doublons."""
+        if self._success_popup_shown:
+            return
+        self._success_popup_shown = True
+        messagebox.showinfo("Succès", message)
 
     def _couper_texte(self, texte, largeur_max_chars):
         """Coupe le texte en lignes pour respecter la largeur maximale"""

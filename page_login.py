@@ -281,10 +281,9 @@ class LoginWindow(ctk.CTk):
 
     # Nouvelle méthode pour ouvrir la fenêtre de configuration
     def open_database_config(self):
-        # Détruit la fenêtre de connexion
-        self.destroy()
-        # Crée et exécute la fenêtre de configuration
+        # Ouvre la configuration sans fermer la page login
         config_window = ConfigDataBase()
+        config_window.focus_force()
         config_window.mainloop()
 
     def start(self):

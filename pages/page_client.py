@@ -150,6 +150,8 @@ class PageClient(ctk.CTkFrame):
         # Treeview
         columns = ("Nom du Client", "Contact", "Adresse", "NIF", "Crédit", "Type")
         self.tree = ttk.Treeview(self, columns=columns, show="headings")
+        self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         for col in columns:
             self.tree.heading(col, text=col)
@@ -176,8 +178,9 @@ class PageClient(ctk.CTkFrame):
                 ORDER BY c.nomcli ASC
             """)
             clients = self.cursor.fetchall()
-            for cli in clients:
-                self.tree.insert("", "end", iid=cli[0], values=(cli[1], cli[2], cli[3], cli[4], cli[5], cli[6]))
+            for idx, cli in enumerate(clients):
+                tag = "even" if idx % 2 == 0 else "odd"
+                self.tree.insert("", "end", iid=cli[0], values=(cli[1], cli[2], cli[3], cli[4], cli[5], cli[6]), tags=(tag,))
         except psycopg2.Error as err:
             messagebox.showerror("Erreur", f"Erreur lors du chargement : {err}")
 

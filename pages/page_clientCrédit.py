@@ -135,6 +135,8 @@ class PageClientCrédit(ctk.CTkFrame):
         
         columns = ("Nom du Client", "N° Facture / Ref", "Montant Initial", "Total Payé", "Solde Restant")
         self.tree = ttk.Treeview(tree_frame, columns=columns, show='headings')
+        self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         for col in columns:
             self.tree.heading(col, text=col)
@@ -217,14 +219,15 @@ class PageClientCrédit(ctk.CTkFrame):
         t_fact = 0.0
         t_solde = 0.0
         
-        for row in self.current_records:
+        for idx, row in enumerate(self.current_records):
             nom, ref, mt, paye, solde, id_cli = row
+            tag = "even" if idx % 2 == 0 else "odd"
             self.tree.insert("", "end", values=(
                 nom, ref, 
                 f"{mt:,.2f} Ar", 
                 f"{paye:,.2f} Ar", 
                 f"{solde:,.2f} Ar"
-            ))
+            ), tags=(tag,))
             t_fact += float(mt)
             t_solde += float(solde)
             

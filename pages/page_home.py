@@ -74,18 +74,22 @@ class DatabaseManager:
         return self.conn
 
 class StatCard(ctk.CTkFrame):
-    def __init__(self, master, title, value, icon="📊", **kwargs):
+    def __init__(self, master, title, value, icon="📊", accent="#108cff", **kwargs):
         # Séparer les kwargs de CTkFrame des autres
         frame_kwargs = {}
-        for key in ['fg_color', 'corner_radius', 'width', 'height']:
+        for key in ['fg_color', 'corner_radius', 'width', 'height', 'border_width', 'border_color']:
             if key in kwargs:
                 frame_kwargs[key] = kwargs.pop(key)
         
         # Valeurs par défaut pour fg_color et corner_radius si non spécifiées
         if 'fg_color' not in frame_kwargs:
-            frame_kwargs['fg_color'] = "white"
-        if 'corner_radius' not in frame_kwargs: # Correction de la faute de frappe ici
-            frame_kwargs['corner_radius'] = 12
+            frame_kwargs['fg_color'] = "#F7FAFC"
+        if 'corner_radius' not in frame_kwargs:
+            frame_kwargs['corner_radius'] = 14
+        if 'border_width' not in frame_kwargs:
+            frame_kwargs['border_width'] = 1
+        if 'border_color' not in frame_kwargs:
+            frame_kwargs['border_color'] = "#DCE6F2"
             
         super().__init__(master, **frame_kwargs, **kwargs)
 
@@ -93,15 +97,34 @@ class StatCard(ctk.CTkFrame):
         title = str(title) if title is not None else "N/A"
         value = str(value) if value is not None else "0"
         icon = str(icon) if icon is not None else "📊"
+        accent = str(accent) if accent is not None else "#108cff"
 
-        self.icon_label = ctk.CTkLabel(self, text=icon, font=("Arial", 24))
-        self.icon_label.pack(pady=(10, 5))
+        def _lighten_hex(hex_color, factor=0.86):
+            """Mélange la couleur avec du blanc pour obtenir un fond plus clair."""
+            hc = hex_color.lstrip("#")
+            if len(hc) != 6:
+                return "#F7FAFC"
+            r = int(hc[0:2], 16)
+            g = int(hc[2:4], 16)
+            b = int(hc[4:6], 16)
+            lr = int(r + (255 - r) * factor)
+            lg = int(g + (255 - g) * factor)
+            lb = int(b + (255 - b) * factor)
+            return f"#{lr:02X}{lg:02X}{lb:02X}"
 
-        self.title_label = ctk.CTkLabel(self, text=title, font=("Arial", 14, "bold"), text_color="#2c3e50")
-        self.title_label.pack()
+        # Fond de la carte = couleur d'accent éclaircie (effet "transparent" sur fond clair)
+        self.configure(fg_color=_lighten_hex(accent))
 
-        self.value_label = ctk.CTkLabel(self, text=value, font=("Arial", 20, "bold"), text_color="#108cff")
-        self.value_label.pack(pady=(5, 10))
+        self.grid_columnconfigure(0, weight=1)
+
+        self.icon_label = ctk.CTkLabel(self, text=icon, font=("Segoe UI Emoji", 24))
+        self.icon_label.grid(row=0, column=0, sticky="n", padx=14, pady=(12, 2))
+
+        self.title_label = ctk.CTkLabel(self, text=title, font=("Segoe UI", 13, "bold"), text_color="#31445A")
+        self.title_label.grid(row=1, column=0, sticky="n", padx=14, pady=(0, 2))
+
+        self.value_label = ctk.CTkLabel(self, text=value, font=("Segoe UI", 22, "bold"), text_color=accent)
+        self.value_label.grid(row=2, column=0, sticky="n", padx=14, pady=(2, 14))
 # --- Fonctions de récupération des données de la base de données ---
 
 def get_db_connection():
@@ -471,15 +494,23 @@ def page_home(master, **kwargs):
     db_conn = kwargs.get('db_conn', None)
     session_data = kwargs.get('session_data', None)
     
-    frame = ctk.CTkFrame(master, fg_color="transparent")
+    frame = ctk.CTkFrame(master, fg_color="#EEF3F9")
+    frame.grid_columnconfigure(0, weight=1)
 
     # === Titre ===
-    title = ctk.CTkLabel(frame, text="Tableau de Bord - iJeery", font=("Arial", 26, "bold"), text_color="#2c3e50")
-    title.pack(pady=20)
+    title = ctk.CTkLabel(
+        frame,
+        text="TABLEAU DE BORD",
+        font=("Segoe UI", 25, "bold"),
+        text_color="#1C5BA3"
+    )
+    title.pack(pady=(18, 8))
 
     # === Statistiques principales ===
-    stats_frame = ctk.CTkFrame(frame, fg_color="transparent")
-    stats_frame.pack(pady=10, padx=20, fill="x")
+    stats_outer = ctk.CTkFrame(frame, fg_color="#E6EDF6", corner_radius=16)
+    stats_outer.pack(pady=8, padx=20, fill="x")
+    stats_frame = ctk.CTkFrame(stats_outer, fg_color="transparent")
+    stats_frame.pack(pady=10, padx=10, fill="x")
 
     # Récupération des données dynamiques avec gestion d'erreur
     try:
@@ -510,35 +541,44 @@ def page_home(master, **kwargs):
 
     # Créer les cartes individuellement pour éviter les erreurs
     try:
-        # Première ligne
-        card1 = StatCard(stats_frame, "Total Client", str(facture_client), "👨‍🎓")
-        card1.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
-        
-        card2 = StatCard(stats_frame, "Total Fournisseur", str(facture_fournisseur), "👩‍🏫")
-        card2.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
-        
-        card3 = StatCard(stats_frame, "Dettes à payer", str(dettes_actives), "🏫")
-        card3.grid(row=0, column=2, padx=10, pady=10, sticky="nsew")
-        
-        # Deuxième ligne
-        card4 = StatCard(stats_frame, "Absences Aujourd'hui", str(absences_aujourdhui), "📅")
-        card4.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
-        
-        card5 = StatCard(stats_frame, "Solde en Caisse", str(solde_caisse), "🏦")
-        card5.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
-        
-        card6 = StatCard(stats_frame, "Crédit", str(credit), "📚")
-        card6.grid(row=1, column=2, padx=10, pady=10, sticky="nsew")
-        
-        # Troisième ligne
-        card7 = StatCard(stats_frame, "Approvisionnement", str(taux_couverture_droit), "💰")
-        card7.grid(row=2, column=0, padx=10, pady=10, sticky="nsew")
-        
-        card8 = StatCard(stats_frame, "Encaissement Aujourd'hui", str(encaissement_jour), "⬆️")
-        card8.grid(row=2, column=1, padx=10, pady=10, sticky="nsew")
-        
-        card9 = StatCard(stats_frame, "Décaissement Aujourd'hui", str(decaissement_jour), "⬇️")
-        card9.grid(row=2, column=2, padx=10, pady=10, sticky="nsew")
+        cards_data = [
+            ("Total Client", str(facture_client), "🧾", "#0E7490"),
+            ("Total Fournisseur", str(facture_fournisseur), "🚚", "#1D4ED8"),
+            ("Dettes à payer", str(dettes_actives), "📌", "#B45309"),
+            ("Absences Aujourd'hui", str(absences_aujourdhui), "📅", "#7C3AED"),
+            ("Solde en Caisse", str(solde_caisse), "🏦", "#047857"),
+            ("Crédit", str(credit), "💳", "#6D28D9"),
+            ("Approvisionnement", str(taux_couverture_droit), "📦", "#C2410C"),
+            ("Encaissement Aujourd'hui", str(encaissement_jour), "⬆️", "#15803D"),
+            ("Décaissement Aujourd'hui", str(decaissement_jour), "⬇️", "#B91C1C"),
+        ]
+
+        cards = []
+        for card_title, card_value, card_icon, card_accent in cards_data:
+            card = StatCard(
+                stats_frame,
+                card_title,
+                card_value,
+                card_icon,
+                accent=card_accent,
+                height=130
+            )
+            cards.append(card)
+
+        def arrange_cards_fixed_3():
+            for child in stats_frame.winfo_children():
+                child.grid_forget()
+
+            for c in range(4):
+                stats_frame.grid_columnconfigure(c, weight=0)
+            for c in range(3):
+                stats_frame.grid_columnconfigure(c, weight=1, uniform="stats")
+
+            for idx, card in enumerate(cards):
+                row = idx // 3
+                col = idx % 3
+                card.grid(row=row, column=col, padx=8, pady=8, sticky="nsew")
+        arrange_cards_fixed_3()
         
         print("Toutes les cartes créées avec succès")
         
@@ -547,16 +587,16 @@ def page_home(master, **kwargs):
         import traceback
         traceback.print_exc()
 
-    # Configuration des colonnes
-    for i in range(3):
-        stats_frame.grid_columnconfigure(i, weight=1)
-
     # === Dernières Notifications ou Événements ===
-    events_frame = ctk.CTkFrame(frame, fg_color="white", corner_radius=12)
+    events_frame = ctk.CTkFrame(frame, fg_color="#F7FAFC", corner_radius=14, border_width=1, border_color="#DCE6F2")
     events_frame.pack(pady=20, padx=20, fill="both", expand=True)
 
-    events_title = ctk.CTkLabel(events_frame, text="📌 Derniers événements", font=("Arial", 18, "bold"),
-                                 text_color="#2c3e50")
+    events_title = ctk.CTkLabel(
+        events_frame,
+        text="Derniers événements",
+        font=("Segoe UI", 18, "bold"),
+        text_color="#1F2D3D"
+    )
     events_title.pack(pady=(15, 5))
 
     # Récupération des événements depuis la base de données
@@ -571,7 +611,7 @@ def page_home(master, **kwargs):
         events = ["Aucun événement récent à afficher"]
 
     for event in events:
-        event_label = ctk.CTkLabel(events_frame, text=event, font=("Arial", 14), anchor="w", justify="left")
+        event_label = ctk.CTkLabel(events_frame, text=event, font=("Segoe UI", 13), anchor="w", justify="left", text_color="#334155")
         event_label.pack(fill="x", padx=20, pady=2)
 
     return frame

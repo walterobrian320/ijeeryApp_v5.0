@@ -268,6 +268,7 @@ class page_listeArticle(customtkinter.CTkFrame):
             font=customtkinter.CTkFont(family="Segoe UI", size=12)
         )
         btn_reset.grid(row=0, column=1, padx=0, pady=0)
+        btn_reset.grid_remove()  # Cacher le bouton "Effacer"
 
     def create_export_button(self):
         """Crée les boutons d'action"""
@@ -277,7 +278,7 @@ class page_listeArticle(customtkinter.CTkFrame):
         # Bouton Nouvel Article (à gauche)
         btn_new_article = customtkinter.CTkButton(
             buttons_frame,
-            text="➕ Nouvel Article",
+            text="📁 Gérer Articles",
             command=self.open_new_article,
             width=180,
             height=35,
@@ -290,7 +291,7 @@ class page_listeArticle(customtkinter.CTkFrame):
         # Bouton Nouvelle Catégorie
         btn_new_category = customtkinter.CTkButton(
             buttons_frame,
-            text="📁 Nouvelle Catégorie",
+            text="📁 Gérer Catégorie",
             command=self.open_new_category,
             width=180,
             height=35,
@@ -326,6 +327,8 @@ class page_listeArticle(customtkinter.CTkFrame):
         
         # Création du Treeview
         self.tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=15)
+        self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree.tag_configure("odd", background="#DCE5FA", foreground="#000000")
         
         # Définition des en-têtes
         self.tree.heading("ID", text="ID")
@@ -356,6 +359,11 @@ class page_listeArticle(customtkinter.CTkFrame):
         # Bind events
         self.tree.bind('<Double-Button-1>', self.on_double_click)
         self.tree.bind('<ButtonRelease-1>', self.on_single_click)
+
+    def _insert_rows_with_alternating_colors(self, rows):
+        for index, row in enumerate(rows):
+            tag = "even" if index % 2 == 0 else "odd"
+            self.tree.insert('', 'end', values=row, tags=(tag,))
 
     def on_single_click(self, event):
         """Gère le clic simple"""
@@ -417,7 +425,7 @@ class page_listeArticle(customtkinter.CTkFrame):
             from pages.page_article import PageArticle
             
             article_window = customtkinter.CTkToplevel(self)
-            article_window.title("Nouvel Article")
+            article_window.title("Gérer Articles")
             article_window.geometry("700x700")
             
             article_window.transient(self.master) 
@@ -475,7 +483,7 @@ class page_listeArticle(customtkinter.CTkFrame):
             from pages.page_categorieArticle import PageCategorieArticle
             
             category_window = customtkinter.CTkToplevel(self)
-            category_window.title("Nouvelle Catégorie")
+            category_window.title("Gérer Catégorie")
             category_window.geometry("400x400")
             
             category_window.transient(self.master)
@@ -538,14 +546,11 @@ class page_listeArticle(customtkinter.CTkFrame):
         
         # Insérer les données
         if self.all_data:
-            for row in self.all_data:
-                # S'assurer que les valeurs numériques sont formatées correctement si nécessaire
-                # (Ici on suppose que psycopg2 retourne des chaînes ou nombres compatibles)
-                self.tree.insert('', 'end', values=row)
+            self._insert_rows_with_alternating_colors(self.all_data)
             self.update_count(len(self.all_data))
         else:
             # S'assurer que le message d'absence de données est visible
-            self.tree.insert('', 'end', values=("", "", "Aucun article trouvé", "", "", "", ""))
+            self.tree.insert('', 'end', values=("", "", "Aucun article trouvé", "", "", "", ""), tags=("even",))
             self.update_count(0)
 
     def filter_data(self):
@@ -574,11 +579,10 @@ class page_listeArticle(customtkinter.CTkFrame):
         
         # Insérer
         if filtered_data:
-            for row in filtered_data:
-                self.tree.insert('', 'end', values=row)
+            self._insert_rows_with_alternating_colors(filtered_data)
             self.update_count(len(filtered_data))
         else:
-            self.tree.insert('', 'end', values=("", "", "Aucun résultat trouvé", "", "", "", ""))
+            self.tree.insert('', 'end', values=("", "", "Aucun résultat trouvé", "", "", "", ""), tags=("even",))
             self.update_count(0)
 
     def reset_filters(self):

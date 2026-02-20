@@ -751,7 +751,7 @@ class App(ctk.CTk):
                                        for menu in self.authorized_menus)
 
         if database_submenus_exist:
-            self.btn_database = ctk.CTkButton(self.nav_area_frame, text="🗄️ BASE DE DONNEES", corner_radius=10, height=60,
+            self.btn_database = ctk.CTkButton(self.nav_area_frame, text="🗄️BASE DE DONNEES", corner_radius=10, height=60,
                                                fg_color="#874903", text_color="white", hover_color="#d7956e",
                                                font=("Arial", 14), command=self.show_database_submenu)
             self.btn_database.pack(pady=5, padx=10, fill="x")           

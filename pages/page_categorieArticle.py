@@ -104,6 +104,8 @@ class PageCategorieArticle(ctk.CTkFrame):
 
         columns = ("idca", "designationcat")
         self.treeview = ttk.Treeview(self.tree_container, columns=columns, show='headings')
+        self.treeview.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.treeview.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         self.treeview.heading("idca", text="ID")
         self.treeview.column("idca", width=50, anchor="center")
@@ -120,8 +122,9 @@ class PageCategorieArticle(ctk.CTkFrame):
             self.treeview.delete(i)
         try:
             self.cursor.execute("SELECT idca, designationcat FROM tb_categoriearticle ORDER BY idca")
-            for row in self.cursor.fetchall():
-                self.treeview.insert('', 'end', values=row)
+            for idx, row in enumerate(self.cursor.fetchall()):
+                tag = "even" if idx % 2 == 0 else "odd"
+                self.treeview.insert('', 'end', values=row, tags=(tag,))
         except Exception as e:
             print(f"Erreur de chargement: {e}")
 

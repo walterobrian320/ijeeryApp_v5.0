@@ -32,6 +32,8 @@ class PageDetailFacture(ctk.CTkToplevel):
         
         cols = ("code", "designation", "qte", "prix", "total")
         self.tree = ttk.Treeview(container, columns=cols, show="headings")
+        self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         # --- CONFIGURATION DES COLONNES ---
         self.tree.heading("code", text="Code")
@@ -142,15 +144,16 @@ class PageDetailFacture(ctk.CTkToplevel):
             """
             cursor.execute(sql, (idvente,))
             
-            for r in cursor.fetchall():
+            for idx, r in enumerate(cursor.fetchall()):
                 # Formatage avec séparateur de milliers pour les prix
+                zebra_tag = "even" if idx % 2 == 0 else "odd"
                 self.tree.insert("", "end", values=(
                     r[0], 
                     r[1], 
                     r[2], 
                     f"{float(r[3]):,.0f}", 
                     f"{float(r[4]):,.0f}"
-                ))
+                ), tags=(zebra_tag,))
             
             conn.close()
         except Exception as e:
@@ -503,7 +506,7 @@ class PageListeFacture(ctk.CTkFrame):
         # 1. Recherche textuelle existante
         self.entry_search = ctk.CTkEntry(search_frame, width=250, placeholder_text="Facture, Client...")
         self.entry_search.pack(side="left", padx=5, pady=10)
-        self.entry_search.bind("<Return>", lambda e: self.charger_donnees())
+        self.entry_search.bind("<KeyRelease>", lambda e: self.charger_donnees())
 
         # 2. Sélecteur Date Début
         ctk.CTkLabel(search_frame, text="Du:").pack(side="left", padx=2)
@@ -544,6 +547,8 @@ class PageListeFacture(ctk.CTkFrame):
         
         columns = ("date", "n_facture", "client", "montant", "statut", "user")
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+        self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         # Configurer les colonnes avec largeurs appropriées
         col_widths = {"date": 150, "n_facture": 100, "client": 150, "montant": 100, "statut": 100, "user": 100}
@@ -578,6 +583,12 @@ class PageListeFacture(ctk.CTkFrame):
         for item in self.tree.get_children(): self.tree.delete(item)
         
         val = self.entry_search.get().strip()
+        val_num = None
+        if val:
+            try:
+                val_num = float(val.replace(" ", "").replace(".", "").replace(",", "."))
+            except Exception:
+                val_num = None
         d1 = self.date_debut.get_date()
         d2 = self.date_fin.get_date()
         statut_filtre = self.combo_statut.get()
@@ -593,10 +604,25 @@ class PageListeFacture(ctk.CTkFrame):
                 FROM tb_vente v
                 LEFT JOIN tb_client c ON v.idclient = c.idclient
                 LEFT JOIN tb_users u ON v.iduser = u.iduser
-                WHERE (v.refvente ILIKE %s OR c.nomcli ILIKE %s)
+                WHERE (
+                    v.refvente ILIKE %s
+                    OR c.nomcli ILIKE %s
+                    OR CAST(COALESCE(v.totmtvente, 0) AS TEXT) ILIKE %s
+                    OR CAST(COALESCE(v.totmtvente, 0) AS TEXT) ILIKE %s
+                    OR (%s IS NOT NULL AND COALESCE(v.totmtvente, 0) = %s)
+                )
                 AND v.dateregistre::date BETWEEN %s AND %s
             """
-            params = [f"%{val}%", f"%{val}%", d1, d2]
+            params = [
+                f"%{val}%",
+                f"%{val}%",
+                f"%{val}%",
+                f"%{val.replace(',', '.')}%",
+                val_num,
+                val_num,
+                d1,
+                d2
+            ]
             
             # Ajouter filtre statut si différent de "Tout"
             if statut_filtre != "Tout":
@@ -609,8 +635,9 @@ class PageListeFacture(ctk.CTkFrame):
             rows = cursor.fetchall()
             
             total = 0
-            for r in rows:
+            for idx, r in enumerate(rows):
                 mt_format = self.formater_montant(r[3]) # Utilisation de la fonction
+                zebra_tag = "even" if idx % 2 == 0 else "odd"
                 self.tree.insert("", "end", iid=str(r[6]), values=(
                     r[0].strftime("%d/%m/%Y %H:%M:%S"), 
                     r[1], 
@@ -618,11 +645,11 @@ class PageListeFacture(ctk.CTkFrame):
                     mt_format, 
                     r[4],  # Statut
                     r[5]   # User
-                ))
+                ), tags=(zebra_tag,))
                 total += float(r[3])
         
             self.lbl_count.configure(text=f"Total factures : {len(rows)}")
-            self.lbl_total_mt.configure(text=f"Montant Total : {self.formater_montant(total)} FG")
+            self.lbl_total_mt.configure(text=f"Montant Total en Ar: {self.formater_montant(total)}")
         finally:
             conn.close()
 
@@ -648,7 +675,7 @@ class PageListeFacture(ctk.CTkFrame):
             messagebox.showwarning("Vide", "Rien à exporter")
             return
 
-        df = pd.DataFrame(lignes, columns=["Date", "N° Facture", "Client", "Montant", "Vendeur"])
+        df = pd.DataFrame(lignes, columns=["Date", "N° Facture", "Client", "Montant", "Statut", "Vendeur"])
         
         file_path = filedialog.asksaveasfilename(
             defaultextension=".xlsx",

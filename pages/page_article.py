@@ -29,6 +29,7 @@ class PageArticle(ctk.CTkFrame):
         self.photo_label = None
         self.magasins_dict = {} 
         self.categories_dict = {}
+        self.all_articles = []
         self.toplevel_unite = None 
         
         self.grid_columnconfigure(0, weight=1)
@@ -117,9 +118,9 @@ class PageArticle(ctk.CTkFrame):
         search_frame.grid(row=1, column=0, columnspan=2, padx=10, pady=(5, 0), sticky="ew")
         
         ctk.CTkLabel(search_frame, text="🔍 Rechercher article:").pack(side="left", padx=10)
-        self.entry_search = ctk.CTkEntry(search_frame, placeholder_text="Saisissez un nom...")
+        self.entry_search = ctk.CTkEntry(search_frame, placeholder_text="Saisissez un designation...")
         self.entry_search.pack(side="left", fill="x", expand=True, padx=10, pady=5)
-        self.entry_search.bind("<KeyRelease>", lambda e: self.filter_articles())
+        self.entry_search.bind("<KeyRelease>", self.filter_articles)
 
         # --- SECTION TREEVIEW + SCROLLBAR ---
         tree_container = ctk.CTkFrame(self)
@@ -132,6 +133,8 @@ class PageArticle(ctk.CTkFrame):
         style.configure("Treeview.Heading", background="#E8E8E8", foreground="#000000", font=('Segoe UI', 8, 'bold'))
         
         self.tree = ttk.Treeview(tree_container, columns=("ID", "Désignation", "Catégorie", "Magasin", "Alerte", "Alerte Dépôt"), show="headings")
+        self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree.tag_configure("odd", background="#E5F0F8", foreground="#000000")
         self.tree.heading("ID", text="ID")
         self.tree.heading("Désignation", text="Désignation")
         self.tree.heading("Catégorie", text="Catégorie")
@@ -153,15 +156,24 @@ class PageArticle(ctk.CTkFrame):
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
         self.tree.bind("<Double-1>", self.ouvrir_gestion_unites)
 
-    def filter_articles(self):
-        """Filtre les résultats du treeview selon la saisie"""
-        search_term = self.entry_search.get().lower()
+    def filter_articles(self, event=None):
+        """Filtre les résultats du treeview selon la saisie."""
+        search_term = self.entry_search.get().strip().lower()
+        if not search_term:
+            filtered = self.all_articles
+        else:
+            filtered = [
+                article for article in self.all_articles
+                if search_term in str(article[1]).lower()
+            ]
+        self._populate_tree(filtered)
+
+    def _populate_tree(self, articles):
         for item in self.tree.get_children():
-            # On vérifie la colonne Désignation (index 1)
-            if search_term in str(self.tree.item(item)['values'][1]).lower():
-                self.tree.reattach(item, '', 'end')
-            else:
-                self.tree.detach(item)
+            self.tree.delete(item)
+        for idx, article in enumerate(articles):
+            tag = "even" if idx % 2 == 0 else "odd"
+            self.tree.insert("", "end", values=article, tags=(tag,))
 
     def ajouter_article(self):
         designation = self.entry_designation.get().strip()
@@ -234,8 +246,6 @@ class PageArticle(ctk.CTkFrame):
         conn = self.connect_db()
         if not conn: return
         try:
-            for item in self.tree.get_children(): 
-                self.tree.delete(item)
             cursor = conn.cursor()
             query = """
                 SELECT a.idarticle, a.designation, c.designationcat, m.designationmag, a.alert, a.alertdepot
@@ -245,8 +255,8 @@ class PageArticle(ctk.CTkFrame):
                 WHERE a.deleted = 0 ORDER BY a.designation
             """
             cursor.execute(query)
-            for article in cursor.fetchall():
-                self.tree.insert("", "end", values=article)
+            self.all_articles = cursor.fetchall()
+            self.filter_articles()
             cursor.close()
             conn.close()
         except Exception as err:

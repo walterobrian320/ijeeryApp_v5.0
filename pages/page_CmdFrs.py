@@ -80,6 +80,18 @@ class PageCommandeFrs(ctk.CTkFrame):
             return float(texte_clean)
         except:
             return 0.0
+
+    def _configure_table_alternating_colors(self, tree):
+        """Configure les tags de couleurs alternées pour un Treeview."""
+        tree.tag_configure("row_even", background="#FFFFFF")
+        tree.tag_configure("row_odd", background="#F3F7FF")
+
+    def _refresh_table_alternating_colors(self, tree):
+        """Réapplique les couleurs alternées sur les lignes existantes."""
+        for idx, item in enumerate(tree.get_children()):
+            tags = tuple(t for t in tree.item(item, "tags") if t not in ("row_even", "row_odd"))
+            alt_tag = "row_even" if idx % 2 == 0 else "row_odd"
+            tree.item(item, tags=tags + (alt_tag,))
     
     def nombre_en_lettres(self, nombre):
         """Convertit un nombre en lettres (pour le montant)"""
@@ -292,6 +304,7 @@ class PageCommandeFrs(ctk.CTkFrame):
         # Treeview : Hauteur réduite à 6 lignes pour gagner de l'espace
         colonnes = ("Article", "Unité", "Qté Cmd", "Prix Unit.", "Qté Livrée", "Péremption", "Total")
         self.tree = ttk.Treeview(frame_tree, columns=colonnes, show="headings", height=6)
+        self._configure_table_alternating_colors(self.tree)
         # Ajoutez l'en-tête pour Péremption
         self.tree.heading("Péremption", text="Péremption")
         self.tree.column("Péremption", width=100)
@@ -714,21 +727,20 @@ class PageCommandeFrs(ctk.CTkFrame):
         tree_frame = ctk.CTkFrame(main_frame)
         tree_frame.pack(fill="both", expand=True, pady=(0, 10))
         
-        colonnes = ("ID", "Référence", "Date", "Fournisseur", "Description", "Statut")
+        colonnes = ("ID", "Référence", "Date", "Fournisseur", "Statut")
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=12)
+        self._configure_table_alternating_colors(tree)
         
         tree.heading("ID", text="ID")
         tree.heading("Référence", text="Référence")
         tree.heading("Date", text="Date")
         tree.heading("Fournisseur", text="Fournisseur")
-        tree.heading("Description", text="Description")
         tree.heading("Statut", text="Statut")
         
         tree.column("ID", width=0, stretch=False)
         tree.column("Référence", width=120, anchor='w')
         tree.column("Date", width=100, anchor='w')
         tree.column("Fournisseur", width=200, anchor='w')
-        tree.column("Description", width=250, anchor='w')
         tree.column("Statut", width=100, anchor='center')
         
         # Style pour les tags
@@ -782,7 +794,7 @@ class PageCommandeFrs(ctk.CTkFrame):
                 resultats = cursor.fetchall()
                 
                 for row in resultats:
-                    date_str = row[2].strftime("%d/%m/%Y") if row[2] else ""
+                    date_str = row[2].strftime("%d/%m/%Y %H:%M") if row[2] else ""
                     total_lignes = row[5] if row[5] else 0
                     lignes_completes = row[6] if row[6] else 0
                     
@@ -795,8 +807,9 @@ class PageCommandeFrs(ctk.CTkFrame):
                         tag = 'incomplet'
                     
                     tree.insert('', 'end', 
-                              values=(row[0], row[1], date_str, row[3] or "", row[4] or "", statut),
+                              values=(row[0], row[1], date_str, row[3] or "", statut),
                               tags=(tag,))
+                self._refresh_table_alternating_colors(tree)
                 
                 label_count.configure(text=f"Nombre de commandes : {len(resultats)}")
                 
@@ -911,6 +924,7 @@ class PageCommandeFrs(ctk.CTkFrame):
                     date_peremption_str,               # Péremption
                     self.formater_nombre(total)        # Total
                 ))
+            self._refresh_table_alternating_colors(self.tree)
             
             self.calculer_total()
         
@@ -951,6 +965,7 @@ class PageCommandeFrs(ctk.CTkFrame):
         # COLONNES MODIFIÉES : Ajout de ID_Unite (caché) pour corriger le problème d'idunite
         colonnes = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité") 
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
+        self._configure_table_alternating_colors(tree)
         
         tree.heading("ID_Article", text="ID_Article") 
         tree.heading("ID_Unite", text="ID_Unite")     
@@ -1004,6 +1019,7 @@ class PageCommandeFrs(ctk.CTkFrame):
                         # row: [idarticle, codearticle, designation, designationunite, idunite]
                         # Insertion de 5 valeurs: ID_Article, ID_Unite, Code, Désignation, Unité
                         tree.insert('', 'end', values=(row[0], row[4], row[1], row[2], row[3])) # Remplir la colonne ID_Unite avec row[4]
+                self._refresh_table_alternating_colors(tree)
                 
                 label_count.configure(text=f"Nombre d'articles : {len(resultats)}")
                 
@@ -1105,6 +1121,7 @@ class PageCommandeFrs(ctk.CTkFrame):
                 date_p,                                   # Péremption
                 self.formater_nombre(total)              # Total
             ))
+            self._refresh_table_alternating_colors(self.tree)
 
             # Ajout à la liste mémoire pour la DB
             self.items_commande.append({
@@ -1166,6 +1183,7 @@ class PageCommandeFrs(ctk.CTkFrame):
             
         index = self.tree.index(selection[0])
         self.tree.delete(selection[0])
+        self._refresh_table_alternating_colors(self.tree)
         self.items_commande.pop(index)
         self.calculer_total()
         
@@ -1297,16 +1315,17 @@ class PageCommandeFrs(ctk.CTkFrame):
             
                 # 1. Insertion de la commande principale
                 query_commande = """
-                    INSERT INTO tb_commande (refcom, datecom, iduser, idfrs, descriptioncom, totcmd, deleted)
-                    VALUES (%s, %s, %s, %s, %s, %s, 0)
+                    INSERT INTO tb_commande (refcom, datecom, iduser, idfrs, descriptioncom, datemodif, totcmd, deleted)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 0)
                     RETURNING idcom
                 """
                 cursor.execute(query_commande, (
                     self.entry_ref.get(), 
-                    datetime.now().date(),  # CORRECTION: Utiliser .date() au lieu de strftime
+                    datetime.now(),  # CORRECTION: Utiliser .date() au lieu de strftime
                     self.iduser, 
                     idfrs, 
                     description,
+                    datetime.now(), #par défaut datmodif  = dateEntré
                     total_commande
                 ))
                 idcom = cursor.fetchone()[0]
@@ -1370,6 +1389,7 @@ class PageCommandeFrs(ctk.CTkFrame):
         
         for item in self.tree.get_children():
             self.tree.delete(item)
+        self._refresh_table_alternating_colors(self.tree)
             
         self.entry_article.configure(state="normal")
         self.entry_article.delete(0, "end")

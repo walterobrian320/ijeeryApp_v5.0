@@ -110,6 +110,10 @@ class PageSuiviCommande(ctk.CTkFrame):
 
         # Style pour les alertes (rouge)
         self.tree.tag_configure("LOW_STOCK", foreground="red", font=('Arial', 10, 'bold'))
+        self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
+        self.tree.tag_configure("LOW_STOCK_EVEN", background="#FFFFFF", foreground="red", font=('Arial', 10, 'bold'))
+        self.tree.tag_configure("LOW_STOCK_ODD", background="#E6EFF8", foreground="red", font=('Arial', 10, 'bold'))
 
     def connect_db(self):
         try:
@@ -414,14 +418,17 @@ class PageSuiviCommande(ctk.CTkFrame):
                 alerte_active = False
                 donnees_pour_export = []
                 
-                for art in articles:
+                for idx, art in enumerate(articles):
                     code, nom, unite, stock, alert, frs = art
                     
                     stock = max(0, float(stock or 0))
                     stock_formate = "{:.2f}".format(stock)
                     is_low = stock <= alert
                     
-                    tags = ("LOW_STOCK",) if is_low else ()
+                    if is_low:
+                        tags = ("LOW_STOCK_EVEN",) if idx % 2 == 0 else ("LOW_STOCK_ODD",)
+                    else:
+                        tags = ("even",) if idx % 2 == 0 else ("odd",)
                     
                     # Insérer dans le Treeview
                     self.after(0, lambda c=code, n=nom, u=unite, s=stock_formate, a=alert, f=frs, t=tags:
@@ -516,7 +523,7 @@ class PageSuiviCommande(ctk.CTkFrame):
         alerte_active = False
         compteur = 0
         
-        for data in self.donnees_completes:
+        for idx, data in enumerate(self.donnees_completes):
             code, nom, unite, stock, alert, frs = data
             
             # Recherche dans tous les champs
@@ -528,7 +535,10 @@ class PageSuiviCommande(ctk.CTkFrame):
                 stock_formate = "{:.2f}".format(float(stock))
                 is_low = stock <= alert
                 
-                tags = ("LOW_STOCK",) if is_low else ()
+                if is_low:
+                    tags = ("LOW_STOCK_EVEN",) if idx % 2 == 0 else ("LOW_STOCK_ODD",)
+                else:
+                    tags = ("even",) if idx % 2 == 0 else ("odd",)
                 self.tree.insert("", "end", values=(code, nom, unite, stock_formate, alert, frs), tags=tags)
                 
                 compteur += 1
@@ -557,13 +567,16 @@ class PageSuiviCommande(ctk.CTkFrame):
         
         alerte_active = False
         
-        for data in self.donnees_completes:
+        for idx, data in enumerate(self.donnees_completes):
             code, nom, unite, stock, alert, frs = data
             
             stock_formate = "{:.2f}".format(float(stock))
             is_low = stock <= alert
             
-            tags = ("LOW_STOCK",) if is_low else ()
+            if is_low:
+                tags = ("LOW_STOCK_EVEN",) if idx % 2 == 0 else ("LOW_STOCK_ODD",)
+            else:
+                tags = ("even",) if idx % 2 == 0 else ("odd",)
             self.tree.insert("", "end", values=(code, nom, unite, stock_formate, alert, frs), tags=tags)
             
             if is_low:

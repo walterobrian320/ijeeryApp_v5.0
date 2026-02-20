@@ -261,8 +261,10 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         self.grid_rowconfigure(2, weight=0)  # Boutons action - taille fixe
         self.grid_rowconfigure(3, weight=1)  # Tableau articles - grandit avec la fenêtre
         self.grid_rowconfigure(4, weight=0)  # Totaux - pas de resize
+        self.grid_rowconfigure(5, weight=0)  # Barre d'actions
         
         self.setup_ui()
+        self.bind("<Configure>", self._on_resize_vente_layout)
         self.generer_reference()
         self.charger_magasins()
         self.charger_client()
@@ -757,7 +759,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
             
             # Insérer dans le Treeview
             compteur = 0
-            for code, data in articles_dict.items():
+            for idx, (code, data) in enumerate(articles_dict.items()):
                 valeurs = [
                     code, 
                     data['designation'], 
@@ -771,18 +773,21 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
             
                 # Ajouter le total
                 valeurs.append(self.formater_nombre(data['total']))
+                zebra_tag = "even" if idx % 2 == 0 else "odd"
             
                 # TAG POUR ALERTE STOCK BAS
                 if data['total'] <= 0:
-                    self.tree.insert("", "end", values=valeurs, tags=("stock_bas",))
+                    self.tree.insert("", "end", values=valeurs, tags=(zebra_tag, "stock_bas"))
                 else:
-                    self.tree.insert("", "end", values=valeurs)
+                    self.tree.insert("", "end", values=valeurs, tags=(zebra_tag,))
                 
                 compteur += 1
                 if compteur % 100 == 0:
                     print(f"Insertion: {compteur} articles...")
         
             # Style pour les stocks bas
+            self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+            self.tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
             self.tree.tag_configure("stock_bas", background="#ffebee", foreground="#c62828")
         
             # Mise à jour des infos
@@ -810,7 +815,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         # --- Frame principale d'en-tête (Lot 1) ---
         header_frame = ctk.CTkFrame(self)
         header_frame.grid(row=0, column=0, padx=2, pady=2, sticky="ew")
-        header_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7), weight=1)
+        header_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7, 8, 9), weight=1)
     
         # Référence
         ctk.CTkLabel(header_frame, text="N° Facture:").grid(row=0, column=0, padx=2, pady=2, sticky="w")
@@ -849,6 +854,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                                     command=self.open_recherche_proforma, width=130,
                                     fg_color="#388e3c", hover_color="#2e7d32")
         self.btn_charger_proforma.grid(row=1, column=6, padx=2, pady=2, sticky="ew") # Col 6
+        self.btn_charger_proforma.grid_remove()  # Cacher le bouton Proforma
         
         # Bouton Charger facture (Position ajustée)
         # btn_charger_bs = ctk.CTkButton(header_frame, text="📂 Charger Facture", 
@@ -857,14 +863,17 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         # btn_charger_bs.grid(row=1, column=7, padx=2, pady=2, sticky="ew") # Col 7 (Position d'origine)
     
         # Désignation (Colspan ajusté)
-        ctk.CTkLabel(header_frame, text="Désignation:").grid(row=1, column=0, padx=2, pady=2, sticky="w")
+        self.lbl_designation = ctk.CTkLabel(header_frame, text="Désignation:")
+        self.lbl_designation.grid(row=1, column=0, padx=2, pady=2, sticky="w")
+        self.lbl_designation.grid_remove()  # Cacher le label Désignation en haut
         self.entry_designation = ctk.CTkEntry(header_frame, width=750)
         self.entry_designation.grid(row=1, column=1, columnspan=5, padx=2, pady=2, sticky="ew") # Colspan 5 (1 à 5)
+        self.entry_designation.grid_remove()  # Cacher l'entry Désignation en haut
 
         # --- Frame d'ajout de Détail (Lot 2) ---
         detail_frame = ctk.CTkFrame(self)
         detail_frame.grid(row=1, column=0, padx=0, pady=(0, 5), sticky="ew")
-        detail_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6), weight=1)
+        detail_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7), weight=1)
         
         # Article
         ctk.CTkLabel(detail_frame, text="Article:").grid(row=0, column=0, padx=2, pady=2, sticky="w")
@@ -911,6 +920,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         self.btn_annuler_mod = ctk.CTkButton(detail_frame, text="✖️ Annuler Modif.", command=self.reset_detail_form, 
                                             fg_color="#d32f2f", hover_color="#b71c1c", state="disabled")
         self.btn_annuler_mod.grid(row=1, column=7, padx=2, pady=2, sticky="w")
+        self.btn_annuler_mod.grid_remove()  # Cacher le bouton Annuler modification
         
         # Dans create_widgets (vers la ligne 180-200)
         self.notif_stock_depot = ctk.CTkLabel(
@@ -930,21 +940,15 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                                      command=self.ouvrir_suivi_depot,
                                      fg_color="#607D8B", hover_color="#455A64")
         self.btn_suivi_depot.grid(row=0, column=9, padx=2, pady=2) # Ajustez la colonne selon votre grille
+        self.btn_suivi_depot.grid_remove()  # Cacher le bouton
 
         # Lancer la vérification en arrière-plan
         self.verifier_alerte_stock_silencieuse()
 
-        # ---- Lot 2.1 Frame_Ajout
-        
-        frame_ajout = ctk.CTkFrame(self)
-        frame_ajout.grid(row=2, column=0, padx=0, pady=(0, 5), sticky="ew")
-        frame_ajout.grid_columnconfigure(0, weight=1)
-        frame_ajout.grid_rowconfigure(0, weight=1)
-        
-        # Boutons d'action
-        self.btn_ajouter = ctk.CTkButton(frame_ajout, text="➕ Ajouter", command=self.valider_detail, 
+        # Bouton d'action principal sur la ligne des infos article
+        self.btn_ajouter = ctk.CTkButton(detail_frame, text="➕ Ajouter", command=self.valider_detail, 
                                         fg_color="#2e7d32", hover_color="#1b5e20", width=150)
-        self.btn_ajouter.grid(row=2, column=7, padx=2, pady=2, sticky="w")
+        self.btn_ajouter.grid(row=1, column=7, padx=2, pady=2, sticky="w")
         
 
         # --- Treeview pour les Détails (Lot 3) ---
@@ -962,6 +966,8 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         # Colonnes AJOUTÉES: "Montant"
         colonnes = ("ID_Article", "ID_Unite", "ID_Magasin", "Code Article", "Désignation", "Magasin", "Unité", "Remise (Ar)", "Prix Unitaire", "Quantité Vente", "Montant")
         self.tree_details = ttk.Treeview(tree_frame, columns=colonnes, show='headings')
+        self.tree_details.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree_details.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         for col in colonnes:
             self.tree_details.heading(col, text=col.replace('_', ' ').title())
@@ -978,10 +984,13 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         
         # Scrollbar
         scrollbar = ctk.CTkScrollbar(tree_frame, command=self.tree_details.yview)
+        scrollbar_x = ctk.CTkScrollbar(tree_frame, orientation="horizontal", command=self.tree_details.xview)
         self.tree_details.configure(yscrollcommand=scrollbar.set)
+        self.tree_details.configure(xscrollcommand=scrollbar_x.set)
         
         self.tree_details.grid(row=0, column=0, sticky="nsew", padx=(2, 2), pady=1)
         scrollbar.grid(row=0, column=1, sticky="ns", padx=(0, 2), pady=1)
+        scrollbar_x.grid(row=1, column=0, sticky="ew", padx=(2, 2), pady=(0, 1))
         
         # Bindings
         self.tree_details.bind('<Double-1>', self.modifier_detail)
@@ -1004,7 +1013,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         right_total_frame = ctk.CTkFrame(totals_frame, fg_color="transparent")
         right_total_frame.grid(row=0, column=1, rowspan=1, padx=2, pady=2, sticky="ne")
         
-        ctk.CTkLabel(right_total_frame, text="TOTAL GÉNÉRAL:", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"), fg_color="transparent").pack(side="left", padx=2, pady=2)
+        ctk.CTkLabel(right_total_frame, text="TOTAL GÉNÉRAL en Ar: ", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"), fg_color="transparent").pack(side="left", padx=2, pady=2)
         self.label_total_general = ctk.CTkLabel(right_total_frame, text=self.formater_nombre(0.0), 
                                                font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"), text_color="#d32f2f")
         self.label_total_general.pack(side="right", padx=2, pady=2)
@@ -1022,11 +1031,8 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         # --- Frame de Boutons (Lot 5 - Anciennement Lot 4) ---
         btn_action_frame = ctk.CTkFrame(self)
         btn_action_frame.grid(row=5, column=0, padx=10, pady=10, sticky="ew")
-        btn_action_frame.grid_columnconfigure((0, 1, 2), weight=1)
-        
-        self.btn_supprimer_ligne = ctk.CTkButton(btn_action_frame, text="🗑️ Supprimer Ligne", command=self.supprimer_detail, 
-                                                 fg_color="#d32f2f", hover_color="#b71c1c")
-        self.btn_supprimer_ligne.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+        btn_action_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=0)
+        btn_action_frame.grid_columnconfigure(5, weight=1)
         
         self.btn_nouveau_bs = ctk.CTkButton(btn_action_frame, text="📄 Nouvelle Facture", 
                        command=self.nouveau_facture, 
@@ -1034,22 +1040,25 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         self.btn_nouveau_bs.grid(row=0, column=0, padx=5, pady=5, sticky="w")
         
         self.btn_creer_avoir = ctk.CTkButton(
-            self, 
-            text="Créer Avoir", 
+            btn_action_frame, 
+            text="🧾 Créer Avoir", 
             command=self.tentative_ouverture_avoir, 
             fg_color="#e11d48"
         )
-
-        # Ajustez row et column selon votre interface existante
-        self.btn_creer_avoir.grid(row=10, column=0, pady=10, padx=10, sticky="ew")
+        self.btn_creer_avoir.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+        
+        self.btn_supprimer_ligne = ctk.CTkButton(btn_action_frame, text="🗑️ Supprimer Ligne", command=self.supprimer_detail, 
+                                                 fg_color="#d32f2f", hover_color="#b71c1c")
+        self.btn_supprimer_ligne.grid(row=0, column=2, padx=5, pady=5, sticky="w")
 
         # Ajouter l'appel à la vérification des droits à la fin de setup_ui
         self.entry_remise.bind("<Button-1>", lambda e: self.verifier_droits_admin() if str(self.entry_remise.cget("state")) == "disabled" else None)
         
-        btn_creer_proforma = ctk.CTkButton(btn_action_frame, text="📄 Créer Proforma", 
+        self.btn_creer_proforma = ctk.CTkButton(btn_action_frame, text="📄 Créer Proforma", 
                                command=self._ouvrir_page_proforma, 
                                fg_color="#29CC00", hover_color="#00CC7A")
-        btn_creer_proforma.grid(row=0, column=2, padx=5, pady=5, sticky="w")    
+        self.btn_creer_proforma.grid(row=0, column=2, padx=5, pady=5, sticky="w")
+        self.btn_creer_proforma.grid_remove()  # Cacher le bouton "Créer Proforma"
 
         # self.btn_imprimer = ctk.CTkButton(btn_action_frame, text="🖨️ Imprimer Facture", command=self.open_impression_dialogue, 
                                           # fg_color="#00695c", hover_color="#004d40", state="disabled")
@@ -1057,10 +1066,39 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         
         self.btn_enregistrer = ctk.CTkButton(btn_action_frame, text="💾 Enregistrer la Facture", command=self._on_enregistrer_click, 
                              font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"))
-        self.btn_enregistrer.grid(row=0, column=4, padx=5, pady=5, sticky="e")
+        self.btn_enregistrer.grid(row=0, column=5, padx=5, pady=5, sticky="e")
 
         # Initialisation des totaux
         self.calculer_totaux()
+
+    def _on_resize_vente_layout(self, event=None):
+        """Ajuste quelques éléments UI lors du redimensionnement."""
+        try:
+            if hasattr(self, "label_total_lettres"):
+                # Garde le texte lisible sans sortir du cadre.
+                new_wrap = max(300, self.winfo_width() - 420)
+                self.label_total_lettres.configure(wraplength=new_wrap)
+
+            if hasattr(self, "tree_details") and self.tree_details.winfo_exists():
+                total_width = self.tree_details.winfo_width()
+                # Ajuste dynamiquement le nombre de lignes visibles pour laisser
+                # toujours de la place aux totaux/boutons en bas.
+                available_h = max(180, self.winfo_height() - 380)
+                row_height = 24
+                visible_rows = max(6, min(22, int(available_h / row_height)))
+                self.tree_details.configure(height=visible_rows)
+
+                if total_width > 600:
+                    self.tree_details.column("Désignation", width=max(180, int(total_width * 0.22)))
+                    self.tree_details.column("Magasin", width=max(120, int(total_width * 0.14)))
+                    self.tree_details.column("Code Article", width=max(110, int(total_width * 0.11)))
+                    self.tree_details.column("Unité", width=max(90, int(total_width * 0.09)))
+                    self.tree_details.column("Prix Unitaire", width=max(110, int(total_width * 0.11)))
+                    self.tree_details.column("Quantité Vente", width=max(110, int(total_width * 0.11)))
+                    self.tree_details.column("Remise (Ar)", width=max(100, int(total_width * 0.10)))
+                    self.tree_details.column("Montant", width=max(120, int(total_width * 0.12)))
+        except Exception:
+            pass
         
     def verifier_droits_admin(self):
         """Demande un code d'autorisation pour activer la Remise et l'Avoir."""
@@ -1184,10 +1222,23 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         frame.pack(fill="both", expand=True, padx=10, pady=10)
 
         ctk.CTkLabel(frame, text="Rechercher un client :", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold")).pack(pady=10)
-    
-        # Entrée de recherche
-        entry_search = ctk.CTkEntry(frame, placeholder_text="Nom client...")
-        entry_search.pack(fill="x", padx=10, pady=10)
+
+        # Entrée de recherche + filtre type
+        top_filter_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        top_filter_frame.pack(fill="x", padx=10, pady=10)
+        top_filter_frame.grid_columnconfigure(0, weight=1)
+
+        entry_search = ctk.CTkEntry(top_filter_frame, placeholder_text="Nom client...")
+        entry_search.grid(row=0, column=0, padx=(0, 8), pady=0, sticky="ew")
+
+        type_filter_combo = ctk.CTkComboBox(
+            top_filter_frame,
+            values=["Client à crédit", "Client au comptant", "Tous les types"],
+            width=180,
+            state="readonly"
+        )
+        type_filter_combo.set("Client à crédit")
+        type_filter_combo.grid(row=0, column=1, padx=0, pady=0, sticky="e")
 
         # 1. Définition du Style d'abord
         style = ttk.Style()
@@ -1195,20 +1246,24 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         style.configure("ClientTreeview.Treeview.Heading", font=('Segoe UI', 8, 'bold'))
 
         # 2. Création de l'objet Treeview (INDISPENSABLE avant la configuration)
-        colonnes = ("ID", "Nom Client")
+        colonnes = ("ID", "Nom Client", "Contact", "Adresse")
         tree = ttk.Treeview(frame, columns=colonnes, show="headings", height=15, style="ClientTreeview.Treeview")
+        tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
 
         # 3. Configuration des colonnes et en-têtes
         tree.heading("ID", text="ID")
         tree.heading("Nom Client", text="Nom Client")
+        tree.heading("Contact", text="Contact")
+        tree.heading("Adresse", text="Adresse")
         tree.column("ID", width=50, anchor="center") # Évitez width=0 si vous voulez debugger au début
-        tree.column("Nom Client", width=300, anchor="w")
+        tree.column("Nom Client", width=220, anchor="w")
+        tree.column("Contact", width=150, anchor="w")
+        tree.column("Adresse", width=280, anchor="w")
         tree.pack(fill="both", expand=True, pady=10)
 
-        # 4. Fonction de chargement des données
-        def charger_clients(event=None): # Ajout de event=None pour la liaison clavier
-            filtre = entry_search.get()
-            # Nettoyage actuel
+        def charger_clients(_event=None):
+            filtre = entry_search.get().strip()
             for item in tree.get_children():
                 tree.delete(item)
 
@@ -1217,56 +1272,43 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
             try:
                 cursor = conn.cursor()
                 filtre_like = f"%{filtre}%"
-                # Note: ILIKE est spécifique à PostgreSQL. Utilisez LIKE pour SQLite/MySQL
+                selected_type = type_filter_combo.get()
+                type_condition = ""
+                if selected_type == "Client à crédit":
+                    type_condition = " AND COALESCE(idtypeclient, 1) = 2 "
+                elif selected_type == "Client au comptant":
+                    type_condition = " AND COALESCE(idtypeclient, 1) = 1 "
+
                 cursor.execute("""
-                    SELECT idclient, nomcli FROM tb_client 
+                    SELECT
+                        idclient,
+                        nomcli,
+                        CASE
+                            WHEN COALESCE(idtypeclient, 1) = 1 AND (contactcli IS NULL OR TRIM(contactcli) = '')
+                                THEN 'Aucun contact enregistré'
+                            ELSE COALESCE(NULLIF(TRIM(contactcli), ''), 'Aucun contact enregistré')
+                        END AS contact_affiche,
+                        CASE
+                            WHEN COALESCE(idtypeclient, 1) = 1 AND (adressecli IS NULL OR TRIM(adressecli) = '')
+                                THEN 'Aucun adrresse enregistré'
+                            ELSE COALESCE(NULLIF(TRIM(adressecli), ''), 'Aucun adrresse enregistré')
+                        END AS adresse_affiche
+                    FROM tb_client
                     WHERE deleted = 0 AND nomcli ILIKE %s
-                    ORDER BY nomcli
-                """, (filtre_like,))
-            
-                clients = cursor.fetchall()
-                for row in clients:
-                    tree.insert("", "end", values=row)
-            except Exception as e:
-                messagebox.showerror("Erreur", f"Erreur lors du chargement: {str(e)}")
-            finally:
-                conn.close()
-
-        # 5. Liaison de la touche clavier pour rechercher en tapant
-        entry_search.bind("<KeyRelease>", charger_clients)
-
-        # 6. Chargement initial des données au lancement de la fenêtre
-        charger_clients()
-        
-        
-
-        # Fonction chargement
-        def charger_clients(filtre=""):
-            for item in tree.get_children():
-                tree.delete(item)
-
-            conn = self.connect_db()
-            if not conn: return
-            try:
-                cursor = conn.cursor()
-                filtre_like = f"%{filtre}%"
-                cursor.execute("""
-                    SELECT idclient, nomcli FROM tb_client 
-                    WHERE deleted = 0 AND nomcli ILIKE %s
+                """ + type_condition + """
                     ORDER BY nomcli
                 """, (filtre_like,))
                 clients = cursor.fetchall()
-                for id_client, nom_client in clients:
-                    tree.insert("", "end", values=(id_client, nom_client))
+                for idx, (id_client, nom_client, contact, adresse) in enumerate(clients):
+                    zebra_tag = "even" if idx % 2 == 0 else "odd"
+                    tree.insert("", "end", values=(id_client, nom_client, contact, adresse), tags=(zebra_tag,))
             except Exception as e:
                 messagebox.showerror("Erreur", f"Erreur lors du chargement des clients: {str(e)}")
             finally:
                 conn.close()
 
-        def rechercher(*args):
-            charger_clients(entry_search.get())
-
-        entry_search.bind('<KeyRelease>', rechercher)
+        entry_search.bind('<KeyRelease>', charger_clients)
+        type_filter_combo.configure(command=lambda _v: charger_clients())
 
         def valider_selection():
             selection = tree.selection()
@@ -1466,6 +1508,8 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
 
         colonnes = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité", "Prix Unitaire", "Stock")
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
+        tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
     
         style = ttk.Style()
         style.configure("Treeview", rowheight=22, font=('Segoe UI', 8)) 
@@ -1652,7 +1696,8 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                 articles = cursor.fetchall()
 
                 # On insère directement les données reçues
-                for row in articles:
+                for idx, row in enumerate(articles):
+                    zebra_tag = "even" if idx % 2 == 0 else "odd"
                     tree.insert('', 'end', values=(
                         row[0], # idarticle
                         row[1], # idunite
@@ -1661,7 +1706,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                         row[4] or "", # unité
                         self.formater_nombre(row[5]), # prix (déjà calculé en SQL)
                         self.formater_nombre(row[6])  # stock (déjà lu dans tb_stock)
-                    ))
+                    ), tags=(zebra_tag,))
 
             except Exception as e:
                 messagebox.showerror("Erreur", f"Erreur chargement: {str(e)}")
@@ -1805,8 +1850,9 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         for item in self.tree_details.get_children():
             self.tree_details.delete(item)
 
-        for detail in self.detail_vente:
-            self.tree_details.insert('', 'end', values=self.format_detail_for_treeview(detail))
+        for idx, detail in enumerate(self.detail_vente):
+            zebra_tag = "even" if idx % 2 == 0 else "odd"
+            self.tree_details.insert('', 'end', values=self.format_detail_for_treeview(detail), tags=(zebra_tag,))
             
         self.calculer_totaux() # Recalculer le total après chargement
 
@@ -3642,7 +3688,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         self.entry_prixunit.configure(state="readonly")
         self.btn_recherche_article.configure(state="normal")
         # Réaffiche le bouton d'ajout manuel
-        self.btn_ajouter.grid(row=1, column=5, padx=5, pady=5, sticky="w")
+        self.btn_ajouter.grid(row=1, column=7, padx=2, pady=2, sticky="w")
     
     def afficher_bouton_ajouter_proforma(self):
         """Affiche le bouton pour ajouter les détails du proforma en masse et le bouton d'annulation Proforma."""
@@ -3673,8 +3719,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         if hasattr(self, 'btn_annuler_proforma'):
              self.btn_annuler_proforma.grid_forget()
              del self.btn_annuler_proforma # Nettoyage
-        # Restaure le bouton Annuler Modif. original
-        self.btn_annuler_mod.grid(row=1, column=6, padx=5, pady=5, sticky="w") 
+        # Bouton Annuler Modif volontairement caché
 
     def reset_proforma_state(self):
         """Réinitialise l'état après le chargement d'un proforma (sans le valider ou après validation)."""

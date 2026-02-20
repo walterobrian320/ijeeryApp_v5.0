@@ -100,9 +100,11 @@ class PageFrsDette(ctk.CTkFrame):
 
         columns = ("Fournisseur", "N° Commande", "N° Facture", "N° BR", "Montant Commande", "Payé", "Solde")
         self.tree = ttk.Treeview(self.tree_frame, columns=columns, show="headings") 
+        self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
 
         # --- Tags de couleur ---
-        self.tree.tag_configure('impaye', background='orange', foreground='black') 
+        self.tree.tag_configure('impaye', foreground='black') 
         self.tree.tag_configure('solde', foreground=text_sold_color) # Gris si payé
         
         self.tree.bind("<Double-1>", self.on_double_click)
@@ -269,7 +271,7 @@ class PageFrsDette(ctk.CTkFrame):
             self.data_df['Payé'] = pd.to_numeric(self.data_df['Payé'], errors='coerce').fillna(0)
             self.data_df['Solde'] = pd.to_numeric(self.data_df['Solde'], errors='coerce').fillna(0)
 
-            for _, row in self.data_df.iterrows():
+            for idx, row in self.data_df.iterrows():
                 display_values = [
                     row['Fournisseur'],
                     row['N° Commande'],
@@ -281,10 +283,11 @@ class PageFrsDette(ctk.CTkFrame):
                 ]
                 
                 # Gestion des tags visuels
+                zebra_tag = 'even' if idx % 2 == 0 else 'odd'
                 if row['Solde'] > 0.01:
-                    tags = ('impaye',)
+                    tags = (zebra_tag, 'impaye')
                 else:
-                    tags = ('solde',) # Applique la couleur grise
+                    tags = (zebra_tag, 'solde') # Applique la couleur grise
                     
                 self.tree.insert('', 'end', values=display_values, tags=tags)
             

@@ -139,6 +139,8 @@ class PageFournisseur(ctk.CTkFrame):
         # Treeview
         columns = ("Nom du Fournisseur", "Contact", "Adresse", "NIF", "STAT", "CIF")
         self.tree = ttk.Treeview(self, columns=columns, show="headings")
+        self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         # Configuration des colonnes
         for col in columns:
@@ -194,10 +196,11 @@ class PageFournisseur(ctk.CTkFrame):
             fournisseurs = self.cursor.fetchall()
             
             # Insérer les données dans le Treeview
-            for frs in fournisseurs:
+            for idx, frs in enumerate(fournisseurs):
                 # CORRECTION: Insérer les 7 colonnes affichables pour le Treeview
                 # cli[0]=idclient, cli[1]=nomcli, cli[2]=contactcli, cli[3]=adressecli, cli[4]=nifcli, cli[5]=statcli, cli[6]=cifcli, cli[7]=credit
-                self.tree.insert("", "end", iid=frs[0], values=(frs[1], frs[2], frs[3], frs[4], frs[5], frs[6]))
+                tag = "even" if idx % 2 == 0 else "odd"
+                self.tree.insert("", "end", iid=frs[0], values=(frs[1], frs[2], frs[3], frs[4], frs[5], frs[6]), tags=(tag,))
             
         except psycopg2.Error as err:
             messagebox.showerror("Erreur", f"Erreur lors du chargement des fournisseurs : {err}")

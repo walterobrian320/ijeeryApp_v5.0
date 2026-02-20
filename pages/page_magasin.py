@@ -106,6 +106,8 @@ class PageMagasin(ctk.CTkFrame):
         # Treeview
         columns = ("Nom du dépôt", "Adresse")
         self.tree = ttk.Treeview(self, columns=columns, show="headings")
+        self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         # Configuration des colonnes
         for col in columns:
@@ -146,10 +148,11 @@ class PageMagasin(ctk.CTkFrame):
             magasins = self.cursor.fetchall()
             
             # Insérer les données dans le Treeview
-            for mag in magasins:
+            for idx, mag in enumerate(magasins):
                 # mag[0] = idMag (utilisé comme iid), mag[1] = designationMag, mag[2] = adresseMag
                 # Les valeurs affichées sont (Nom du dépôt, Adresse)
-                self.tree.insert("", "end", iid=mag[0], values=(mag[1], mag[2]))
+                tag = "even" if idx % 2 == 0 else "odd"
+                self.tree.insert("", "end", iid=mag[0], values=(mag[1], mag[2]), tags=(tag,))
             
         except psycopg2.Error as err:
             messagebox.showerror("Erreur", f"Erreur lors du chargement des dépôts : {err}")

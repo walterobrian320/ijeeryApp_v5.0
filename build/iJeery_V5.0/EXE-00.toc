@@ -85,7 +85,7 @@
  [],
  False,
  False,
- 1771425433,
+ 1771519121,
  [('runw.exe',
    'D:\\Sidebar\\Downloads\\wetransfer_ijeery_v5-0-rar_2026-02-06_1238\\IJEERY_V5.0\\IJEERY_V5.0 '
    '(v1.0)\\.venv\\Lib\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\runw.exe',

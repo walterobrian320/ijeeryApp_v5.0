@@ -1,9 +1,9 @@
 {
     "database": {
-        "host": "192.168.88.18",
+        "host": "localhost",
         "user": "postgres",
         "password": "root",
-        "database": "tsaravatsy",
+        "database": "tsaravatsy_16021539",
         "port": 5432
     }
 }

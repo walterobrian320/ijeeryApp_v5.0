@@ -116,6 +116,11 @@ class PageStock(ctk.CTkFrame):
             show="headings",
             selectmode="browse"
         )
+        self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
+        # Alerte Total=0: texte rouge clair, en conservant le fond alterné
+        self.tree.tag_configure("stock_zero_even", background="#FFFFFF", foreground="#f55f5f")
+        self.tree.tag_configure("stock_zero_odd", background="#E6EFF8", foreground="#f55f5f")
         
         # ✅ LIAISON DU DOUBLE-CLIC
         self.tree.bind("<Double-1>", self.ouvrir_inventaire_double_clic)
@@ -453,7 +458,7 @@ class PageStock(ctk.CTkFrame):
             
             # Insérer dans le Treeview ET stocker dans all_data
             compteur = 0
-            for code, data in articles_dict.items():
+            for idx, (code, data) in enumerate(articles_dict.items()):
                 # Ne pas inclure le prix dans les valeurs affichées
                 valeurs = [
                     code,
@@ -472,17 +477,18 @@ class PageStock(ctk.CTkFrame):
                 self.all_data.append((valeurs, data['total']))  # Stocker les valeurs et le total pour le tag
             
                 # TAG POUR ALERTE STOCK BAS
-                if data['total'] <= 0:
-                    self.tree.insert("", "end", values=valeurs, tags=("stock_bas",))
+                zebra_tag = "even" if idx % 2 == 0 else "odd"
+                if abs(float(data['total'])) < 1e-9:
+                    zero_tag = "stock_zero_even" if zebra_tag == "even" else "stock_zero_odd"
+                    self.tree.insert("", "end", values=valeurs, tags=(zero_tag,))
                 else:
-                    self.tree.insert("", "end", values=valeurs)
+                    self.tree.insert("", "end", values=valeurs, tags=(zebra_tag,))
                 
                 compteur += 1
                 if compteur % 100 == 0:
                     print(f"Insertion: {compteur} articles...")
         
-            # Style pour les stocks bas
-            self.tree.tag_configure("stock_bas", background="#ffebee", foreground="#c62828")
+            # Style déjà défini via stock_zero_even/stock_zero_odd
         
             # Mise à jour des infos
             self.label_total_articles.configure(text=f"Total articles: {len(articles_dict)}")
@@ -752,12 +758,14 @@ class PageStock(ctk.CTkFrame):
         
         # Insérer les résultats filtrés
         if filtered_data:
-            for valeurs, total in filtered_data:
+            for idx, (valeurs, total) in enumerate(filtered_data):
                 # TAG POUR ALERTE STOCK BAS
-                if total <= 0:
-                    self.tree.insert("", "end", values=valeurs, tags=("stock_bas",))
+                zebra_tag = "even" if idx % 2 == 0 else "odd"
+                if abs(float(total)) < 1e-9:
+                    zero_tag = "stock_zero_even" if zebra_tag == "even" else "stock_zero_odd"
+                    self.tree.insert("", "end", values=valeurs, tags=(zero_tag,))
                 else:
-                    self.tree.insert("", "end", values=valeurs)
+                    self.tree.insert("", "end", values=valeurs, tags=(zebra_tag,))
             self.label_total_articles.configure(text=f"Total articles: {len(filtered_data)}")
         else:
             # Créer une ligne vide avec le message
@@ -778,12 +786,14 @@ class PageStock(ctk.CTkFrame):
         
         # Réinsérer toutes les données
         if self.all_data:
-            for valeurs, total in self.all_data:
+            for idx, (valeurs, total) in enumerate(self.all_data):
                 # TAG POUR ALERTE STOCK BAS
-                if total <= 0:
-                    self.tree.insert("", "end", values=valeurs, tags=("stock_bas",))
+                zebra_tag = "even" if idx % 2 == 0 else "odd"
+                if abs(float(total)) < 1e-9:
+                    zero_tag = "stock_zero_even" if zebra_tag == "even" else "stock_zero_odd"
+                    self.tree.insert("", "end", values=valeurs, tags=(zero_tag,))
                 else:
-                    self.tree.insert("", "end", values=valeurs)
+                    self.tree.insert("", "end", values=valeurs, tags=(zebra_tag,))
             self.label_total_articles.configure(text=f"Total articles: {len(self.all_data)}")
         else:
             empty_values = ["", "Aucun article trouvé", ""] + [""] * (len(self.colonnes_dynamiques) - 3)

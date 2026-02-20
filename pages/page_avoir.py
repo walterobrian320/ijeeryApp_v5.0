@@ -225,9 +225,10 @@ class PageAvoir(ctk.CTkFrame):
         
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=0)
-        self.grid_rowconfigure(1, weight=1)
-        self.grid_rowconfigure(2, weight=0)
+        self.grid_rowconfigure(1, weight=0)
+        self.grid_rowconfigure(2, weight=1)
         self.grid_rowconfigure(3, weight=0)
+        self.grid_rowconfigure(4, weight=0)
         
         self.setup_ui()
         self.generer_reference()
@@ -492,30 +493,30 @@ class PageAvoir(ctk.CTkFrame):
     
         # --- Frame principale d'en-tête (Lot 1) ---
         header_frame = ctk.CTkFrame(self)
-        header_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
-        header_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7), weight=1)
+        header_frame.grid(row=0, column=0, padx=6, pady=6, sticky="ew")
+        header_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7, 8), weight=1)
     
         # Référence
-        ctk.CTkLabel(header_frame, text="N° Avoir:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(header_frame, text="N° Avoir:").grid(row=0, column=0, padx=3, pady=3, sticky="w")
         self.entry_ref_avoir = ctk.CTkEntry(header_frame, width=150)
-        self.entry_ref_avoir.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+        self.entry_ref_avoir.grid(row=0, column=1, padx=3, pady=3, sticky="w")
         self.entry_ref_avoir.configure(state="readonly")
     
         # Date
-        ctk.CTkLabel(header_frame, text="Date Avoir:").grid(row=0, column=2, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(header_frame, text="Date Avoir:").grid(row=0, column=2, padx=3, pady=3, sticky="w")
         self.entry_date_avoir = ctk.CTkEntry(header_frame, width=150)
-        self.entry_date_avoir.grid(row=0, column=3, padx=5, pady=5, sticky="w")
-        self.entry_date_avoir.insert(0, datetime.now().strftime("%d/%m/%Y"))
+        self.entry_date_avoir.grid(row=0, column=3, padx=3, pady=3, sticky="w")
+        self.entry_date_avoir.insert(0, datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
     
         # Magasin
-        ctk.CTkLabel(header_frame, text="Magasin de:").grid(row=0, column=4, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(header_frame, text="Magasin de:").grid(row=0, column=4, padx=3, pady=3, sticky="w")
         self.combo_magasin = ctk.CTkComboBox(header_frame, width=200, values=["Chargement..."])
-        self.combo_magasin.grid(row=0, column=5, padx=5, pady=5, sticky="w")
+        self.combo_magasin.grid(row=0, column=5, padx=3, pady=3, sticky="w")
     
          # Client
         # Champ Entry pour client
         self.entry_client = ctk.CTkEntry(header_frame, width=200, placeholder_text="Client...")
-        self.entry_client.grid(row=0, column=7, padx=5, pady=5, sticky="w")
+        self.entry_client.grid(row=0, column=7, padx=3, pady=3, sticky="w")
 
         # Bouton loupe
         self.btn_search_client = ctk.CTkButton(
@@ -524,66 +525,68 @@ class PageAvoir(ctk.CTkFrame):
         width=40,
         command=self.open_recherche_client
         )
-        self.btn_search_client.grid(row=0, column=8, padx=2, pady=5, sticky="w")
+        self.btn_search_client.grid(row=0, column=8, padx=2, pady=3, sticky="w")
 
 
         # Bouton Charger facture
-        btn_charger_bs = ctk.CTkButton(header_frame, text="📂 Charger Facture", 
+        self.btn_charger_bs = ctk.CTkButton(header_frame, text="📂 Charger Facture", 
                                     command=self.ouvrir_recherche_sortie, width=130,
                                     fg_color="#1976d2", hover_color="#1565c0")
-        btn_charger_bs.grid(row=1, column=7, padx=5, pady=5, sticky="ew")
+        self.btn_charger_bs.grid(row=1, column=8, padx=3, pady=3, sticky="ew")
     
         # Motif
-        ctk.CTkLabel(header_frame, text="Désignation:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(header_frame, text="Désignation:").grid(row=1, column=0, padx=3, pady=3, sticky="w")
         self.entry_designation = ctk.CTkEntry(header_frame, width=750)
-        self.entry_designation.grid(row=1, column=1, columnspan=7, padx=5, pady=5, sticky="w")
+        self.entry_designation.grid(row=1, column=1, columnspan=7, padx=3, pady=3, sticky="ew")
 
         # --- Frame d'ajout de Détail (Lot 2) ---
         detail_frame = ctk.CTkFrame(self)
-        detail_frame.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+        detail_frame.grid(row=1, column=0, padx=6, pady=(0, 6), sticky="ew")
         detail_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6), weight=1)
         
         # Article
-        ctk.CTkLabel(detail_frame, text="Article:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(detail_frame, text="Article:").grid(row=0, column=0, padx=3, pady=3, sticky="w")
         self.entry_article = ctk.CTkEntry(detail_frame, width=300)
-        self.entry_article.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+        self.entry_article.grid(row=1, column=0, padx=3, pady=3, sticky="ew")
         self.entry_article.configure(state="readonly")
         
         self.btn_recherche_article = ctk.CTkButton(detail_frame, text="🔎 Rechercher", command=self.open_recherche_article)
-        self.btn_recherche_article.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+        self.btn_recherche_article.grid(row=1, column=1, padx=3, pady=3, sticky="w")
+        self.btn_recherche_article.configure(state="disabled")  # Désactivé par défaut
         
         # Quantité
-        ctk.CTkLabel(detail_frame, text="Quantité Avoir:").grid(row=0, column=2, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(detail_frame, text="Quantité Avoir:").grid(row=0, column=2, padx=3, pady=3, sticky="w")
         self.entry_qtavoir = ctk.CTkEntry(detail_frame, width=100)
-        self.entry_qtavoir.grid(row=1, column=2, padx=5, pady=5, sticky="ew")
+        self.entry_qtavoir.grid(row=1, column=2, padx=3, pady=3, sticky="ew")
         
         # Unité
-        ctk.CTkLabel(detail_frame, text="Unité:").grid(row=0, column=3, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(detail_frame, text="Unité:").grid(row=0, column=3, padx=3, pady=3, sticky="w")
         self.entry_unite = ctk.CTkEntry(detail_frame, width=100)
-        self.entry_unite.grid(row=1, column=3, padx=5, pady=5, sticky="ew")
+        self.entry_unite.grid(row=1, column=3, padx=3, pady=3, sticky="ew")
         self.entry_unite.configure(state="readonly")
         
         # Prix Unitaire
-        ctk.CTkLabel(detail_frame, text="Prix Unitaire:").grid(row=0, column=4, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(detail_frame, text="Prix Unitaire:").grid(row=0, column=4, padx=3, pady=3, sticky="w")
         self.entry_prixunit = ctk.CTkEntry(detail_frame, width=100)
         self.entry_prixunit.configure(state="readonly")
-        self.entry_prixunit.grid(row=1, column=4, padx=5, pady=5, sticky="ew")
+        self.entry_prixunit.grid(row=1, column=4, padx=3, pady=3, sticky="ew")
 
         
         # Boutons d'action
         self.btn_ajouter = ctk.CTkButton(detail_frame, text="➕ Ajouter", command=self.valider_detail, 
                                         fg_color="#2e7d32", hover_color="#1b5e20")
-        self.btn_ajouter.grid(row=1, column=5, padx=5, pady=5, sticky="w")
+        self.btn_ajouter.grid(row=1, column=6, padx=3, pady=3, sticky="e")
         
         self.btn_annuler_mod = ctk.CTkButton(detail_frame, text="✖️ Annuler Modif.", command=self.reset_detail_form, 
                                             fg_color="#d32f2f", hover_color="#b71c1c", state="disabled")
-        self.btn_annuler_mod.grid(row=1, column=6, padx=5, pady=5, sticky="w")
+        self.btn_annuler_mod.grid(row=1, column=6, padx=3, pady=3, sticky="w")
+        self.btn_annuler_mod.grid_remove()  # Cacher Annuler modification
         
         
 
         # --- Treeview pour les Détails (Lot 3) ---
         tree_frame = ctk.CTkFrame(self)
-        tree_frame.grid(row=2, column=0, padx=10, pady=(0, 10), sticky="nsew")
+        tree_frame.grid(row=2, column=0, padx=6, pady=(0, 6), sticky="nsew")
         tree_frame.grid_columnconfigure(0, weight=1)
         tree_frame.grid_rowconfigure(0, weight=1)
         
@@ -596,6 +599,8 @@ class PageAvoir(ctk.CTkFrame):
         # Colonnes AJOUTÉES: "Montant"
         colonnes = ("ID_Article", "ID_Unite", "ID_Magasin", "Code Article", "Désignation", "Magasin", "Unité", "Prix Unitaire", "Quantité Avoir", "Montant")
         self.tree_details = ttk.Treeview(tree_frame, columns=colonnes, show='headings')
+        self.tree_details.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree_details.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         for col in colonnes:
             self.tree_details.heading(col, text=col.replace('_', ' ').title())
@@ -624,7 +629,7 @@ class PageAvoir(ctk.CTkFrame):
         # --- NOUVEAU: Frame des Totaux (Lot 4) ---
         # --------------------------------------------------------------------------
         totals_frame = ctk.CTkFrame(self)
-        totals_frame.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="ew")
+        totals_frame.grid(row=3, column=0, padx=6, pady=(0, 6), sticky="ew")
         totals_frame.grid_columnconfigure(0, weight=1) # Pour le total en lettres
         totals_frame.grid_columnconfigure(1, weight=0) # Pour le total général (à droite)
 
@@ -646,8 +651,9 @@ class PageAvoir(ctk.CTkFrame):
 
         # --- Frame de Boutons (Lot 5 - Anciennement Lot 4) ---
         btn_action_frame = ctk.CTkFrame(self)
-        btn_action_frame.grid(row=4, column=0, padx=10, pady=10, sticky="ew")
-        btn_action_frame.grid_columnconfigure((0, 1, 2), weight=1)
+        btn_action_frame.grid(row=4, column=0, padx=6, pady=6, sticky="ew")
+        btn_action_frame.grid_columnconfigure((0, 1, 2), weight=0)
+        btn_action_frame.grid_columnconfigure(3, weight=1)
         
         self.btn_supprimer_ligne = ctk.CTkButton(btn_action_frame, text="🗑️ Supprimer Ligne", command=self.supprimer_detail, 
                                                  fg_color="#d32f2f", hover_color="#b71c1c")
@@ -662,11 +668,12 @@ class PageAvoir(ctk.CTkFrame):
             hover_color="#1b5e20",
             state="disabled"
         )
-        self.btn_valider_modif.grid(row=0, column=2, padx=5, pady=5, sticky="w")
+        self.btn_valider_modif.grid(row=0, column=0, padx=5, pady=5, sticky="w")
 
         self.btn_imprimer = ctk.CTkButton(btn_action_frame, text="🖨️ Imprimer Facture", command=self.open_impression_dialogue, 
                                           fg_color="#00695c", hover_color="#004d40", state="disabled")
         self.btn_imprimer.grid(row=0, column=2, padx=5, pady=5, sticky="ew") 
+        self.btn_imprimer.grid_remove()  # Cacher Imprimer facture
         
         self.btn_enregistrer = ctk.CTkButton(btn_action_frame, text="💾 Enregistrer la Facture", command=self.enregistrer_avoir, 
                                              font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"))
@@ -721,7 +728,7 @@ class PageAvoir(ctk.CTkFrame):
     def open_recherche_client(self):
         fen = ctk.CTkToplevel(self)
         fen.title("Rechercher un client")
-        fen.geometry("500x400")
+        fen.geometry("820x500")
         fen.grab_set()
 
         frame = ctk.CTkFrame(fen)
@@ -729,18 +736,37 @@ class PageAvoir(ctk.CTkFrame):
 
         ctk.CTkLabel(frame, text="Rechercher un client :", font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold")).pack(pady=5)
 
-        entry_search = ctk.CTkEntry(frame, placeholder_text="Nom client...")
-        entry_search.pack(fill="x", padx=5, pady=5)
+        top_filter_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        top_filter_frame.pack(fill="x", padx=5, pady=5)
+        top_filter_frame.grid_columnconfigure(0, weight=1)
+
+        entry_search = ctk.CTkEntry(top_filter_frame, placeholder_text="Nom client...")
+        entry_search.grid(row=0, column=0, padx=(0, 8), pady=0, sticky="ew")
+
+        type_filter_combo = ctk.CTkComboBox(
+            top_filter_frame,
+            values=["Client à crédit", "Client au comptant", "Tous les types"],
+            width=190,
+            state="readonly"
+        )
+        type_filter_combo.set("Client à crédit")
+        type_filter_combo.grid(row=0, column=1, padx=0, pady=0, sticky="e")
 
         # Treeview
-        colonnes = ("ID", "Nom Client")
+        colonnes = ("ID", "Nom Client", "Contact", "Adresse")
         tree = ttk.Treeview(frame, columns=colonnes, show="headings", height=10)
+        tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
 
         tree.heading("ID", text="ID")
         tree.heading("Nom Client", text="Nom Client")
+        tree.heading("Contact", text="Contact")
+        tree.heading("Adresse", text="Adresse")
 
-        tree.column("ID", width=0, stretch=False)
-        tree.column("Nom Client", width=300, anchor="w")
+        tree.column("ID", width=60, anchor="center")
+        tree.column("Nom Client", width=220, anchor="w")
+        tree.column("Contact", width=180, anchor="w")
+        tree.column("Adresse", width=320, anchor="w")
 
         tree.pack(fill="both", expand=True, pady=5)
 
@@ -755,21 +781,43 @@ class PageAvoir(ctk.CTkFrame):
 
             try:
                 cursor = conn.cursor()
+                selected_type = type_filter_combo.get()
+                type_condition = ""
+                if selected_type == "Client à crédit":
+                    type_condition = " AND COALESCE(idtypeclient, 1) = 2 "
+                elif selected_type == "Client au comptant":
+                    type_condition = " AND COALESCE(idtypeclient, 1) = 1 "
+
                 sql = """
-                SELECT idclient, nomcli 
-                FROM tb_client 
-                WHERE deleted = 0 AND nomcli ILIKE %s
-                ORDER BY nomcli
-            """
+                    SELECT
+                        idclient,
+                        nomcli,
+                        CASE
+                            WHEN COALESCE(idtypeclient, 1) = 1 AND (contactcli IS NULL OR TRIM(contactcli) = '')
+                                THEN 'Aucun contact enregistré'
+                            ELSE COALESCE(NULLIF(TRIM(contactcli), ''), 'Aucun contact enregistré')
+                        END AS contact_affiche,
+                        CASE
+                            WHEN COALESCE(idtypeclient, 1) = 1 AND (adressecli IS NULL OR TRIM(adressecli) = '')
+                                THEN 'Aucun adrresse enregistré'
+                            ELSE COALESCE(NULLIF(TRIM(adressecli), ''), 'Aucun adrresse enregistré')
+                        END AS adresse_affiche
+                    FROM tb_client
+                    WHERE deleted = 0 AND nomcli ILIKE %s
+                """ + type_condition + """
+                    ORDER BY nomcli
+                """
                 cursor.execute(sql, (f"%{filtre}%",))
-                for idc, nom in cursor.fetchall():
-                    tree.insert("", "end", values=(idc, nom))
+                for idx, (idc, nom, contact, adresse) in enumerate(cursor.fetchall()):
+                    zebra_tag = "even" if idx % 2 == 0 else "odd"
+                    tree.insert("", "end", values=(idc, nom, contact, adresse), tags=(zebra_tag,))
             finally:
                 cursor.close()
                 conn.close()
 
         # Recherche en direct
         entry_search.bind("<KeyRelease>", lambda e: charger_clients(entry_search.get()))
+        type_filter_combo.configure(command=lambda _v: charger_clients(entry_search.get()))
 
         # Double clic : renvoie nom dans l’Entry principal
         def valider_selection():
@@ -992,6 +1040,8 @@ class PageAvoir(ctk.CTkFrame):
         
         colonnes = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité", "Prix Unitaire", "Stock") 
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
+        tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         style = ttk.Style()
         style.configure("Treeview", rowheight=22, font=('Segoe UI', 8), background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0)
@@ -1052,13 +1102,14 @@ class PageAvoir(ctk.CTkFrame):
                 idmag_selectionne = self.magasin_map.get(designationmag)
                 
                 count = 0
-                for row in resultats:
+                for idx, row in enumerate(resultats):
                     idarticle, designation, idunite, codearticle, designationunite = row
                     
                     stock_actuel = self.calculer_stock_article(idarticle, idunite, idmag_selectionne)
                     
                     prix = self.get_article_price(idarticle, idunite)
 
+                    zebra_tag = "even" if idx % 2 == 0 else "odd"
                     tree.insert('', 'end', values=(
                         idarticle,
                         idunite,
@@ -1067,7 +1118,7 @@ class PageAvoir(ctk.CTkFrame):
                         designationunite,
                         self.formater_nombre(prix),
                         self.formater_nombre(stock_actuel)
-                    ))
+                    ), tags=(zebra_tag,))
                     count += 1
                 
                 label_count.configure(text=f"Nombre d'articles/unités : {count}")
@@ -1248,7 +1299,9 @@ class PageAvoir(ctk.CTkFrame):
         # MODE AJOUT : Ajout d'une nouvelle ligne
         else:
             self.detail_avoir.append(nouveau_detail)
-            self.tree_details.insert('', 'end', values=self.format_detail_for_treeview(nouveau_detail))
+            idx = len(self.tree_details.get_children())
+            zebra_tag = "even" if idx % 2 == 0 else "odd"
+            self.tree_details.insert('', 'end', values=self.format_detail_for_treeview(nouveau_detail), tags=(zebra_tag,))
             messagebox.showinfo("Succès", "Article ajouté avec succès.")
 
         # Recalculer les totaux
@@ -1282,8 +1335,9 @@ class PageAvoir(ctk.CTkFrame):
         for item in self.tree_details.get_children():
             self.tree_details.delete(item)
             
-        for detail in self.detail_avoir:
-            self.tree_details.insert('', 'end', values=self.format_detail_for_treeview(detail))
+        for idx, detail in enumerate(self.detail_avoir):
+            zebra_tag = "even" if idx % 2 == 0 else "odd"
+            self.tree_details.insert('', 'end', values=self.format_detail_for_treeview(detail), tags=(zebra_tag,))
             
         self.calculer_totaux() # <<< AJOUT/CORRECTION : Recalculer le total après chargement
 
@@ -1461,25 +1515,25 @@ class PageAvoir(ctk.CTkFrame):
                   background=[('selected', '#1F6AA5')]) 
 
         # 5. Création du Treeview
-        colonnes = ("ID", "Ref Vente", "Date", "Client", "Montant Total", "Description", "Utilisateur")
+        colonnes = ("ID", "Ref Vente", "Date et heure", "Client", "Montant Total", "Utilisateur")
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15, selectmode='browse') 
+        tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         # Configuration des colonnes
         tree.heading("ID", text="ID")
         tree.heading("Ref Vente", text="N° Facture")
-        tree.heading("Date", text="Date")
+        tree.heading("Date et heure", text="Date et heure")
         tree.heading("Client", text="Client")
         tree.heading("Montant Total", text="Montant Total")
-        tree.heading("Description", text="Description")
         tree.heading("Utilisateur", text="Utilisateur")
 
         tree.column("ID", width=0, stretch=False)
-        tree.column("Ref Vente", width=120, anchor='w')
-        tree.column("Date", width=100, anchor='center')
-        tree.column("Client", width=150, anchor='w')
-        tree.column("Montant Total", width=120, anchor='e')
-        tree.column("Description", width=250, anchor='w')
-        tree.column("Utilisateur", width=100, anchor='w')
+        tree.column("Ref Vente", width=120, anchor='center')
+        tree.column("Date et heure", width=170, anchor='center')
+        tree.column("Client", width=150, anchor='center')
+        tree.column("Montant Total", width=120, anchor='center')
+        tree.column("Utilisateur", width=100, anchor='center')
 
         # Scrollbar
         scrollbar = ctk.CTkScrollbar(tree_frame, command=tree.yview)
@@ -1502,7 +1556,7 @@ class PageAvoir(ctk.CTkFrame):
                     SELECT 
                         v.id, v.refvente, v.dateregistre, c.nomcli, 
                         COALESCE(v.totmtvente, 0) AS montant_total,
-                        v.description, u.nomuser
+                        u.nomuser
                     FROM tb_vente v
                     LEFT JOIN tb_client c ON v.idclient = c.idclient
                     LEFT JOIN tb_users u ON v.iduser = u.iduser
@@ -1513,16 +1567,17 @@ class PageAvoir(ctk.CTkFrame):
                 filtre_like = f"%{filtre}%"
                 cursor.execute(sql, (filtre_like, filtre_like, filtre_like))
                 
-                for row in cursor.fetchall():
-                    id_vente, ref_vente, date_vente, nom_cli, montant_total, description, nom_user = row
+                for idx, row in enumerate(cursor.fetchall()):
+                    id_vente, ref_vente, date_vente, nom_cli, montant_total, nom_user = row
                     
-                    date_str = date_vente.strftime("%d/%m/%Y") if date_vente else "N/A"
+                    date_str = date_vente.strftime("%d/%m/%Y %H:%M:%S") if date_vente else "N/A"
                     montant_str = self.formater_nombre(montant_total or 0.0)
                     
+                    zebra_tag = "even" if idx % 2 == 0 else "odd"
                     tree.insert('', 'end', values=(
                         id_vente, ref_vente, date_str, nom_cli or "N/A",
-                        montant_str, description or "", nom_user or "Inconnu"
-                    ))
+                        montant_str, nom_user or "Inconnu"
+                    ), tags=(zebra_tag,))
             except Exception as e:
                 messagebox.showerror("Erreur SQL", f"Erreur lors du chargement des factures: {str(e)}")
             finally:
@@ -1609,7 +1664,7 @@ class PageAvoir(ctk.CTkFrame):
             self.generer_reference()
     
             # Remplir les champs avec les données de la vente
-            date_vente_str = vente[2].strftime("%d/%m/%Y")
+            date_vente_str = vente[2].strftime("%d/%m/%Y %H:%M:%S")
             client_nom = vente[4] or "Client Inconnu"
     
             self.entry_date_avoir.configure(state="normal")
@@ -1745,7 +1800,7 @@ class PageAvoir(ctk.CTkFrame):
             self.entry_ref_avoir.configure(state="readonly")
         
             self.entry_date_avoir.delete(0, "end")
-            self.entry_date_avoir.insert(0, avoir[2].strftime("%d/%m/%Y"))
+            self.entry_date_avoir.insert(0, avoir[2].strftime("%d/%m/%Y %H:%M:%S"))
         
             client_nom = avoir[4] or "Client Inconnu"
             self.entry_client.delete(0, "end")
@@ -1843,7 +1898,7 @@ class PageAvoir(ctk.CTkFrame):
             self.idvente_charge = idvente
 
             self.entry_date_avoir.delete(0, "end")
-            self.entry_date_avoir.insert(0, datetime.now().strftime("%d/%m/%Y"))
+            self.entry_date_avoir.insert(0, datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
 
             client_nom = vente[4] or "Client Inconnu"
             self.entry_client.delete(0, "end")
@@ -1971,16 +2026,16 @@ class PageAvoir(ctk.CTkFrame):
         try:
             cur = conn.cursor()
             try:
-                datereg = datetime.strptime(date_str, "%d/%m/%Y").date()
+                datereg = datetime.strptime(date_str, "%d/%m/%Y %H:%M:%S")
             except ValueError:
-                messagebox.showerror("Erreur de Date", "Format de date invalide (JJ/MM/AAAA).")
+                messagebox.showerror("Erreur de Date", "Format de date invalide (JJ/MM/AAAA HH:MM:SS).")
                 return
 
             # ✅ CALCUL DU MONTANT TOTAL DE L'AVOIR
             montant_total_avoir = sum(d['qtvente'] * d['prixunit'] for d in details_a_enregistrer)
     
-            # ✅ DATE DU JOUR POUR dateavoir
-            date_avoir_aujourd_hui = datetime.now().date()
+            # ✅ Date aujourdh'ui
+            dateavoir = datetime.now()
 
             # ✅ Insérer en-tête avoir avec mtavoir et dateavoir
             sql_avoir = """
@@ -1990,7 +2045,7 @@ class PageAvoir(ctk.CTkFrame):
             cur.execute(sql_avoir, (
                 ref_avoir, 
                 datereg, 
-                date_avoir_aujourd_hui,
+                dateavoir,
                 description, 
                 self.id_user_connecte, 
                 idclient,
@@ -2053,7 +2108,7 @@ class PageAvoir(ctk.CTkFrame):
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             cur.execute(sql_pmtavoir, (
-                date_avoir_aujourd_hui,      # datepmt
+                dateavoir,      # datepmt
                 montant_total_avoir,          # mtpaye
                 observation_pmt,              # observation
                 2,                            # idtypeoperation (DEFAULT = 2)
@@ -2289,9 +2344,21 @@ class PageAvoir(ctk.CTkFrame):
         else:
             user_name = str(utilisateur)
 
+
+
         # Titre AVOIR
         refavoir = avoir.get('refavoir', 'N/A')
-        droite_text = f"<b>AVOIR N°: {refavoir}</b><br/>{avoir.get('dateavoir', '')}<br/><b>CLIENT: {client['nomcli']}</b><br/><br/><font size='8'>Op: {user_name}</font>"
+        
+        # date avoir
+
+        
+
+        dateavoir = avoir.get("dateavoir")
+        dateavoir_affiche = dateavoir.strftime("%d/%m/%Y %H:%M") if isinstance(dateavoir, datetime) else (dateavoir or "")
+
+
+
+        droite_text = f"<b>AVOIR N°: {refavoir}</b><br/>{dateavoir_affiche}<br/><b>CLIENT: {client['nomcli']}</b><br/><br/><font size='8'>Op: {user_name}</font>"
 
         gauche = Paragraph(gauche_text, style_p)
         droite = Paragraph(droite_text, style_p)
@@ -2432,7 +2499,7 @@ class PageAvoir(ctk.CTkFrame):
         
         self.entry_date_avoir.configure(state="normal")
         self.entry_date_avoir.delete(0, "end")
-        self.entry_date_avoir.insert(0, datetime.now().strftime("%d/%m/%Y"))
+        self.entry_date_avoir.insert(0, datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
         
         self.entry_designation.configure(state="normal")
         self.entry_designation.delete(0, "end")
@@ -2450,7 +2517,7 @@ class PageAvoir(ctk.CTkFrame):
             self.tree_details.delete(item)
             
         self.btn_enregistrer.configure(state="normal", text="💾 Enregistrer la Facture")
-        self.btn_recherche_article.configure(state="normal")
+        self.btn_recherche_article.configure(state="disabled")
         self.btn_ajouter.configure(state="normal")
         self.btn_supprimer_ligne.configure(state="normal")
         

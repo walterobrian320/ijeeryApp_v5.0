@@ -1491,6 +1491,10 @@ class PageAvoir(ctk.CTkFrame):
         ctk.CTkLabel(search_frame, text="🔍 Référence ou Client:").pack(side="left", padx=5)
         entry_search = ctk.CTkEntry(search_frame, placeholder_text="Référence ou Nom Client...", width=300)
         entry_search.pack(side="left", padx=5, fill="x", expand=True)
+        ctk.CTkLabel(search_frame, text="Date (YYYY-MM-DD):").pack(side="left", padx=(10, 5))
+        entry_date = ctk.CTkEntry(search_frame, width=130)
+        entry_date.insert(0, datetime.now().strftime("%Y-%m-%d"))
+        entry_date.pack(side="left", padx=5)
 
         # 3. Conteneur du Treeview
         tree_frame = ctk.CTkFrame(main_frame)
@@ -1561,11 +1565,20 @@ class PageAvoir(ctk.CTkFrame):
                     LEFT JOIN tb_client c ON v.idclient = c.idclient
                     LEFT JOIN tb_users u ON v.iduser = u.iduser
                     WHERE v.deleted = 0 
+                        AND v.statut='VALIDEE'
+                        AND DATE(v.dateregistre) = %s
                         AND (v.refvente ILIKE %s OR v.description ILIKE %s OR c.nomcli ILIKE %s)
                     ORDER BY v.dateregistre DESC
                 """
                 filtre_like = f"%{filtre}%"
-                cursor.execute(sql, (filtre_like, filtre_like, filtre_like))
+                date_str = entry_date.get().strip()
+                try:
+                    date_filtre = datetime.strptime(date_str, "%Y-%m-%d").date()
+                except ValueError:
+                    # Date invalide => ne rien afficher tant que le format n'est pas correct
+                    return
+
+                cursor.execute(sql, (date_filtre, filtre_like, filtre_like, filtre_like))
                 
                 for idx, row in enumerate(cursor.fetchall()):
                     id_vente, ref_vente, date_vente, nom_cli, montant_total, nom_user = row
@@ -1586,6 +1599,8 @@ class PageAvoir(ctk.CTkFrame):
         
         # Lier la recherche
         entry_search.bind('<KeyRelease>', lambda e: charger_factures(entry_search.get()))
+        entry_date.bind('<KeyRelease>', lambda e: charger_factures(entry_search.get()))
+        entry_date.bind('<FocusOut>', lambda e: charger_factures(entry_search.get()))
         
         # 7. Fonction de validation
         def valider_selection():

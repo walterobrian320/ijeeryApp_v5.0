@@ -104,7 +104,8 @@ class PageInventaire(ctk.CTkToplevel):
             # Calculer le stock en utilisant la MÊME logique que page_stock.py
             stock_actuel = self.calculer_stock_article(idarticle, idunite, idmag)
             
-            self.label_stock_actuel.configure(text=f"Stock actuel: {self.formater_nombre(stock_actuel)}")
+            #self.label_stock_actuel.configure(text=f"Stock actuel: {self.formater_nombre(stock_actuel)}")
+            self.label_stock_actuel.configure(text=f"")
             conn.close()
     
     def calculer_stock_article(self, idarticle, idunite_cible, idmag=None):

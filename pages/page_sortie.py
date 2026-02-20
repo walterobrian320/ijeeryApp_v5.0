@@ -367,6 +367,7 @@ class PageSortie(ctk.CTkFrame):
                                           fg_color="#00695c", hover_color="#004d40", state="disabled")
         # CORRECTION ICI : sticky="ew" permet au bouton de s'étirer et d'être centré dans la colonne
         self.btn_imprimer.grid(row=0, column=1, padx=5, pady=5, sticky="ew") 
+        self.btn_imprimer.grid_remove()
         # -----------------------------
         
         self.btn_enregistrer = ctk.CTkButton(btn_action_frame, text="💾 Enregistrer", command=self.enregistrer_sortie, 
@@ -396,6 +397,8 @@ class PageSortie(ctk.CTkFrame):
         
         # Créer le treeview
         self.tree_details = ttk.Treeview(self.tree_frame, columns=colonnes, show='headings')
+        self.tree_details.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree_details.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         # Configurer les colonnes avec les bonne largeurs
         for col in colonnes:
@@ -642,6 +645,8 @@ class PageSortie(ctk.CTkFrame):
 
         colonnes = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité", "Stock", "Prix U.")
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
+        tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
 
         style = ttk.Style()
         style.configure("Treeview", rowheight=22, font=('Segoe UI', 8), background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0)
@@ -902,7 +907,8 @@ class PageSortie(ctk.CTkFrame):
                 cur.execute(query, (filtre_like, filtre_like))
                 articles = cur.fetchall()
 
-                for row in articles:
+                for idx, row in enumerate(articles):
+                    zebra_tag = "even" if idx % 2 == 0 else "odd"
                     tree.insert('', 'end', values=(
                         row[0],          # idarticle
                         row[1],          # idunite
@@ -911,7 +917,7 @@ class PageSortie(ctk.CTkFrame):
                         row[4] or "",    # designationunite
                         self.formater_nombre(row[5]),  # stock_total formaté
                         self.formater_nombre(row[6])   # prix_unitaire formaté *** NOUVEAU ***
-                    ))
+                    ), tags=(zebra_tag,))
 
             except Exception as e:
                 messagebox.showerror("Erreur", f"Erreur chargement articles: {str(e)}")
@@ -1107,7 +1113,7 @@ class PageSortie(ctk.CTkFrame):
         for item in self.tree_details.get_children():
             self.tree_details.delete(item)
             
-        for detail in self.detail_sortie:
+        for idx, detail in enumerate(self.detail_sortie):
             # Valeurs de base pour tous les types
             values = [
                 detail['idarticle'], 
@@ -1124,7 +1130,8 @@ class PageSortie(ctk.CTkFrame):
             if self.type_sortie == "CI":
                 values.append(self.formater_nombre(detail.get('montant_total', 0)))
             
-            self.tree_details.insert('', 'end', values=values)
+            zebra_tag = "even" if idx % 2 == 0 else "odd"
+            self.tree_details.insert('', 'end', values=values, tags=(zebra_tag,))
 
     def modifier_detail(self, event):
         """Charge les données de la ligne sélectionnée dans les champs pour modification."""
@@ -1226,6 +1233,8 @@ class PageSortie(ctk.CTkFrame):
     
         colonnes = ("ID", "Référence", "Date", "Motif", "Utilisateur", "Nb Lignes")
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=12)
+        tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
     
         tree.heading("ID", text="ID")
         tree.heading("Référence", text="Référence")
@@ -1282,10 +1291,12 @@ class PageSortie(ctk.CTkFrame):
                 cursor.execute(query, params)
                 resultats = cursor.fetchall()
             
-                for row in resultats:
+                for idx, row in enumerate(resultats):
                     date_str = row[2].strftime("%d/%m/%Y") if row[2] else ""
+                    zebra_tag = "even" if idx % 2 == 0 else "odd"
                     tree.insert('', 'end', 
-                          values=(row[0], row[1], date_str, row[3] or "", row[4] or "", row[5] or 0))
+                          values=(row[0], row[1], date_str, row[3] or "", row[4] or "", row[5] or 0),
+                          tags=(zebra_tag,))
             
                 label_count.configure(text=f"Nombre de bons de sortie : {len(resultats)}")
             

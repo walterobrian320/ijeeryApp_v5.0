@@ -80,6 +80,7 @@ class PageCategorieArticle(ctk.CTkFrame):
         ctk.CTkLabel(self, text="Désignation Catégorie:").grid(row=0, column=0, padx=10, pady=10, sticky="w")
         self.entry_designationcat = ctk.CTkEntry(self)
         self.entry_designationcat.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
+        self.entry_designationcat.bind("<KeyRelease>", self.rechercher_categorie_auto)
 
         # Conteneur Boutons
         btn_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -117,16 +118,31 @@ class PageCategorieArticle(ctk.CTkFrame):
 
     # --- MÉTHODES LOGIQUES (Inchangées mais vérifiées) ---
 
-    def charger_categoriearticle(self):
+    def charger_categoriearticle(self, filtre=""):
         for i in self.treeview.get_children():
             self.treeview.delete(i)
         try:
-            self.cursor.execute("SELECT idca, designationcat FROM tb_categoriearticle ORDER BY idca")
+            if filtre:
+                self.cursor.execute(
+                    """
+                    SELECT idca, designationcat
+                    FROM tb_categoriearticle
+                    WHERE LOWER(designationcat) LIKE LOWER(%s)
+                    ORDER BY idca
+                    """,
+                    (f"%{filtre}%",)
+                )
+            else:
+                self.cursor.execute("SELECT idca, designationcat FROM tb_categoriearticle ORDER BY idca")
             for idx, row in enumerate(self.cursor.fetchall()):
                 tag = "even" if idx % 2 == 0 else "odd"
                 self.treeview.insert('', 'end', values=row, tags=(tag,))
         except Exception as e:
             print(f"Erreur de chargement: {e}")
+
+    def rechercher_categorie_auto(self, event=None):
+        filtre = self.entry_designationcat.get().strip()
+        self.charger_categoriearticle(filtre=filtre)
 
     def enregistrer(self):
         designation = self.entry_designationcat.get().strip()

@@ -218,6 +218,7 @@ class PageEtatSalaireHoraire(ctk.CTkFrame):
 
         self.tree = ttk.Treeview(self, columns=self.columns, show="headings")
         self.tree.grid(row=2, column=0, columnspan=8, padx=10, pady=10, sticky="nsew")
+        self._configure_table_alternating_colors(self.tree)
 
         for col in self.columns:
             self.tree.heading(col, text=col, command=lambda c=col, i=self.columns.index(col): sort_column(self.tree, c, i))
@@ -240,10 +241,21 @@ class PageEtatSalaireHoraire(ctk.CTkFrame):
         self.label_count = ctk.CTkLabel(self, text="Professeurs affichés : 0")
         self.label_count.grid(row=3, column=0, columnspan=8, padx=10, pady=10, sticky="w")
 
+    def _configure_table_alternating_colors(self, tree):
+        tree.tag_configure("row_even", background="#FFFFFF")
+        tree.tag_configure("row_odd", background="#D9EEED")
+
+    def _refresh_table_alternating_colors(self, tree):
+        for idx, item in enumerate(tree.get_children()):
+            existing_tags = tuple(t for t in tree.item(item, "tags") if t not in ("row_even", "row_odd"))
+            alt_tag = "row_even" if idx % 2 == 0 else "row_odd"
+            tree.item(item, tags=(alt_tag,) + existing_tags)
+
     def load_data(self):
         """Loads and displays data in the Treeview based on filters."""
         for row in self.tree.get_children():
             self.tree.delete(row)
+        self._refresh_table_alternating_colors(self.tree)
 
         self.current_export_data = [] # Clear data for export
 
@@ -348,6 +360,7 @@ class PageEtatSalaireHoraire(ctk.CTkFrame):
         total_montant_fmt = f"{total_montants:,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
         self.tree.insert('', 'end', values=('', 'TOTAL', '', total_heure_fmt, '', '', '', total_montant_fmt), tags=('total',))
         self.tree.tag_configure('total', background='#e0f7fa', font=('Arial', 10, 'bold'))
+        self._refresh_table_alternating_colors(self.tree)
 
         self.label_count.configure(text=f"Professeurs affichés : {count_professeurs}")
 

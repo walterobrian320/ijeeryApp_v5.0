@@ -102,6 +102,16 @@ class PageChangementArticle(ctk.CTkFrame):
         except:
             return 0.0
 
+    def _configure_table_alternating_colors(self, tree):
+        """Configure les tags pair/impair pour un tableau."""
+        tree.tag_configure("row_even", background="#FFFFFF")
+        tree.tag_configure("row_odd", background="#F3F7FF")
+
+    def _refresh_table_alternating_colors(self, tree):
+        """Réapplique les couleurs alternées sur toutes les lignes."""
+        for idx, item in enumerate(tree.get_children()):
+            tree.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
+
     def generer_reference(self):
         """Génère la référence automatique au format 2025-CHG-00001"""
         conn = self.connect_db()
@@ -336,6 +346,7 @@ class PageChangementArticle(ctk.CTkFrame):
 
         colonnes_sortie = ("Code", "Désignation", "Unité", "Magasin", "Quantité")
         self.tree_sortie = ttk.Treeview(frame_tree_sortie, columns=colonnes_sortie, show="headings", height=4)
+        self._configure_table_alternating_colors(self.tree_sortie)
 
         for col in colonnes_sortie:
             self.tree_sortie.heading(col, text=col)
@@ -412,6 +423,7 @@ class PageChangementArticle(ctk.CTkFrame):
 
         colonnes_entree = ("Code", "Désignation", "Unité", "Magasin", "Quantité")
         self.tree_entree = ttk.Treeview(frame_tree_entree, columns=colonnes_entree, show="headings", height=4)
+        self._configure_table_alternating_colors(self.tree_entree)
 
         for col in colonnes_entree:
             self.tree_entree.heading(col, text=col)
@@ -816,6 +828,7 @@ class PageChangementArticle(ctk.CTkFrame):
                         unite,
                         f"{stock:.2f}" if stock else "0.00"
                     ))
+                self._refresh_table_alternating_colors(tree)
 
                 label_count.configure(text=f"Articles: {len(resultats)}")
                 
@@ -840,6 +853,7 @@ class PageChangementArticle(ctk.CTkFrame):
 
         colonnes = ("ID", "ID_Unite", "Code", "Désignation", "Unité", "Stock Total")
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
+        self._configure_table_alternating_colors(tree)
 
         for col in colonnes:
             tree.heading(col, text=col)
@@ -951,6 +965,7 @@ class PageChangementArticle(ctk.CTkFrame):
             self.tree_sortie.insert("", "end", values=(
                 code, designation, unite, magasin, self.formater_nombre(qty)
             ))
+            self._refresh_table_alternating_colors(self.tree_sortie)
 
             self.articles_sortie.append({
                 'idarticle': self.article_sortie_selectionne['idarticle'],
@@ -987,6 +1002,7 @@ class PageChangementArticle(ctk.CTkFrame):
             self.tree_entree.insert("", "end", values=(
                 code, designation, unite, magasin, self.formater_nombre(qty)
             ))
+            self._refresh_table_alternating_colors(self.tree_entree)
 
             self.articles_entree.append({
                 'idarticle': self.article_entree_selectionne['idarticle'],
@@ -1030,6 +1046,7 @@ class PageChangementArticle(ctk.CTkFrame):
 
         index = self.tree_sortie.index(selection[0])
         self.tree_sortie.delete(selection[0])
+        self._refresh_table_alternating_colors(self.tree_sortie)
         self.articles_sortie.pop(index)
 
     def supprimer_article_entree(self):
@@ -1041,6 +1058,7 @@ class PageChangementArticle(ctk.CTkFrame):
 
         index = self.tree_entree.index(selection[0])
         self.tree_entree.delete(selection[0])
+        self._refresh_table_alternating_colors(self.tree_entree)
         self.articles_entree.pop(index)
 
     def ouvrir_recherche_changement(self):
@@ -1578,7 +1596,7 @@ class PageInfoMouvementStock(ctk.CTkFrame):
         self.current_page = None
         
         # Afficher la première page par défaut
-        self.show_page("Mise à jour BC")
+        self.show_page("🧾 Bon de commande")
     
     def connect_db(self):
         """Connexion à la base de données PostgreSQL"""
@@ -1613,7 +1631,7 @@ class PageInfoMouvementStock(ctk.CTkFrame):
         """Créer le menu latéral"""
         self.sidebar = ctk.CTkFrame(self, width=150, corner_radius=0, fg_color="#3b82f6")
         self.sidebar.grid(row=0, column=0, sticky="nsew")
-        self.sidebar.grid_rowconfigure(5, weight=1)
+        self.sidebar.grid_rowconfigure(6, weight=1)
         self.sidebar.grid_propagate(False)  # Empêcher le redimensionnement
         
         # Titre du menu
@@ -1628,12 +1646,11 @@ class PageInfoMouvementStock(ctk.CTkFrame):
         # Boutons du menu
         self.menu_buttons = {}
         menus = [
-            ("Mise à jour BC", "PageCommandeFrs"),
-            ("Mise à jour BR", "PageBonReception"),
-            ("Mise à jour Transfert", "PageTransfert"),
-            ("Mise à jour Sortie", "PageSortie"),
-            ("Suivi Commande", "PageSuiviCommande"),
-            ("Changement d'Articles", "PageChangementArticle")
+            ("🧾 Bon de commande", "PageCommandeFrs"),
+            ("📥 Bon de réception", "PageBonReception"),
+            ("🔄 Transferts", "PageTransfert"),
+            ("📤 Sortie/Consommation", "PageSortie"),
+            ("🔁 Changements", "PageChangementArticle")
         ]
         
         for idx, (menu_name, page_class) in enumerate(menus, start=1):
@@ -1682,7 +1699,7 @@ class PageInfoMouvementStock(ctk.CTkFrame):
     def show_page(self, menu_name):
         """Afficher la page correspondant au menu sélectionné"""
         
-        if menu_name == "Mise à jour Sortie":
+        if menu_name == "📤 Sortie/Consommation":
             # Utilisation du dialogue personnalisé avec mot de passe caché
             dialog = PasswordDialog("Accès Sécurisé", "Entrez le code d'autorisation :")
             code = dialog.result
@@ -1701,12 +1718,11 @@ class PageInfoMouvementStock(ctk.CTkFrame):
         
         # Mapping menu -> classe de page (IMPORTÉES)
         page_mapping = {
-            "Mise à jour BC": PageCommandeFrs,
-            "Mise à jour BR": PageBonReception,
-            "Mise à jour Transfert": PageTransfert,
-            "Mise à jour Sortie": PageSortie,
-            "Suivi Commande" : PageSuiviCommande,
-            "Changement d'Articles": PageChangementArticle
+            "🧾 Bon de commande": PageCommandeFrs,
+            "📥 Bon de réception": PageBonReception,
+            "🔄 Transferts": PageTransfert,
+            "📤 Sortie/Consommation": PageSortie,
+            "🔁 Changements": PageChangementArticle
         }
         
         # Cacher la page actuelle

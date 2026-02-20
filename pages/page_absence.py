@@ -76,6 +76,14 @@ class PageAbsence(ctk.CTkFrame):
             messagebox.showerror("Erreur de connexion", f"Détails : {err}")
             return None
 
+    def _configure_table_alternating_colors(self, tree):
+        tree.tag_configure("row_even", background="#FFFFFF")
+        tree.tag_configure("row_odd", background="#D9EEED")
+
+    def _refresh_table_alternating_colors(self, tree):
+        for idx, item in enumerate(tree.get_children()):
+            tree.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
+
     def get_info_societe(self):
         """Récupère les informations de la société depuis la base de données."""
         try:
@@ -173,6 +181,7 @@ class PageAbsence(ctk.CTkFrame):
         self.personnel_tree.column("Prénom", width=150)
         self.personnel_tree.column("Matricule", width=100)
         self.personnel_tree.column("Fonction", width=100)
+        self._configure_table_alternating_colors(self.personnel_tree)
         
         self.personnel_tree.pack(fill="both", expand=True, padx=5, pady=5)
         self.personnel_tree.bind("<<TreeviewSelect>>", self.on_personnel_select)
@@ -195,6 +204,7 @@ class PageAbsence(ctk.CTkFrame):
 
         for item in self.personnel_tree.get_children():
             self.personnel_tree.delete(item)
+        self._refresh_table_alternating_colors(self.personnel_tree)
 
         try:
             query = """
@@ -212,6 +222,7 @@ class PageAbsence(ctk.CTkFrame):
 
             for personnel in personnels:
                 self.personnel_tree.insert("", "end", values=personnel)
+            self._refresh_table_alternating_colors(self.personnel_tree)
         except psycopg2.Error as e:
             messagebox.showerror("Erreur BD", f"Erreur lors de la recherche des personnels : {e}")
 
@@ -449,6 +460,7 @@ class PageAbsence(ctk.CTkFrame):
         self.observation_entry.delete(0, ctk.END)
         self.nbre_heure_entry.delete(0, ctk.END)
         self.personnel_tree.delete(*self.personnel_tree.get_children())
+        self._refresh_table_alternating_colors(self.personnel_tree)
         self.personnel_selectionne_id = None
         self.search_entry.delete(0, ctk.END)
 

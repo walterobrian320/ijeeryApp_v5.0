@@ -80,6 +80,14 @@ class PageBanque(ctk.CTkFrame):
         if not self.cursor:
             return False
 
+    def _configure_table_alternating_colors(self, tree):
+        tree.tag_configure("row_even", background="#FFFFFF")
+        tree.tag_configure("row_odd", background="#F2D9EA")
+
+    def _refresh_table_alternating_colors(self, tree):
+        for idx, item in enumerate(tree.get_children()):
+            tree.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
+
     def setup_ui(self):
         self.pack(expand=True, fill="both", padx=20, pady=20)
 
@@ -125,6 +133,7 @@ class PageBanque(ctk.CTkFrame):
         self.frame_tree.pack(fill="both", expand=True, padx=10, pady=5)
 
         self.tree = ttk.Treeview(self.frame_tree, columns=self.colonnes, show="headings")
+        self._configure_table_alternating_colors(self.tree)
         for col in self.colonnes:
             self.tree.heading(col, text=col)
             self.tree.column(col, anchor="center", width=110)
@@ -206,6 +215,7 @@ class PageBanque(ctk.CTkFrame):
     def charger_donnees(self, date_d, date_f, bank_id, mode_id=None, type_doc="Tous"):
         d_str, f_str = date_d.strftime('%Y-%m-%d'), date_f.strftime('%Y-%m-%d')
         for item in self.tree.get_children(): self.tree.delete(item)
+        self._refresh_table_alternating_colors(self.tree)
         
         all_ops = []
         sql_mode = " AND t1.idmode = %s" if mode_id else ""
@@ -250,6 +260,7 @@ class PageBanque(ctk.CTkFrame):
                         self.format_montant(dec) if dec else "", mod, usr)
                 self.tree.insert("", "end", values=vals)
                 self.donnees_export.append(vals)
+            self._refresh_table_alternating_colors(self.tree)
 
             self.label_total_encaissement.configure(text=f"Total Encaissement: {self.format_montant(t_enc)} Ar")
             self.label_total_decaissement.configure(text=f"Total Décaissement: {self.format_montant(t_dec)} Ar")

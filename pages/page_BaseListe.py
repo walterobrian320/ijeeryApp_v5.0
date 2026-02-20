@@ -119,6 +119,8 @@ class PageBaseListe(ctk.CTkFrame):
         self.tree_container.grid(row=3, column=0, columnspan=4, padx=10, pady=10, sticky="nsew")
 
         self.treeview = ttk.Treeview(self.tree_container, columns=columns, show='headings')
+        self.treeview.tag_configure("row_even", background="#FFFFFF")
+        self.treeview.tag_configure("row_odd", background="#F1E4D8")
         self.treeview.pack(expand=True, fill="both")
 
         self.treeview.heading("id", text="ID")
@@ -133,15 +135,21 @@ class PageBaseListe(ctk.CTkFrame):
 
         self.charger_base()
 
+    def _refresh_table_alternating_colors(self):
+        for idx, item in enumerate(self.treeview.get_children()):
+            self.treeview.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
+
     def charger_base(self):
         if not self.conn: return
         for i in self.treeview.get_children():
             self.treeview.delete(i)
+        self._refresh_table_alternating_colors()
         
         # On ne sélectionne que les colonnes nécessaires pour l'affichage
         self.cursor.execute("SELECT id, nombase, designationbase FROM tb_baseliste WHERE deleted = 0 ORDER BY id DESC")
         for row in self.cursor.fetchall():
             self.treeview.insert('', 'end', values=row)
+        self._refresh_table_alternating_colors()
 
     def enregistrer(self):
         if not self.conn: return

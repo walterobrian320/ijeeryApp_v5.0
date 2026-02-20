@@ -78,6 +78,14 @@ class PagePersonnel(ctk.CTkFrame):
         
         self.pack(expand=True, fill="both")
 
+    def _configure_table_alternating_colors(self, tree):
+        tree.tag_configure("row_even", background="#FFFFFF")
+        tree.tag_configure("row_odd", background="#D9EEED")
+
+    def _refresh_table_alternating_colors(self, tree):
+        for idx, item in enumerate(tree.get_children()):
+            tree.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
+
     def create_widgets(self):
         # Titre
         ctk.CTkLabel(self, text="LISTE DES PERSONNELS", font=("Arial", 20, "bold")).pack(pady=10)
@@ -94,6 +102,7 @@ class PagePersonnel(ctk.CTkFrame):
 
         # Liste des fonctions (Treeview)
         self.tree_fonction = ttk.Treeview(self.frame_gauche, columns=("ID", "Fonction"), show="headings")
+        self._configure_table_alternating_colors(self.tree_fonction)
         self.tree_fonction.heading("ID", text="ID")
         self.tree_fonction.heading("Fonction", text="Désignation")
         self.tree_fonction.column("ID", width=40)
@@ -124,6 +133,7 @@ class PagePersonnel(ctk.CTkFrame):
             cursor.execute("SELECT idfonction, designationfonction FROM tb_fonction ORDER BY designationfonction")
             for row in cursor.fetchall():
                 self.tree_fonction.insert("", "end", values=row)
+            self._refresh_table_alternating_colors(self.tree_fonction)
         except Exception as e:
             messagebox.showerror("Erreur", f"Erreur de chargement : {e}")
 
@@ -131,11 +141,13 @@ class PagePersonnel(ctk.CTkFrame):
         recherche = self.entry_recherche.get().lower()
         for row in self.tree_fonction.get_children():
             self.tree_fonction.delete(row)
+        self._refresh_table_alternating_colors(self.tree_fonction)
         try:
             cursor = db_manager.get_cursor()
             cursor.execute("SELECT idfonction, designationfonction FROM tb_fonction WHERE LOWER(designationfonction) LIKE %s", (f"%{recherche}%",))
             for row in cursor.fetchall():
                 self.tree_fonction.insert("", "end", values=row)
+            self._refresh_table_alternating_colors(self.tree_fonction)
         except Exception as e:
             messagebox.showerror("Erreur", f"Recherche impossible : {e}")
 

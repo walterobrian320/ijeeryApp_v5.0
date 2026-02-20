@@ -183,6 +183,7 @@ class PageSalaireBase(ctk.CTkFrame):
 
         # Create the Treeview widget
         self.tree = ttk.Treeview(self.tree_frame, columns=("nom", "prenom", "montant"), show="headings")
+        self._configure_table_alternating_colors(self.tree)
         self.tree.heading("nom", text="Nom")
         self.tree.heading("prenom", text="Prénom")
         self.tree.heading("montant", text="Salaire de base (Ariary)")
@@ -200,6 +201,14 @@ class PageSalaireBase(ctk.CTkFrame):
         # --- Save Button ---
         self.btn_enregistrer = ctk.CTkButton(self, text="Enregistrer", command=self._enregistrer_sb)
         self.btn_enregistrer.pack(pady=10)
+
+    def _configure_table_alternating_colors(self, tree):
+        tree.tag_configure("row_even", background="#FFFFFF")
+        tree.tag_configure("row_odd", background="#D9EEED")
+
+    def _refresh_table_alternating_colors(self, tree):
+        for idx, item in enumerate(tree.get_children()):
+            tree.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
 
     def _init_db_and_data(self):
         """
@@ -305,6 +314,7 @@ class PageSalaireBase(ctk.CTkFrame):
         for item in self.tree.get_children():
             self.tree.delete(item)
         print("Treeview cleared.")
+        self._refresh_table_alternating_colors(self.tree)
         
         # Destroy and clear CTkEntry widgets for visible rows
         # This is important to prevent orphaned widgets when the Treeview is refreshed
@@ -340,6 +350,7 @@ class PageSalaireBase(ctk.CTkFrame):
                 # Insert the professor into the treeview with their current salary
                 self.tree.insert("", "end", iid=idprof, values=(nom, prenom, current_montant))
                 inserted_count += 1
+        self._refresh_table_alternating_colors(self.tree)
         
         print(f"Inserted {inserted_count} professors into the treeview.")
         # Re-add CTkEntry widgets for the filtered, visible rows

@@ -150,6 +150,14 @@ class PageTauxHoraire(ctk.CTkFrame):
             messagebox.showerror("Erreur de connexion", f"Erreur : {err}")
             self.conn = None # Set to None to indicate failed connection
 
+    def _configure_table_alternating_colors(self, tree):
+        tree.tag_configure("row_even", background="#FFFFFF")
+        tree.tag_configure("row_odd", background="#D9EEED")
+
+    def _refresh_table_alternating_colors(self, tree):
+        for idx, item in enumerate(tree.get_children()):
+            tree.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
+
     def _create_widgets(self):
         """Creates and arranges the UI widgets, including the search bar."""
         # --- Search Bar ---
@@ -168,6 +176,7 @@ class PageTauxHoraire(ctk.CTkFrame):
         self.tree_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
         self.tree = ttk.Treeview(self.tree_frame, columns=("nom", "prenom", "tauxhoraire"), show="headings")
+        self._configure_table_alternating_colors(self.tree)
         self.tree.heading("nom", text="Nom")
         self.tree.heading("prenom", text="Prénom")
         self.tree.heading("tauxhoraire", text="Taux Horaire (Ariary)")
@@ -213,6 +222,7 @@ class PageTauxHoraire(ctk.CTkFrame):
         # Clear existing items and entry widgets
         for item in self.tree.get_children():
             self.tree.delete(item)
+        self._refresh_table_alternating_colors(self.tree)
         
         # Destroy and clear entry widgets for visible rows
         for entry_widget in self.entry_widgets.values():
@@ -242,6 +252,7 @@ class PageTauxHoraire(ctk.CTkFrame):
             # Check if the normalized search term is in the normalized name or prenom
             if search_term in normalized_nom or search_term in normalized_prenom:
                 self.tree.insert("", "end", iid=idpers, values=(nom, prenom, current_taux))
+        self._refresh_table_alternating_colors(self.tree)
         
         # Re-add entry widgets for the filtered, visible rows
         self._add_entry_fields()

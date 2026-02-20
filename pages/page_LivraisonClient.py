@@ -45,6 +45,18 @@ class PageLivraisonClient(ctk.CTkFrame):
             messagebox.showerror("Erreur de chemin", f"Impossible de trouver config.json à la racine.\nErreur: {e}")
             return None
 
+    def _configure_table_alternating_colors(self, tree):
+        """Configure les couleurs alternées d'un Treeview."""
+        tree.tag_configure("row_even", background="#FFFFFF")
+        tree.tag_configure("row_odd", background="#F3F7FF")
+
+    def _refresh_table_alternating_colors(self, tree):
+        """Réapplique les couleurs alternées sans écraser les autres tags éventuels."""
+        for idx, item in enumerate(tree.get_children()):
+            tags = tuple(t for t in tree.item(item, "tags") if t not in ("row_even", "row_odd"))
+            alt_tag = "row_even" if idx % 2 == 0 else "row_odd"
+            tree.item(item, tags=tags + (alt_tag,))
+
     def generate_bl_ref(self):
         year = datetime.now().year
         conn = self.connect_db()
@@ -85,6 +97,7 @@ class PageLivraisonClient(ctk.CTkFrame):
         # Colonnes visibles et colonnes cachées pour les IDs
         cols = ("code", "nom", "unite", "qt_vente", "qt_livre", "id_art", "id_unite", "id_mag")
         self.tree = ttk.Treeview(self.tree_frame, columns=cols, show="headings", height=15)
+        self._configure_table_alternating_colors(self.tree)
         
         # Configuration des colonnes visibles
         col_config = [
@@ -149,6 +162,7 @@ class PageLivraisonClient(ctk.CTkFrame):
         ent_date.pack(padx=2, pady=2)
 
         tree_f = ttk.Treeview(top, columns=("ref", "client", "date", "idcli", "idmag"), show="headings")
+        self._configure_table_alternating_colors(tree_f)
         
         col_config = [
             ("ref", "N° Facture", 150),
@@ -168,6 +182,7 @@ class PageLivraisonClient(ctk.CTkFrame):
         def charger(date_val=None):
             for i in tree_f.get_children(): 
                 tree_f.delete(i)
+            self._refresh_table_alternating_colors(tree_f)
             conn = self.connect_db()
             if conn:
                 cur = conn.cursor()
@@ -193,6 +208,7 @@ class PageLivraisonClient(ctk.CTkFrame):
                     for r in cur.fetchall():
                         date_formatted = r[2].strftime('%d/%m/%Y') if hasattr(r[2], 'strftime') else str(r[2])
                         tree_f.insert("", "end", values=(r[0], r[1], date_formatted, r[3], r[4]))
+                    self._refresh_table_alternating_colors(tree_f)
                 except Exception as e:
                     messagebox.showerror("Erreur", f"Erreur lors du chargement: {e}")
                 finally:
@@ -222,6 +238,7 @@ class PageLivraisonClient(ctk.CTkFrame):
         
         for i in self.tree.get_children(): 
             self.tree.delete(i)
+        self._refresh_table_alternating_colors(self.tree)
         
         conn = self.connect_db()
         if conn:
@@ -283,6 +300,7 @@ class PageLivraisonClient(ctk.CTkFrame):
                                 r[6],  # id unite
                                 r[7]   # id mag
                             ))
+                    self._refresh_table_alternating_colors(self.tree)
             except Exception as e:
                 messagebox.showerror("Erreur", f"Erreur lors du chargement des détails: {e}")
             finally:
@@ -345,6 +363,7 @@ class PageLivraisonClient(ctk.CTkFrame):
         self.lbl_facture.configure(text="N° Facture: ---")
         for i in self.tree.get_children(): 
             self.tree.delete(i)
+        self._refresh_table_alternating_colors(self.tree)
         self.bl_var.set(self.generate_bl_ref())
 
     def enregistrer_livraison(self):

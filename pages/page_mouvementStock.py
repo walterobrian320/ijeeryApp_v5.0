@@ -2093,9 +2093,6 @@ class PageMouvementStock(ctk.CTkFrame):
             "Mise à jour Sortie": PageSortie,
             "Changement d'articles": PageChangementArticle,
         }
-        # Masquer explicitement cette entrée si elle est ajoutée ailleurs
-        self.pages.pop("Suivi Commande", None)
-        self.pages.pop("suivi commande", None)
         
         self.page_frames = {}
         

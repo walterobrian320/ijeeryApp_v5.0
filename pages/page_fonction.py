@@ -143,6 +143,7 @@ class PageFonction(ctk.CTkFrame):
 
         self.treeview = tk.ttk.Treeview(self.tree, columns=columns, show='headings')
         self.treeview.pack(expand=True, fill="both")
+        self._configure_table_alternating_colors(self.treeview)
 
         for col in columns:
             self.treeview.heading(col, text=col.capitalize())
@@ -153,14 +154,26 @@ class PageFonction(ctk.CTkFrame):
         # Initial load
         self.charger_fonctions()
 
+    def _configure_table_alternating_colors(self, tree):
+        """Configure des couleurs alternées: blanc + vert clair basé sur #036C6B."""
+        tree.tag_configure("row_even", background="#FFFFFF")
+        tree.tag_configure("row_odd", background="#D9EEED")
+
+    def _refresh_table_alternating_colors(self, tree):
+        """Réapplique les couleurs alternées sur les lignes du tableau."""
+        for idx, item in enumerate(tree.get_children()):
+            tree.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
+
     def charger_fonctions(self):
         if not self.conn:
             return
         for i in self.treeview.get_children():
             self.treeview.delete(i)
+        self._refresh_table_alternating_colors(self.treeview)
         self.cursor.execute("SELECT * FROM tb_fonction")
         for row in self.cursor.fetchall():
             self.treeview.insert('', 'end', values=row)
+        self._refresh_table_alternating_colors(self.treeview)
 
     def enregistrer(self):
         if not self.conn:

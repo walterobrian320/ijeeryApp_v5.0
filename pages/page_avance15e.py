@@ -79,6 +79,14 @@ class PageAVQ(ctk.CTkFrame):
             messagebox.showerror("Erreur de connexion", f"Détails : {err}")
             return None
 
+    def _configure_table_alternating_colors(self, tree):
+        tree.tag_configure("row_even", background="#FFFFFF")
+        tree.tag_configure("row_odd", background="#D9EEED")
+
+    def _refresh_table_alternating_colors(self, tree):
+        for idx, item in enumerate(tree.get_children()):
+            tree.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
+
     def initialize_database(self):
         """Initialise la connexion à la base de données et crée la table si nécessaire."""
         if not self.cursor:
@@ -162,6 +170,7 @@ class PageAVQ(ctk.CTkFrame):
         self.treeview.column("Montant", width=80, anchor="e")
         self.treeview.column("ID", width=0, stretch=tk.NO) # Hide ID column
         self.treeview.column("Personnel", width=150)
+        self._configure_table_alternating_colors(self.treeview)
 
         self.treeview.pack(fill="both", expand=True)
 
@@ -337,6 +346,7 @@ class PageAVQ(ctk.CTkFrame):
     def rafraichir_treeview(self):
         for item in self.treeview.get_children():
             self.treeview.delete(item)
+        self._refresh_table_alternating_colors(self.treeview)
         self.charger_avances()
 
     def charger_avances(self):
@@ -361,6 +371,7 @@ class PageAVQ(ctk.CTkFrame):
                     id_avance, 
                     f"{nom_prof} {prenom_prof}"
                 ))
+            self._refresh_table_alternating_colors(self.treeview)
         except psycopg2.Error as e:
             messagebox.showerror("Erreur", f"Erreur lors du chargement des avances : {e}")
 

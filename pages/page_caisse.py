@@ -147,7 +147,7 @@ class PageCaisse(ctk.CTkFrame):
         try:
             # Tags 'odd' et 'even' utilisés lors de l'insertion des lignes
             self.tree.tag_configure('odd', background='#ffffff')
-            self.tree.tag_configure('even', background='#f2f2f2')
+            self.tree.tag_configure('even', background='#F2D9EA')
         except Exception:
             # Certains environnements peuvent ne pas supporter tag_configure ; ignorer silencieusement
             pass

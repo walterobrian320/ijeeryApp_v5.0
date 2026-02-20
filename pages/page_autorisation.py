@@ -76,6 +76,22 @@ class PageAutorisation(ctk.CTkFrame):
         if hasattr(self, 'menu_tree'):
             self.menu_tree.tag_configure('oui', foreground='#27ae60')  # Vert
             self.menu_tree.tag_configure('non', foreground='#c0392b')  # Rouge
+            self.menu_tree.tag_configure('row_even', background='#FFFFFF')
+            self.menu_tree.tag_configure('row_odd', background='#F1E4D8')
+        if hasattr(self, 'fonction_tree'):
+            self.fonction_tree.tag_configure('row_even', background='#FFFFFF')
+            self.fonction_tree.tag_configure('row_odd', background='#F1E4D8')
+
+    def _refresh_fonction_tree_alternating(self):
+        for idx, item in enumerate(self.fonction_tree.get_children()):
+            self.fonction_tree.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
+
+    def _refresh_menu_tree_alternating(self):
+        for idx, item in enumerate(self.menu_tree.get_children()):
+            current = list(self.menu_tree.item(item).get('tags', ()))
+            current = [t for t in current if t not in ('row_even', 'row_odd')]
+            row_tag = "row_even" if idx % 2 == 0 else "row_odd"
+            self.menu_tree.item(item, tags=tuple([row_tag] + current))
 
     def setup_ui(self):
         self.pack(expand=True, fill="both", padx=20, pady=20)
@@ -200,6 +216,7 @@ class PageAutorisation(ctk.CTkFrame):
         for fonction in self.all_fonctions:
             if search_term in fonction[1].lower():
                 self.fonction_tree.insert("", "end", values=fonction)
+        self._refresh_fonction_tree_alternating()
 
     def filter_menus(self, event=None):
         """Filtre la liste des menus selon le terme de recherche"""
@@ -215,6 +232,7 @@ class PageAutorisation(ctk.CTkFrame):
                 # Appliquer le tag approprié
                 tag = 'oui' if menu[2] == 'Oui' else 'non'
                 self.menu_tree.item(item, tags=(tag,))
+        self._refresh_menu_tree_alternating()
 
     def toggle_all_checkboxes(self, state):
         """Coche ou décoche toutes les autorisations"""
@@ -225,6 +243,7 @@ class PageAutorisation(ctk.CTkFrame):
             # Mettre à jour le tag
             tag = 'oui' if state else 'non'
             self.menu_tree.item(item, tags=(tag,))
+        self._refresh_menu_tree_alternating()
 
     def load_fonctions(self):
         """Charge la liste des fonctions depuis la base de données"""
@@ -243,6 +262,7 @@ class PageAutorisation(ctk.CTkFrame):
             # Ajouter les nouvelles données
             for row in self.all_fonctions:
                 self.fonction_tree.insert("", "end", values=row)
+            self._refresh_fonction_tree_alternating()
                 
         except psycopg2.Error as err:
             messagebox.showerror("Erreur", f"Erreur lors du chargement des fonctions : {err}")
@@ -274,6 +294,7 @@ class PageAutorisation(ctk.CTkFrame):
                 # Appliquer le tag approprié
                 tag = 'oui' if row[2] == 'Oui' else 'non'
                 self.menu_tree.item(item, tags=(tag,))
+            self._refresh_menu_tree_alternating()
                 
         except psycopg2.Error as err:
             messagebox.showerror("Erreur", f"Erreur lors du chargement des menus : {err}")
@@ -306,6 +327,7 @@ class PageAutorisation(ctk.CTkFrame):
                     # Mettre à jour le tag
                     tag = 'oui' if new_value == 'Oui' else 'non'
                     self.menu_tree.item(item, tags=(tag,))
+                    self._refresh_menu_tree_alternating()
 
     def save_autorisations(self):
         """Sauvegarde les autorisations en base de données"""

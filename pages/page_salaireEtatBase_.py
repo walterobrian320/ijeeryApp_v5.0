@@ -98,6 +98,7 @@ class PageSalaireEtatSB(ctk.CTkFrame):
 
         # Treeview
         self.treeview = ttk.Treeview(self, columns=self.headers, show="headings")
+        self._configure_table_alternating_colors(self.treeview)
         self.treeview.grid(row=1, column=0, columnspan=5, padx=10, pady=10, sticky="nsew")
         for col in self.headers:
             self.treeview.heading(col, text=col)
@@ -105,6 +106,14 @@ class PageSalaireEtatSB(ctk.CTkFrame):
 
         self.label_count = ctk.CTkLabel(self, text="Nombre affichés: 0")
         self.label_count.grid(row=2, column=0, sticky="w", padx=10)
+
+    def _configure_table_alternating_colors(self, tree):
+        tree.tag_configure("row_even", background="#FFFFFF")
+        tree.tag_configure("row_odd", background="#D9EEED")
+
+    def _refresh_table_alternating_colors(self, tree):
+        for idx, item in enumerate(tree.get_children()):
+            tree.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
 
     def get_info_societe(self):
         """Récupère les informations de l'entreprise."""
@@ -147,11 +156,13 @@ class PageSalaireEtatSB(ctk.CTkFrame):
         mois_idx = self.mois_combobox.cget("values").index(mois_str) + 1
         
         for item in self.treeview.get_children(): self.treeview.delete(item)
+        self._refresh_table_alternating_colors(self.treeview)
         self.current_display_data = self.recuperer_donnees(mois_idx)
         
         for row in self.current_display_data:
             formatted = [f"{v:,.2f}".replace(",", " ").replace(".", ",") if isinstance(v, (float, int)) else v for v in row]
             self.treeview.insert("", "end", values=formatted)
+        self._refresh_table_alternating_colors(self.treeview)
         self.label_count.configure(text=f"Nombre d'enregistrements: {len(self.current_display_data)}")
 
     def exporter_excel(self):

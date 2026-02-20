@@ -70,6 +70,14 @@ class PageBanqueNv(ctk.CTkFrame):
         if not self.cursor:
             return False
 
+    def _configure_table_alternating_colors(self, tree):
+        tree.tag_configure("row_even", background="#FFFFFF")
+        tree.tag_configure("row_odd", background="#F2D9EA")
+
+    def _refresh_table_alternating_colors(self, tree):
+        for idx, item in enumerate(tree.get_children()):
+            tree.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
+
     def create_widgets(self):
         """Crée et organise tous les widgets de l'interface."""
 
@@ -124,6 +132,7 @@ class PageBanqueNv(ctk.CTkFrame):
 
         # Configuration du Treeview
         self.tree = ttk.Treeview(self.treeview_frame, columns=("ID", "Nom banque", "Adresse", "Compte"), show="headings")
+        self._configure_table_alternating_colors(self.tree)
         self.tree.heading("ID", text="ID")
         self.tree.heading("Nom banque", text="Nom banque")
         self.tree.heading("Adresse", text="Adresse")
@@ -324,6 +333,7 @@ class PageBanqueNv(ctk.CTkFrame):
         # Effacer toutes les lignes existantes dans le Treeview
         for row in self.tree.get_children():
             self.tree.delete(row)
+        self._refresh_table_alternating_colors(self.tree)
 
         try:
             self.cursor.execute(
@@ -331,6 +341,7 @@ class PageBanqueNv(ctk.CTkFrame):
             )
             for banque in self.cursor.fetchall():
                 self.tree.insert("", ctk.END, values=banque)
+            self._refresh_table_alternating_colors(self.tree)
         except psycopg2.Error as err:
             messagebox.showerror("Erreur de lecture", f"Erreur lors de la récupération des données : {err}")
         except Exception as err:

@@ -111,6 +111,14 @@ class FenetreAvanceSpec(ctk.CTkFrame):
         except psycopg2.Error as err:
             messagebox.showerror("Erreur de connexion", f"Erreur : {err}")
             return False
+
+    def _configure_table_alternating_colors(self, tree):
+        tree.tag_configure("row_even", background="#FFFFFF")
+        tree.tag_configure("row_odd", background="#D9EEED")
+
+    def _refresh_table_alternating_colors(self, tree):
+        for idx, item in enumerate(tree.get_children()):
+            tree.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
      
     
     def autocompletion_personnel(self, event):
@@ -159,6 +167,7 @@ class FenetreAvanceSpec(ctk.CTkFrame):
 
         # Treeview des avances spéciales (still ttk.Treeview)
         self.tree = ttk.Treeview(tree_container_frame, columns=("Date", "Référence", "Observation", "Montant", "Nb Remboursement", "Paiement par Mois"), show="headings")
+        self._configure_table_alternating_colors(self.tree)
         for col in ("Date", "Référence", "Observation", "Montant", "Nb Remboursement", "Paiement par Mois"):
             self.tree.heading(col, text=col)
             self.tree.column(col, width=120)
@@ -195,6 +204,7 @@ class FenetreAvanceSpec(ctk.CTkFrame):
         # Clear existing content
         for item in self.tree.get_children():
             self.tree.delete(item)
+        self._refresh_table_alternating_colors(self.tree)
 
         self.cursor.execute("""
             SELECT tap.datepmt, tap.refpmt, tap.observation, tap.mtpaye, tap.nbremboursement, p.nom, p.prenom
@@ -227,6 +237,7 @@ class FenetreAvanceSpec(ctk.CTkFrame):
                 nb_remboursement,
                 f"{paiement_par_mois:,.2f}".replace(',', ' ').replace('.', ',')
             ))
+        self._refresh_table_alternating_colors(self.tree)
 
     def enregistrer_avance(self):
         personnel_selectionne = self.personnel_var.get()

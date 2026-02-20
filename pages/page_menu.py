@@ -104,6 +104,8 @@ class PageMenu(ctk.CTkFrame):
         # Treeview
         columns = ("Désignation", "Page")
         self.tree = ttk.Treeview(self, columns=columns, show="headings")
+        self.tree.tag_configure("row_even", background="#FFFFFF")
+        self.tree.tag_configure("row_odd", background="#F1E4D8")
         
         # Configuration des colonnes
         for col in columns:
@@ -126,11 +128,16 @@ class PageMenu(ctk.CTkFrame):
         # Charger les dépôts
         self.load_menu()
 
+    def _refresh_table_alternating_colors(self):
+        for idx, item in enumerate(self.tree.get_children()):
+            self.tree.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
+
     
    # CORRECTION ICI : Ajout du fetchall et de l'insertion dans le treeview
     def load_menu(self):
         for item in self.tree.get_children():
             self.tree.delete(item)
+        self._refresh_table_alternating_colors()
             
         if not self.conn:
             return
@@ -148,6 +155,7 @@ class PageMenu(ctk.CTkFrame):
                 # mag[0] = id (utilisé comme iid), mag[1] = designationmenu, mag[2] = page
                 # Les valeurs affichées sont (Nom du dépôt, Adresse)
                 self.tree.insert("", "end", iid=men[0], values=(men[1], men[2]))
+            self._refresh_table_alternating_colors()
             
         except psycopg2.Error as err:
             messagebox.showerror("Erreur", f"Erreur lors du chargement des dépôts : {err}")

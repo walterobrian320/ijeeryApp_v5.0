@@ -175,7 +175,7 @@ class PageFactureListe(ctk.CTkFrame):
         
         # Tags pour les couleurs alternées des lignes
         self.tree.tag_configure('row_white', background='#FFFFFF', foreground='black')
-        self.tree.tag_configure('row_light_gray', background='#F5F5F5', foreground='black') 
+        self.tree.tag_configure('row_light_gray', background='#F2D9EA', foreground='black') 
         
         # --- LIAISON DU DOUBLE-CLIC POUR LE PAIEMENT ---
         self.tree.bind("<Double-1>", self.on_double_click)

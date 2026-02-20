@@ -169,6 +169,8 @@ class PageUsers(ctk.CTkFrame):
         # NOUVEAU : Ajout de la colonne Magasin
         columns = ("ID", "Nom", "Prénom", "Username", "Fonction", "Magasin", "Actif", "Date")
         self.tree = ttk.Treeview(self, columns=columns, show="headings")
+        self.tree.tag_configure("row_even", background="#FFFFFF")
+        self.tree.tag_configure("row_odd", background="#F1E4D8")
         
         # Configuration des colonnes
         for col in columns:
@@ -193,6 +195,10 @@ class PageUsers(ctk.CTkFrame):
         
         # Charger les utilisateurs
         self.load_users()
+
+    def _refresh_table_alternating_colors(self):
+        for idx, item in enumerate(self.tree.get_children()):
+            self.tree.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
 
     def load_fonctions(self):
         """Charge les fonctions depuis tb_fonction et les stocke dans un dictionnaire."""
@@ -230,6 +236,7 @@ class PageUsers(ctk.CTkFrame):
         """Charge la liste des utilisateurs pour le Treeview."""
         for item in self.tree.get_children():
             self.tree.delete(item)
+        self._refresh_table_alternating_colors()
         
         if not self.conn: return
             
@@ -253,6 +260,7 @@ class PageUsers(ctk.CTkFrame):
                 
                 self.tree.insert("", "end", values=(row[0], row[1], row[2], row[3], 
                                                   row[4], magasin_text, active_text, date_str))
+            self._refresh_table_alternating_colors()
         except psycopg2.Error as err:
             messagebox.showerror("Erreur", f"Erreur lors du chargement des utilisateurs : {err}")
 

@@ -98,6 +98,14 @@ class Salaire(ctk.CTkFrame):  # ou autre base selon votre structure
         self.cursor = self.conn.cursor()
         self._create_interface()
 
+    def _configure_table_alternating_colors(self, tree):
+        tree.tag_configure("row_even", background="#FFFFFF")
+        tree.tag_configure("row_odd", background="#D9EEED")
+
+    def _refresh_table_alternating_colors(self, tree):
+        for idx, item in enumerate(tree.get_children()):
+            tree.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
+
 
 
     def _create_interface(self):
@@ -192,6 +200,7 @@ class Salaire(ctk.CTkFrame):  # ou autre base selon votre structure
         # Créer le Treeview
         self.treeview = ttk.Treeview(frame_haut, columns=self.headers, show="headings")
         self.treeview.grid(row=1, column=0, columnspan=5, padx=10, pady=10, sticky="nsew")
+        self._configure_table_alternating_colors(self.treeview)
 
         # Configurer les en-têtes des colonnes
         for col in self.headers:
@@ -295,6 +304,7 @@ class Salaire(ctk.CTkFrame):  # ou autre base selon votre structure
         # Supprimer toutes les lignes existantes dans le Treeview
         for item in self.treeview.get_children():
             self.treeview.delete(item)
+        self._refresh_table_alternating_colors(self.treeview)
 
         donnees = self.recuperer_donnees(mois)
         self.current_display_data = [] # Réinitialiser les données affichées
@@ -310,6 +320,7 @@ class Salaire(ctk.CTkFrame):  # ou autre base selon votre structure
                     formatted_row.append(str(value))
             self.treeview.insert("", "end", values=formatted_row)
             self.current_display_data.append(row_data) # Conserver les valeurs numériques pour l'exportation
+        self._refresh_table_alternating_colors(self.treeview)
 
         self.label_count.configure(text=f"Nombre d'enregistrements affichés: {len(donnees)}")
 

@@ -54,6 +54,16 @@ class PagePeronnelAjout(ctk.CTkFrame):
             messagebox.showerror("Erreur de connexion", f"Erreur : {e}")
             return None
 
+    def _configure_table_alternating_colors(self, tree):
+        """Configure des couleurs alternées: blanc + vert clair basé sur #036C6B."""
+        tree.tag_configure("row_even", background="#FFFFFF")
+        tree.tag_configure("row_odd", background="#D9EEED")
+
+    def _refresh_table_alternating_colors(self, tree):
+        """Réapplique l'alternance sur toutes les lignes du tableau."""
+        for idx, item in enumerate(tree.get_children()):
+            tree.item(item, tags=("row_even" if idx % 2 == 0 else "row_odd",))
+
     def create_widgets(self):
         form_frame = ctk.CTkFrame(self)
         form_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
@@ -111,8 +121,6 @@ class PagePeronnelAjout(ctk.CTkFrame):
         ctk.CTkButton(btn_frame, text="Supprimer", command=self.supprimer_personnel, fg_color="red").pack(side="left", padx=5)
         ctk.CTkButton(btn_frame, text="Nettoyer", command=self.nettoyer_formulaire).pack(side="left", padx=5)
         
-        # NOUVEAU BOUTON : Liste Personnel
-        ctk.CTkButton(btn_frame, text="Liste Personnel", command=self.callback_liste if self.callback_liste else self.open_page_personnel, fg_color="green").pack(side="left", padx=5)
         
         # Treeview
         tree_frame = ctk.CTkFrame(self)
@@ -122,6 +130,7 @@ class PagePeronnelAjout(ctk.CTkFrame):
         
         columns = ("ID", "Matricule", "Nom", "Prénom", "Date Nais", "Adresse", "CIN", "Contact", "Fonction", "Sexe")
         self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
+        self._configure_table_alternating_colors(self.tree)
         for col in columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, width=100)
@@ -259,12 +268,14 @@ class PagePeronnelAjout(ctk.CTkFrame):
         conn = self.connect_db()
         if not conn: return
         for item in self.tree.get_children(): self.tree.delete(item)
+        self._refresh_table_alternating_colors(self.tree)
         try:
             cursor = conn.cursor()
             cursor.execute("""SELECT p.id, p.matricule, p.nom, p.prenom, p.datenaissance, p.adresse, p.cin, p.contact, f.designationfonction, p.sexe
                               FROM tb_personnel p LEFT JOIN tb_fonction f ON p.idfonction = f.idfonction
                               WHERE p.deleted = 0 ORDER BY p.id DESC""")
             for row in cursor.fetchall(): self.tree.insert("", "end", values=row)
+            self._refresh_table_alternating_colors(self.tree)
         finally: conn.close()
         
     def open_page_personnel(self):

@@ -163,7 +163,7 @@ class PageListeMouvement(ctk.CTkFrame):
             width=250
         )
         self.search_entry.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
-        self.search_entry.bind("<Return>", lambda e: self.search_data())
+        self.search_entry.bind("<KeyRelease>", lambda e: self.search_data())
         
         # Bouton rechercher
         btn_search = ctk.CTkButton(
@@ -238,9 +238,9 @@ class PageListeMouvement(ctk.CTkFrame):
         self.tree.column("Statut", width=80, anchor="center")
         self.tree.column("Utilisateur", width=120, anchor="w")
         
-        # Tags pour les couleurs
-        self.tree.tag_configure('row_white', background='#FFFFFF', foreground='black')
-        self.tree.tag_configure('row_gray', background='#F5F5F5', foreground='black')
+        # Tags pour les couleurs alternées
+        self.tree.tag_configure('even', background='#FFFFFF', foreground='black')
+        self.tree.tag_configure('odd', background='#E6EFF8', foreground='black')
         
         # Scrollbars
         scrollbar_y = ttk.Scrollbar(self.tree_frame, orient="vertical", command=self.tree.yview)
@@ -495,7 +495,7 @@ class PageListeMouvement(ctk.CTkFrame):
 
         # Insérer les nouvelles lignes
         for idx, row in df.iterrows():
-            tag = 'row_white' if idx % 2 == 0 else 'row_gray'
+            tag = 'even' if idx % 2 == 0 else 'odd'
             values = tuple(row)
             self.tree.insert('', 'end', values=values, tags=(tag,))
     
@@ -678,6 +678,8 @@ class PageListeMouvement(ctk.CTkFrame):
         frame.grid_columnconfigure(0, weight=1)
 
         tree = ttk.Treeview(frame, columns=columns, show='headings')
+        tree.tag_configure('even', background='#FFFFFF', foreground='black')
+        tree.tag_configure('odd', background='#E6EFF8', foreground='black')
         for col in columns:
             tree.heading(col, text=col)
             tree.column(col, width=120)
@@ -690,8 +692,9 @@ class PageListeMouvement(ctk.CTkFrame):
         frame.grid_rowconfigure(0, weight=1)
         frame.grid_columnconfigure(0, weight=1)
 
-        for r in rows:
-            tree.insert('', 'end', values=r)
+        for idx, r in enumerate(rows):
+            tag = 'even' if idx % 2 == 0 else 'odd'
+            tree.insert('', 'end', values=r, tags=(tag,))
         
         # Frame pour les boutons (en bas)
         button_frame = ctk.CTkFrame(main_frame, fg_color="#F5F5F5")

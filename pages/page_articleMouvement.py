@@ -107,6 +107,8 @@ class FenetreRechercheArticle(ctk.CTkToplevel):
         
         self.tree.pack(fill="both", expand=True)
         self.tree.bind("<Double-Button-1>", lambda e: self.valider())
+        self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         # Frame des boutons
         btn_frame = ctk.CTkFrame(self)
@@ -147,8 +149,9 @@ class FenetreRechercheArticle(ctk.CTkToplevel):
                 ORDER BY a.designation
             """)
             
-            for row in cursor.fetchall():
-                self.tree.insert("", "end", values=row)
+            for idx, row in enumerate(cursor.fetchall()):
+                tag = "even" if idx % 2 == 0 else "odd"
+                self.tree.insert("", "end", values=row, tags=(tag,))
             
             cursor.close()
             conn.close()
@@ -182,8 +185,9 @@ class FenetreRechercheArticle(ctk.CTkToplevel):
                 ORDER BY a.designation
             """, (f"%{recherche}%", f"%{recherche}%"))
             
-            for row in cursor.fetchall():
-                self.tree.insert("", "end", values=row)
+            for idx, row in enumerate(cursor.fetchall()):
+                tag = "even" if idx % 2 == 0 else "odd"
+                self.tree.insert("", "end", values=row, tags=(tag,))
             
             cursor.close()
             conn.close()
@@ -637,7 +641,7 @@ class PageArticleMouvement(ctk.CTkFrame):
         
         # Configuration des colonnes
         column_widths = {
-            "Date": 100,
+            "Date": 160,
             "Référence": 120,
             "Type": 120,
             "Désignation": 220,
@@ -657,6 +661,8 @@ class PageArticleMouvement(ctk.CTkFrame):
         # Configuration des tags
         self.tree.tag_configure('header', background='#1976d2', foreground='white', font=('Arial', 10, 'bold'))
         self.tree.tag_configure('separator', background='#424242')
+        self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         # Label total
         self.label_total = ctk.CTkLabel(
@@ -1122,7 +1128,7 @@ class PageArticleMouvement(ctk.CTkFrame):
             # Unified flat display: insert each movement as a single row (no per-unit grouping)
             rows_to_display = []
             for mouv in mouvements:
-                date_format = mouv[0].strftime('%d/%m/%Y') if mouv[0] else ""
+                date_format = mouv[0].strftime('%d/%m/%Y %H:%M:%S') if mouv[0] else ""
                 reference = mouv[1] or ""
                 article_designation = mouv[2] or ""
                 type_doc_display = mouv[3] or ""
@@ -1152,8 +1158,9 @@ class PageArticleMouvement(ctk.CTkFrame):
                 rows_to_display.append(row_values)
 
             # Insérer toutes les lignes dans le treeview
-            for row in rows_to_display:
-                self.tree.insert("", "end", values=row)
+            for idx, row in enumerate(rows_to_display):
+                tag = "even" if idx % 2 == 0 else "odd"
+                self.tree.insert("", "end", values=row, tags=(tag,))
 
             # Sauvegarder la liste complète pour le filtrage côté client
             self.full_display_rows = rows_to_display
@@ -1178,8 +1185,9 @@ class PageArticleMouvement(ctk.CTkFrame):
             self.tree.delete(item)
 
         if not search:
-            for row in rows:
-                self.tree.insert("", "end", values=row)
+            for idx, row in enumerate(rows):
+                tag = "even" if idx % 2 == 0 else "odd"
+                self.tree.insert("", "end", values=row, tags=(tag,))
             self.label_total.configure(text=f"Nombre total de documents: {len(rows)}")
             return
 
@@ -1194,8 +1202,9 @@ class PageArticleMouvement(ctk.CTkFrame):
             if match:
                 filtered.append(row)
 
-        for row in filtered:
-            self.tree.insert("", "end", values=row)
+        for idx, row in enumerate(filtered):
+            tag = "even" if idx % 2 == 0 else "odd"
+            self.tree.insert("", "end", values=row, tags=(tag,))
 
         self.label_total.configure(text=f"Nombre total de documents: {len(filtered)} (filtré)")
 

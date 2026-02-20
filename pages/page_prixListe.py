@@ -130,19 +130,23 @@ class PagePrixListe(ctk.CTkFrame):
             pass
         style.configure(
             "Treeview",
-            background="white",
-            foreground="black",
-            rowheight=24,
-            fieldbackground="white",
-            font=("Segoe UI", 10)
+            background="#FFFFFF",
+            foreground="#000000",
+            rowheight=22,
+            fieldbackground="#FFFFFF",
+            font=("Segoe UI", 9)
         )
         style.configure(
             "Treeview.Heading",
-            background="#1f538d",
-            foreground="white",
-            font=("Segoe UI", 11, "bold")
+            background="#E8E8E8",
+            foreground="#000000",
+            font=("Segoe UI", 9, "bold")
         )
         style.map("Treeview", background=[("selected", "#1f538d")])
+        self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
+        self.tree.tag_configure("even_zero", background="#FFFFFF", foreground="#f55f5f")
+        self.tree.tag_configure("odd_zero", background="#E6EFF8", foreground="#f55f5f")
 
         self.tree.grid(row=0, column=0, sticky="nsew")
         vsb.grid(row=0, column=1, sticky="ns")
@@ -306,7 +310,7 @@ class PagePrixListe(ctk.CTkFrame):
             
         self.code_mapping = {}
 
-        for row in rows:
+        for idx, row in enumerate(rows):
             if self._destroyed:
                 return
                 
@@ -322,7 +326,18 @@ class PagePrixListe(ctk.CTkFrame):
                 except (ValueError, TypeError):
                     prix_format = "0,00"
 
-                item_id = self.tree.insert("", "end", values=(code_db, nom, unite, prix_format))
+                is_zero_price = False
+                try:
+                    is_zero_price = float(prix) == 0
+                except (TypeError, ValueError):
+                    is_zero_price = True
+
+                if is_zero_price:
+                    tag = "even_zero" if idx % 2 == 0 else "odd_zero"
+                else:
+                    tag = "even" if idx % 2 == 0 else "odd"
+
+                item_id = self.tree.insert("", "end", values=(code_db, nom, unite, prix_format), tags=(tag,))
                 self.code_mapping[item_id] = code_db
             except:
                 # Si le tree a été détruit pendant l'insertion, arrêter

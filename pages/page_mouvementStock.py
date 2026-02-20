@@ -217,6 +217,8 @@ class PageCmdFrs(ctk.CTkFrame):
         
         tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+        tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         label_count = ctk.CTkLabel(main_frame, text="Nombre d'articles : 0")
         label_count.pack(pady=5)
@@ -247,11 +249,12 @@ class PageCmdFrs(ctk.CTkFrame):
                 cursor.execute(query, params)
                 resultats = cursor.fetchall()
                 
-                for row in resultats:
+                for idx, row in enumerate(resultats):
                     if len(row) >= 5:
                         # row: [idarticle, codearticle, designation, designationunite, idunite]
                         # Insertion de 5 valeurs: ID_Article, ID_Unite, Code, Désignation, Unité
-                        tree.insert('', 'end', values=(row[0], row[4], row[1], row[2], row[3])) # Remplir la colonne ID_Unite avec row[4]
+                        tag = "even" if idx % 2 == 0 else "odd"
+                        tree.insert('', 'end', values=(row[0], row[4], row[1], row[2], row[3]), tags=(tag,)) # Remplir la colonne ID_Unite avec row[4]
                 
                 label_count.configure(text=f"Nombre d'articles : {len(resultats)}")
                 
@@ -533,6 +536,8 @@ class PageCmdFrs(ctk.CTkFrame):
         
         self.tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+        self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         # Bind pour sélection dans le Treeview
         self.tree.bind('<<TreeviewSelect>>', self.on_selection_ligne)
@@ -780,6 +785,7 @@ class PageCmdFrs(ctk.CTkFrame):
                 
             total = qtcmd * punitcmd
             
+            tag = "even" if len(self.tree.get_children()) % 2 == 0 else "odd"
             self.tree.insert("", "end", values=(
                 self.article_selectionne['designation'],
                 self.article_selectionne['unite'],
@@ -787,7 +793,7 @@ class PageCmdFrs(ctk.CTkFrame):
                 self.formater_nombre(punitcmd),
                 self.formater_nombre(qtlivre),
                 self.formater_nombre(total)
-            ))
+            ), tags=(tag,))
             
             self.items_commande.append({
                 'idcomdetail': None,
@@ -890,8 +896,10 @@ class PageCmdFrs(ctk.CTkFrame):
         style = ttk.Style()
         style.configure("Treeview", rowheight=22, background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0, font=('Segoe UI', 8))
         style.configure("Treeview.Heading", background="#E8E8E8", foreground="#000000", font=('Segoe UI', 8, 'bold'))
-        tree.tag_configure('incomplet', background='#ffcccc')  # Rouge clair pour incomplet
-        tree.tag_configure('complet', background='#ccffcc')    # Vert clair pour complet
+        tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
+        tree.tag_configure('incomplet', foreground='#B00020')
+        tree.tag_configure('complet', foreground='#1B5E20')
         
         scrollbar = ctk.CTkScrollbar(tree_frame, command=tree.yview)
         tree.configure(yscrollcommand=scrollbar.set)
@@ -936,7 +944,7 @@ class PageCmdFrs(ctk.CTkFrame):
                 cursor.execute(query, params)
                 resultats = cursor.fetchall()
                 
-                for row in resultats:
+                for idx, row in enumerate(resultats):
                     date_str = row[2].strftime("%d/%m/%Y") if row[2] else ""
                     total_lignes = row[5] if row[5] else 0
                     lignes_completes = row[6] if row[6] else 0
@@ -944,14 +952,15 @@ class PageCmdFrs(ctk.CTkFrame):
                     # Déterminer le statut et le tag
                     if total_lignes > 0 and lignes_completes == total_lignes:
                         statut = "✅ Livrés"
-                        tag = 'complet'
+                        status_tag = 'complet'
                     else:
                         statut = "⚠️ En attente"
-                        tag = 'incomplet'
+                        status_tag = 'incomplet'
+                    zebra_tag = "even" if idx % 2 == 0 else "odd"
                     
                     tree.insert('', 'end', 
                               values=(row[0], row[1], date_str, row[3] or "", row[4] or "", statut),
-                              tags=(tag,))
+                              tags=(zebra_tag, status_tag))
                 
                 label_count.configure(text=f"Nombre de commandes : {len(resultats)}")
                 
@@ -1026,7 +1035,7 @@ class PageCmdFrs(ctk.CTkFrame):
             if commande[4]:
                 self.combo_fournisseur.set(commande[4])
                 
-            for detail in details:
+            for idx, detail in enumerate(details):
                 idcomdetail, idarticle, designation, unite, idunite, qtcmd, qtlivre, punitcmd = detail
                 punitcmd = punitcmd if punitcmd else 0
                 total = qtcmd * punitcmd
@@ -1043,6 +1052,7 @@ class PageCmdFrs(ctk.CTkFrame):
                 })
                 
                 # Ajout au Treeview
+                tag = "even" if idx % 2 == 0 else "odd"
                 self.tree.insert("", "end", values=(
                     designation, 
                     unite, 
@@ -1050,7 +1060,7 @@ class PageCmdFrs(ctk.CTkFrame):
                     self.formater_nombre(punitcmd), 
                     self.formater_nombre(qtlivre), 
                     self.formater_nombre(total)
-                ))
+                ), tags=(tag,))
                 
             self.calculer_total()
             
@@ -1642,6 +1652,8 @@ class PageChangementArticle(ctk.CTkFrame):
 
         self.tree_sortie.pack(side="left", fill="both", expand=True)
         scrollbar_sortie.pack(side="right", fill="y")
+        self.tree_sortie.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree_sortie.tag_configure("odd", background="#E6EFF8", foreground="#000000")
 
         # Bouton Supprimer Sortie
         btn_supprimer_sortie = ctk.CTkButton(frame_sortie, text="🗑️ Supprimer Ligne", 
@@ -1718,6 +1730,8 @@ class PageChangementArticle(ctk.CTkFrame):
 
         self.tree_entree.pack(side="left", fill="both", expand=True)
         scrollbar_entree.pack(side="right", fill="y")
+        self.tree_entree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        self.tree_entree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
 
         # Bouton Supprimer Entrée
         btn_supprimer_entree = ctk.CTkButton(frame_entree, text="🗑️ Supprimer Ligne", 
@@ -1787,6 +1801,8 @@ class PageChangementArticle(ctk.CTkFrame):
         tree.configure(yscrollcommand=scrollbar.set)
         tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+        tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
 
         label_count = ctk.CTkLabel(main_frame, text="Articles: 0")
         label_count.pack(pady=5)
@@ -1816,8 +1832,9 @@ class PageChangementArticle(ctk.CTkFrame):
                 cursor.execute(query, params)
                 resultats = cursor.fetchall()
 
-                for row in resultats:
-                    tree.insert('', 'end', values=(row[0], row[1], row[2], row[3], row[4]))
+                for idx, row in enumerate(resultats):
+                    tag = "even" if idx % 2 == 0 else "odd"
+                    tree.insert('', 'end', values=(row[0], row[1], row[2], row[3], row[4]), tags=(tag,))
 
                 label_count.configure(text=f"Articles: {len(resultats)}")
             except Exception as e:
@@ -1915,9 +1932,10 @@ class PageChangementArticle(ctk.CTkFrame):
             unite = self.article_sortie_selectionne['unite']
             code = self.article_sortie_selectionne['code']
 
+            tag = "even" if len(self.tree_sortie.get_children()) % 2 == 0 else "odd"
             self.tree_sortie.insert("", "end", values=(
                 code, designation, unite, magasin, self.formater_nombre(qty)
-            ))
+            ), tags=(tag,))
 
             self.articles_sortie.append({
                 'idarticle': self.article_sortie_selectionne['idarticle'],
@@ -1950,9 +1968,10 @@ class PageChangementArticle(ctk.CTkFrame):
             unite = self.article_entree_selectionne['unite']
             code = self.article_entree_selectionne['code']
 
+            tag = "even" if len(self.tree_entree.get_children()) % 2 == 0 else "odd"
             self.tree_entree.insert("", "end", values=(
                 code, designation, unite, magasin, self.formater_nombre(qty)
-            ))
+            ), tags=(tag,))
 
             self.articles_entree.append({
                 'idarticle': self.article_entree_selectionne['idarticle'],
@@ -2072,8 +2091,11 @@ class PageMouvementStock(ctk.CTkFrame):
             "Mise à jour BR": PageLivrFrs,
             "Mise à jour Transfer": PageTransfert,
             "Mise à jour Sortie": PageSortie,
-            "Changement d'Articles": PageChangementArticle,
+            "Changement d'articles": PageChangementArticle,
         }
+        # Masquer explicitement cette entrée si elle est ajoutée ailleurs
+        self.pages.pop("Suivi Commande", None)
+        self.pages.pop("suivi commande", None)
         
         self.page_frames = {}
         
@@ -2157,7 +2179,7 @@ class PageMouvementStock(ctk.CTkFrame):
         
         # --- INITIALIZE ALL PAGES ---
         for name, PageClass in self.pages.items():
-            if name in ["Mise à jour BC", "Changement d'Articles"]:
+            if name in ["Mise à jour BC", "Changement d'articles"]:
                 frame = PageClass(master=self.content_frame, iduser=self.iduser)
             else:
                 frame = PageClass(master=self.content_frame)

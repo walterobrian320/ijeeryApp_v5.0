@@ -553,7 +553,7 @@ class PageFactureListe(ctk.CTkFrame):
                 
                 # Construire la description avec le dépôt
                 if premier_magasin:
-                    description_avec_depot = f"Dépôt {premier_magasin}"
+                    description_avec_depot = f"Magasin {premier_magasin}"
                     if description and description.strip() and premier_magasin not in description:
                         description_clean = description.strip().strip('-').strip()
                         if description_clean:

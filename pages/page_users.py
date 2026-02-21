@@ -137,7 +137,7 @@ class PageUsers(ctk.CTkFrame):
         self.load_fonctions()
         
         # NOUVEAU : ComboBox Magasin
-        ctk.CTkLabel(row2, text="Magasin:").pack(side="left", padx=5)
+        ctk.CTkLabel(row2, text="Magasin par défaut: ").pack(side="left", padx=5)
         self.magasin_combobox = ctk.CTkComboBox(row2, width=150)
         self.magasin_combobox.pack(side="left", padx=5)
         self.load_magasins()
@@ -214,19 +214,16 @@ class PageUsers(ctk.CTkFrame):
             messagebox.showerror("Erreur", f"Erreur lors du chargement des fonctions : {err}")
             
     def load_magasins(self):
-        """Charge les magasins depuis tb_magasin et ajoute l'option 'Tous'."""
+        """Charge les magasins depuis tb_magasin."""
         try:
             if not self.conn: return
             self.cursor.execute("SELECT idmag, designationmag FROM tb_magasin ORDER BY designationmag")
             magasins = self.cursor.fetchall()
             
-            # 'Tous' est mappé à None (NULL en base de données) pour autoriser l'accès à tous les magasins
-            self.magasins_dict = {"Tous": None} 
-            for m in magasins:
-                self.magasins_dict[m[1]] = m[0]
-                
+            self.magasins_dict = {m[1]: m[0] for m in magasins}
             self.magasin_combobox.configure(values=list(self.magasins_dict.keys()))
-            self.magasin_combobox.set("Tous") # Sélectionner 'Tous' par défaut
+            if magasins:
+                self.magasin_combobox.set(magasins[0][1])
             
         except psycopg2.Error as err:
             messagebox.showerror("Erreur", f"Erreur lors du chargement des magasins : {err}")
@@ -255,8 +252,7 @@ class PageUsers(ctk.CTkFrame):
             for row in self.cursor.fetchall():
                 active_text = "Oui" if row[5] == 1 else "Non"
                 date_str = row[6].strftime("%Y-%m-%d %H:%M") if row[6] else "Non défini"
-                # Afficher "Tous" si idmag est NULL (pas de magasin désigné)
-                magasin_text = row[7] if row[7] else "Tous" 
+                magasin_text = row[7] if row[7] else ""
                 
                 self.tree.insert("", "end", values=(row[0], row[1], row[2], row[3], 
                                                   row[4], magasin_text, active_text, date_str))
@@ -287,7 +283,6 @@ class PageUsers(ctk.CTkFrame):
             
             # Récupérer les IDs
             idfonction = self.fonctions_dict.get(fonction_designation)
-            # Récupérer l'ID du magasin (None pour "Tous")
             idmag = self.magasins_dict.get(magasin_designation)
             
             if idfonction is None or magasin_designation not in self.magasins_dict:
@@ -437,8 +432,11 @@ class PageUsers(ctk.CTkFrame):
                 self.fonction_combobox.set(user[7])
                 
                 # ComboBox Magasin
-                magasin_designation = user[9] if user[9] else "Tous"
-                self.magasin_combobox.set(magasin_designation)
+                magasin_designation = user[9]
+                if magasin_designation in self.magasins_dict:
+                    self.magasin_combobox.set(magasin_designation)
+                elif self.magasins_dict:
+                    self.magasin_combobox.set(next(iter(self.magasins_dict)))
                 
                 self.active_var.set(user[8] == 1)
                 
@@ -459,8 +457,8 @@ class PageUsers(ctk.CTkFrame):
         if len(self.fonction_combobox.cget("values")) > 0:
             self.fonction_combobox.set(self.fonction_combobox.cget("values")[0])
             
-        if "Tous" in self.magasins_dict:
-            self.magasin_combobox.set("Tous")
+        if self.magasins_dict:
+            self.magasin_combobox.set(next(iter(self.magasins_dict)))
         
         # Réinitialisation de la checkbox
         self.active_var.set(True)

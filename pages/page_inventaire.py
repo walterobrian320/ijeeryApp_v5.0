@@ -69,9 +69,25 @@ class PageInventaire(ctk.CTkToplevel):
             rows = cursor.fetchall()
             self.magasins_dict = {r[1]: r[0] for r in rows}
             self.combo_magasin.configure(values=list(self.magasins_dict.keys()))
-            if rows: 
-                self.combo_magasin.set(rows[0][1])
-                self.afficher_stock_actuel(rows[0][1])
+
+            magasin_defaut_nom = None
+            if self.iduser is not None:
+                try:
+                    cursor.execute(
+                        "SELECT idmag FROM tb_users WHERE iduser = %s AND deleted = 0",
+                        (self.iduser,)
+                    )
+                    user_row = cursor.fetchone()
+                    if user_row and user_row[0]:
+                        idmag_user = user_row[0]
+                        magasin_defaut_nom = next((nom for nom, idmag in self.magasins_dict.items() if idmag == idmag_user), None)
+                except Exception:
+                    magasin_defaut_nom = None
+
+            if rows:
+                nom_selectionne = magasin_defaut_nom if magasin_defaut_nom in self.magasins_dict else rows[0][1]
+                self.combo_magasin.set(nom_selectionne)
+                self.afficher_stock_actuel(nom_selectionne)
             conn.close()
 
     def afficher_stock_actuel(self, magasin_nom=None):

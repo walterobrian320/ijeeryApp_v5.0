@@ -1400,7 +1400,21 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
             # 🔥 INITIALISER LE COMBOBOX DE LIGNE
             self.combo_magasin.configure(values=noms_magasins)
             if noms_magasins:
-                self.combo_magasin.set(noms_magasins[0])
+                idmag_defaut_user = None
+                if self.id_user_connecte is not None:
+                    cursor.execute(
+                        "SELECT idmag FROM tb_users WHERE iduser = %s AND deleted = 0",
+                        (self.id_user_connecte,)
+                    )
+                    user_row = cursor.fetchone()
+                    if user_row:
+                        idmag_defaut_user = user_row[0]
+
+                nom_magasin_defaut = next(
+                    (nom for nom, id_ in self.magasin_map.items() if id_ == idmag_defaut_user),
+                    None
+                )
+                self.combo_magasin.set(nom_magasin_defaut if nom_magasin_defaut else noms_magasins[0])
             else:
                 self.combo_magasin.set("Aucun magasin trouvé")
         except Exception as e:
@@ -1521,7 +1535,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
         tree.heading("Désignation", text="Désignation")
         tree.heading("Prix Unitaire", text="Prix Unitaire")
         tree.heading("Unité", text="Unité")
-        tree.heading("Stock", text="Stock Actuel (Total)")
+        tree.heading("Stock", text="Stock Magasin")
     
         tree.column("ID_Article", width=0, stretch=False)
         tree.column("ID_Unite", width=0, stretch=False)
@@ -1546,6 +1560,13 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
             try:
                 cursor = conn.cursor()
                 filtre_like = f"%{filtre}%"
+                magasin_selectionne_nom = self.combo_magasin.get()
+                idmag_selectionne = self.magasin_map.get(magasin_selectionne_nom)
+                heading_stock = f"Magasin '{magasin_selectionne_nom}'" if magasin_selectionne_nom else "Stock Magasin"
+                tree.heading("Stock", text=heading_stock)
+
+                if not idmag_selectionne:
+                    return
             
                 # Requête consolidée (inclut consommations et échanges, coefficient hiérarchique)
                 query = """
@@ -1630,7 +1651,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                     INNER JOIN tb_unite u ON dcs.idarticle = u.idarticle AND dcs.idunite = u.idunite
                 ),
 
-                -- On agrège par idarticle (somme sur tous les magasins) pour obtenir un solde global
+                -- On agrège par idarticle pour le magasin sélectionné uniquement
                 solde_base AS (
                     SELECT idarticle,
                         SUM(
@@ -1641,6 +1662,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                             END
                         ) AS solde_global
                     FROM mouvements_bruts
+                    WHERE idmag = %s
                     GROUP BY idarticle
                 ),
 
@@ -1692,7 +1714,7 @@ class PageVenteParMsin(ctk.CTkFrame): # MODIFICATION : Hérite de CTkFrame pour 
                 """
 
                 
-                cursor.execute(query, (filtre_like, filtre_like))
+                cursor.execute(query, (idmag_selectionne, filtre_like, filtre_like))
                 articles = cursor.fetchall()
 
                 # On insère directement les données reçues

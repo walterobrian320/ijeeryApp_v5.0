@@ -4,7 +4,7 @@ from tkcalendar import DateEntry
 import psycopg2
 import json
 from datetime import datetime
-from resource_utils import get_config_path, safe_file_read
+from resource_utils import get_config_path, get_session_path, safe_file_read
 
 
 class FenetreRechercheArticle(ctk.CTkToplevel):
@@ -220,6 +220,7 @@ class PageArticleMouvement(ctk.CTkFrame):
         self.grid_rowconfigure(2, weight=1)  # Row 2 est le treeview
 
         self.initial_idarticle = initial_idarticle
+        self.id_user_connecte = self.get_connected_user_id(parent)
 
         # Variables d'affichage
         self.selected_idarticle = None
@@ -231,6 +232,30 @@ class PageArticleMouvement(ctk.CTkFrame):
         # Chargement des données
         self.load_magasins()
         self.load_mouvements()
+
+    def get_connected_user_id(self, parent):
+        """Récupère l'ID utilisateur connecté (parent puis session.json)."""
+        parent_id = getattr(parent, "id_user_connecte", None)
+        if parent_id is None:
+            parent_id = getattr(parent, "iduser", None)
+
+        if parent_id is not None:
+            try:
+                return int(parent_id)
+            except (TypeError, ValueError):
+                pass
+
+        try:
+            session_path = get_session_path()
+            with open(session_path, "r", encoding="utf-8") as f:
+                session_data = json.load(f)
+            session_id = session_data.get("user_id")
+            if session_id is not None:
+                return int(session_id)
+        except Exception:
+            pass
+
+        return None
     
     def connect_db(self):
         """Connexion à la base de données PostgreSQL"""
@@ -684,10 +709,25 @@ class PageArticleMouvement(ctk.CTkFrame):
                 ORDER BY designationmag
             """)
             magasins = cursor.fetchall()
-            
-            magasin_list = ["Tous les magasins"] + [f"{m[0]} - {m[1]}" for m in magasins]
+
+            # Mapping nom -> id pour conserver la logique métier
+            self.magasin_name_to_id = {m[1]: m[0] for m in magasins}
+            magasin_list = ["Tous les magasins"] + [m[1] for m in magasins]
             self.combo_magasin.configure(values=magasin_list)
-            
+            self.combo_magasin.set("Tous les magasins")
+
+            if self.id_user_connecte is not None:
+                cursor.execute(
+                    "SELECT idmag FROM tb_users WHERE iduser = %s AND deleted = 0",
+                    (self.id_user_connecte,)
+                )
+                row = cursor.fetchone()
+                if row and row[0]:
+                    idmag_user = row[0]
+                    nom_magasin_user = next((m[1] for m in magasins if m[0] == idmag_user), None)
+                    if nom_magasin_user:
+                        self.combo_magasin.set(nom_magasin_user)
+
             cursor.close()
             conn.close()
     
@@ -1077,10 +1117,7 @@ class PageArticleMouvement(ctk.CTkFrame):
             magasin_selection = self.combo_magasin.get()
             idmag = None
             if magasin_selection != "Tous les magasins":
-                try:
-                    idmag = int(magasin_selection.split(" - ")[0])
-                except ValueError:
-                    idmag = None
+                idmag = self.magasin_name_to_id.get(magasin_selection)
             
             cursor = conn.cursor()
             

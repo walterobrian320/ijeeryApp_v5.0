@@ -6,7 +6,7 @@ import pandas as pd
 from datetime import datetime
 from tkcalendar import DateEntry # Importation nécessaire
 import os
-from resource_utils import get_config_path, safe_file_read
+from resource_utils import get_config_path, get_session_path, safe_file_read
 
 
 class PageDetailFacture(ctk.CTkToplevel):
@@ -483,12 +483,47 @@ class PageDetailFacture(ctk.CTkToplevel):
 class PageListeFacture(ctk.CTkFrame):
     def __init__(self, parent, session_data=None):
         super().__init__(parent)
+        self.session_data = session_data
+        self.id_user_connecte = self.get_connected_user_id(parent, session_data)
+        self.magasin_map = {}
+        self.user_default_magasin_nom = None
         
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
         self.setup_ui()
         self.charger_donnees()
+
+    def get_connected_user_id(self, parent, session_data):
+        parent_id = getattr(parent, "id_user_connecte", None)
+        if parent_id is None:
+            parent_id = getattr(parent, "iduser", None)
+        if parent_id is not None:
+            try:
+                return int(parent_id)
+            except (TypeError, ValueError):
+                pass
+
+        if isinstance(session_data, int):
+            return session_data
+        if isinstance(session_data, dict):
+            sid = session_data.get("user_id") or session_data.get("iduser")
+            if sid is not None:
+                try:
+                    return int(sid)
+                except (TypeError, ValueError):
+                    pass
+
+        try:
+            session_path = get_session_path()
+            with open(session_path, "r", encoding="utf-8") as f:
+                sess = json.load(f)
+            sid = sess.get("user_id")
+            if sid is not None:
+                return int(sid)
+        except Exception:
+            pass
+        return None
 
     def connect_db(self):
         try:
@@ -532,6 +567,19 @@ class PageListeFacture(ctk.CTkFrame):
         self.combo_statut.pack(side="left", padx=5)
         self.combo_statut.bind("<<ComboboxSelected>>", lambda e: self.charger_donnees())
 
+        # 5. Filtre Magasin
+        ctk.CTkLabel(search_frame, text="Magasin:").pack(side="left", padx=2)
+        self.combo_magasin = ctk.CTkComboBox(
+            search_frame,
+            values=["Tout"],
+            state="readonly",
+            width=170
+        )
+        self.combo_magasin.set("Tout")
+        self.combo_magasin.pack(side="left", padx=5)
+        self.combo_magasin.bind("<<ComboboxSelected>>", lambda e: self.charger_donnees())
+        self.charger_magasins_filtre()
+
         # Boutons
         ctk.CTkButton(search_frame, text="🔍 Filtrer", width=80, 
                       command=self.charger_donnees).pack(side="left", padx=5)
@@ -545,13 +593,13 @@ class PageListeFacture(ctk.CTkFrame):
         table_frame = ctk.CTkFrame(self)
         table_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=5)
         
-        columns = ("date", "n_facture", "client", "montant", "statut", "user")
+        columns = ("date", "n_facture", "magasin", "client", "montant", "statut", "user")
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
         self.tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
         self.tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
         
         # Configurer les colonnes avec largeurs appropriées
-        col_widths = {"date": 150, "n_facture": 100, "client": 150, "montant": 100, "statut": 100, "user": 100}
+        col_widths = {"date": 150, "n_facture": 110, "magasin": 140, "client": 150, "montant": 100, "statut": 100, "user": 100}
         for col in columns:
             self.tree.heading(col, text=col.replace("_", " ").title())
             width = col_widths.get(col, 80)
@@ -579,6 +627,42 @@ class PageListeFacture(ctk.CTkFrame):
         except:
             return "0,00"
 
+    def charger_magasins_filtre(self):
+        conn = self.connect_db()
+        if not conn:
+            return
+
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT idmag, designationmag FROM tb_magasin WHERE deleted = 0 ORDER BY designationmag"
+            )
+            magasins = cursor.fetchall()
+            self.magasin_map = {nom: idmag for idmag, nom in magasins}
+
+            valeurs = ["Tout"] + [nom for _, nom in magasins]
+            self.combo_magasin.configure(values=valeurs)
+
+            default_nom = None
+            if self.id_user_connecte:
+                cursor.execute(
+                    """
+                    SELECT u.idmag
+                    FROM tb_users u
+                    WHERE u.iduser = %s AND u.deleted = 0
+                    """,
+                    (self.id_user_connecte,)
+                )
+                row = cursor.fetchone()
+                if row and row[0]:
+                    idmag_user = row[0]
+                    default_nom = next((nom for idmag, nom in magasins if idmag == idmag_user), None)
+
+            self.user_default_magasin_nom = default_nom
+            self.combo_magasin.set(default_nom if default_nom in self.magasin_map else "Tout")
+        finally:
+            conn.close()
+
     def charger_donnees(self):
         for item in self.tree.get_children(): self.tree.delete(item)
         
@@ -592,6 +676,8 @@ class PageListeFacture(ctk.CTkFrame):
         d1 = self.date_debut.get_date()
         d2 = self.date_fin.get_date()
         statut_filtre = self.combo_statut.get()
+        magasin_filtre_nom = self.combo_magasin.get() if hasattr(self, "combo_magasin") else "Tout"
+        magasin_filtre_id = self.magasin_map.get(magasin_filtre_nom)
         
         conn = self.connect_db()
         if not conn: return
@@ -600,10 +686,11 @@ class PageListeFacture(ctk.CTkFrame):
             cursor = conn.cursor()
             # SQL incluant le filtre de date et statut
             sql = """
-                SELECT v.dateregistre, v.refvente, COALESCE(c.nomcli, 'Client Divers'), v.totmtvente, v.statut, u.username, v.id
+                SELECT v.dateregistre, v.refvente, COALESCE(m.designationmag, ''), COALESCE(c.nomcli, 'Client Divers'), v.totmtvente, v.statut, u.username, v.id
                 FROM tb_vente v
                 LEFT JOIN tb_client c ON v.idclient = c.idclient
                 LEFT JOIN tb_users u ON v.iduser = u.iduser
+                LEFT JOIN tb_magasin m ON v.idmag = m.idmag
                 WHERE (
                     v.refvente ILIKE %s
                     OR c.nomcli ILIKE %s
@@ -628,6 +715,10 @@ class PageListeFacture(ctk.CTkFrame):
             if statut_filtre != "Tout":
                 sql += " AND v.statut = %s"
                 params.append(statut_filtre)
+
+            if magasin_filtre_nom != "Tout" and magasin_filtre_id:
+                sql += " AND v.idmag = %s"
+                params.append(magasin_filtre_id)
             
             sql += " ORDER BY v.dateregistre DESC, v.id DESC"
             
@@ -636,17 +727,18 @@ class PageListeFacture(ctk.CTkFrame):
             
             total = 0
             for idx, r in enumerate(rows):
-                mt_format = self.formater_montant(r[3]) # Utilisation de la fonction
+                mt_format = self.formater_montant(r[4]) # Utilisation de la fonction
                 zebra_tag = "even" if idx % 2 == 0 else "odd"
-                self.tree.insert("", "end", iid=str(r[6]), values=(
+                self.tree.insert("", "end", iid=str(r[7]), values=(
                     r[0].strftime("%d/%m/%Y %H:%M:%S"), 
                     r[1], 
                     r[2], 
+                    r[3], 
                     mt_format, 
-                    r[4],  # Statut
-                    r[5]   # User
+                    r[5],  # Statut
+                    r[6]   # User
                 ), tags=(zebra_tag,))
-                total += float(r[3])
+                total += float(r[4])
         
             self.lbl_count.configure(text=f"Total factures : {len(rows)}")
             self.lbl_total_mt.configure(text=f"Montant Total en Ar: {self.formater_montant(total)}")
@@ -661,7 +753,7 @@ class PageListeFacture(ctk.CTkFrame):
         # Récupérer les infos de la ligne
         values = self.tree.item(selected_item)['values']
         ref_facture = values[1]
-        statut = values[4]  # Statut de la facture
+        statut = values[5]  # Statut de la facture
         
         # Ouvrir la fenêtre de détails
         PageDetailFacture(self, selected_item, ref_facture, statut, parent_page=self)
@@ -675,7 +767,7 @@ class PageListeFacture(ctk.CTkFrame):
             messagebox.showwarning("Vide", "Rien à exporter")
             return
 
-        df = pd.DataFrame(lignes, columns=["Date", "N° Facture", "Client", "Montant", "Statut", "Vendeur"])
+        df = pd.DataFrame(lignes, columns=["Date", "N° Facture", "Magasin", "Client", "Montant", "Statut", "Vendeur"])
         
         file_path = filedialog.asksaveasfilename(
             defaultextension=".xlsx",

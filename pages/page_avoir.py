@@ -509,9 +509,12 @@ class PageAvoir(ctk.CTkFrame):
         self.entry_date_avoir.insert(0, datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
     
         # Magasin
-        ctk.CTkLabel(header_frame, text="Magasin de:").grid(row=0, column=4, padx=3, pady=3, sticky="w")
+        self.label_magasin = ctk.CTkLabel(header_frame, text="Magasin de:")
+        self.label_magasin.grid(row=0, column=4, padx=3, pady=3, sticky="w")
         self.combo_magasin = ctk.CTkComboBox(header_frame, width=200, values=["Chargement..."])
         self.combo_magasin.grid(row=0, column=5, padx=3, pady=3, sticky="w")
+        self.label_magasin.grid_remove()
+        self.combo_magasin.grid_remove()
     
          # Client
         # Champ Entry pour client
@@ -2270,6 +2273,8 @@ class PageAvoir(ctk.CTkFrame):
                 'dateavoir': dateavoir_str,  # ✅ Date d'avoir
                 'observation': avoir_result[3] or '',
                 'mtavoir': avoir_result[4] or 0.0,  # ✅ Montant total
+                'refvente_associe': '',
+                'magasin_vente': '',
             }
             data['utilisateur'] = {
                 'nomuser': avoir_result[5],
@@ -2297,6 +2302,32 @@ class PageAvoir(ctk.CTkFrame):
             """
             cursor.execute(sql_details, (idavoir,))
             data['details'] = cursor.fetchall()
+
+            # Référence facture associée (si disponible)
+            try:
+                cursor.execute(
+                    """
+                    SELECT refvente
+                    FROM tb_pmtfacture
+                    WHERE refavoir = %s
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """,
+                    (data['avoir']['refavoir'],)
+                )
+                ref_row = cursor.fetchone()
+                if ref_row and ref_row[0]:
+                    data['avoir']['refvente_associe'] = ref_row[0]
+            except Exception:
+                pass
+
+            # Magasin de vente (si un seul magasin dans les lignes)
+            try:
+                magasins = [r[6] for r in data['details'] if len(r) > 6 and r[6]]
+                if magasins:
+                    data['avoir']['magasin_vente'] = magasins[0]
+            except Exception:
+                pass
         
             return data
         
@@ -2373,7 +2404,8 @@ class PageAvoir(ctk.CTkFrame):
 
 
 
-        droite_text = f"<b>AVOIR N°: {refavoir}</b><br/>{dateavoir_affiche}<br/><b>CLIENT: {client['nomcli']}</b><br/><br/><font size='8'>Op: {user_name}</font>"
+        magasin_vente = avoir.get('magasin_vente') or 'N/A'
+        droite_text = f"<b>AVOIR N°: {refavoir}</b><br/>{dateavoir_affiche}<br/><b>Magasin {magasin_vente}</b><br/><b>CLIENT: {client['nomcli']}</b><br/><br/><font size='8'>Op: {user_name}</font>"
 
         gauche = Paragraph(gauche_text, style_p)
         droite = Paragraph(droite_text, style_p)

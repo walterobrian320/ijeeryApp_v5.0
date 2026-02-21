@@ -273,7 +273,7 @@ class PageSortie(ctk.CTkFrame):
         btn_charger_bs = ctk.CTkButton(header_frame, text="📂 Charger Opération", 
                                     command=self.ouvrir_recherche_sortie, width=130,
                                     fg_color="#1976d2", hover_color="#1565c0")
-        btn_charger_bs.grid(row=0, column=6, padx=5, pady=5, sticky="w")
+        # Bouton masqué à la demande (ne pas afficher dans l'interface).
     
         # Motif
         ctk.CTkLabel(header_frame, text="Motif:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
@@ -537,7 +537,18 @@ class PageSortie(ctk.CTkFrame):
             
             self.combo_magasin.configure(values=noms_magasins)
             if noms_magasins:
-                self.combo_magasin.set(noms_magasins[0])
+                # Pré-sélectionner le magasin d'affectation de l'utilisateur connecté.
+                idmag_defaut = None
+                cursor.execute("SELECT idmag FROM tb_users WHERE iduser = %s LIMIT 1", (self.id_user_connecte,))
+                row_user = cursor.fetchone()
+                if row_user:
+                    idmag_defaut = row_user[0]
+
+                nom_magasin_defaut = next((nom for id_, nom in magasins if id_ == idmag_defaut), None)
+                if nom_magasin_defaut:
+                    self.combo_magasin.set(nom_magasin_defaut)
+                else:
+                    self.combo_magasin.set(noms_magasins[0])
             else:
                 self.combo_magasin.set("Aucun magasin trouvé")
                 
@@ -658,8 +669,8 @@ class PageSortie(ctk.CTkFrame):
         tree.heading("Code", text="Code")
         tree.heading("Désignation", text="Désignation")
         tree.heading("Unité", text="Unité")
-        tree.heading("Stock", text="Stock Actuel (Total)")
-        tree.heading("Prix U.", text="Prix U.")
+        nom_magasin_courant = (self.combo_magasin.get() or "").strip()
+        tree.heading("Stock", text=f"Magasin {nom_magasin_courant}" if nom_magasin_courant else "Magasin")
 
         tree.column("ID_Article", width=0, stretch=False)
         tree.column("ID_Unite", width=0, stretch=False)
@@ -668,6 +679,7 @@ class PageSortie(ctk.CTkFrame):
         tree.column("Unité", width=80, anchor='w')
         tree.column("Stock", width=100, anchor='e')
         tree.column("Prix U.", width=100, anchor='e')
+        tree["displaycolumns"] = ("Code", "Désignation", "Unité", "Stock")
 
         scrollbar = ttk.Scrollbar(tree_frame, command=tree.yview)
         tree.configure(yscrollcommand=scrollbar.set)
@@ -688,8 +700,7 @@ class PageSortie(ctk.CTkFrame):
 
                 # Même logique réservoir que page_stock :
                 # tous les mouvements sont convertis en "unité de base" via qtunite,
-                # puis le solde commun par magasin est divisé par le qtunite de chaque ligne.
-                # Le filtre idmag correspond au magasin sélectionné dans la combobox.
+                # puis le solde du magasin actif est divisé par le qtunite de chaque ligne.
                 # ✅ Requête consolidée (9 sources + coefficient hiérarchique)
                 query = """
                 WITH mouvements_bruts AS (
@@ -848,14 +859,6 @@ class PageSortie(ctk.CTkFrame):
                     GROUP BY idarticle, idmag
                 ),
 
-                solde_total AS (
-                    SELECT
-                        idarticle,
-                        SUM(solde_base) as solde_total
-                    FROM solde_base_par_mag
-                    GROUP BY idarticle
-                ),
-
                 unite_hierarchie AS (
                     SELECT idarticle, idunite, niveau, qtunite, designationunite
                     FROM tb_unite
@@ -891,20 +894,26 @@ class PageSortie(ctk.CTkFrame):
                     u.codearticle,
                     a.designation,
                     uc.designationunite,
-                    GREATEST(COALESCE(st.solde_total, 0) / NULLIF(COALESCE(uc.coeff_hierarchique, 1), 0), 0) as stock_total,
+                    GREATEST(COALESCE(sb.solde_base, 0) / NULLIF(COALESCE(uc.coeff_hierarchique, 1), 0), 0) as stock_total,
                     COALESCE(p.prix, 0) as prix_unitaire
                 FROM tb_article a
                 INNER JOIN tb_unite u ON a.idarticle = u.idarticle
                 LEFT JOIN unite_coeff uc ON uc.idarticle = u.idarticle AND uc.idunite = u.idunite
-                LEFT JOIN solde_total st ON st.idarticle = u.idarticle
+                LEFT JOIN solde_base_par_mag sb ON sb.idarticle = u.idarticle AND sb.idmag = %s
                 LEFT JOIN dernier_prix p ON a.idarticle = p.idarticle AND u.idunite = p.idunite AND p.rn = 1
                 WHERE a.deleted = 0
                   AND (u.codearticle ILIKE %s OR a.designation ILIKE %s)
-                ORDER BY u.codearticle, u.idunite
+                ORDER BY a.designation ASC, u.codearticle ASC, u.idunite ASC
                 """
 
-                # Plus besoin de récupérer l'idmag - on affiche le stock total
-                cur.execute(query, (filtre_like, filtre_like))
+                designationmag = (self.combo_magasin.get() or "").strip()
+                idmag_actif = self.magasins_map.get(designationmag)
+                tree.heading("Stock", text=f"Magasin {designationmag}" if designationmag else "Magasin")
+
+                if idmag_actif is None:
+                    return
+
+                cur.execute(query, (idmag_actif, filtre_like, filtre_like))
                 articles = cur.fetchall()
 
                 for idx, row in enumerate(articles):

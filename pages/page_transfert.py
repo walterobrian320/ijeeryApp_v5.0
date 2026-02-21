@@ -243,8 +243,19 @@ class PageTransfert(ctk.CTkFrame):
             self.combo_mag_entree.configure(values=mag_list)
             
             if mag_list:
-                self.combo_mag_sortie.set(mag_list[0])
-                self.combo_mag_entree.set(mag_list[0])
+                idmag_defaut = None
+                cur.execute("SELECT idmag FROM tb_users WHERE iduser = %s LIMIT 1", (self.user_id,))
+                row_user = cur.fetchone()
+                if row_user:
+                    idmag_defaut = row_user[0]
+
+                nom_magasin_defaut = next((nom for id_, nom in magasins if id_ == idmag_defaut), None)
+                if nom_magasin_defaut:
+                    self.combo_mag_sortie.set(nom_magasin_defaut)
+                    self.combo_mag_entree.set(nom_magasin_defaut)
+                else:
+                    self.combo_mag_sortie.set(mag_list[0])
+                    self.combo_mag_entree.set(mag_list[0])
             
             cur.close()
             conn.close()
@@ -277,11 +288,14 @@ class PageTransfert(ctk.CTkFrame):
         tree_frame = ctk.CTkFrame(main_frame)
         tree_frame.pack(fill="both", expand=True, pady=(0, 10))
 
-        colonnes = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité", "Stock")
+        colonnes = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité", "Stock", "Prix U.")
         tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15)
+        tree.tag_configure("even", background="#FFFFFF", foreground="#000000")
+        tree.tag_configure("odd", background="#E6EFF8", foreground="#000000")
 
         style = ttk.Style()
         style.configure("Treeview", rowheight=22, font=('Segoe UI', 8), background="#FFFFFF", foreground="#000000", fieldbackground="#FFFFFF", borderwidth=0)
+        style.configure("Treeview.Heading", background="#E8E8E8", foreground="#000000", font=('Segoe UI', 8, 'bold'))
         style.configure("Treeview.Heading", font=('Segoe UI', 8, 'bold'), background="#E8E8E8", foreground="#000000")
 
         tree.heading("ID_Article", text="ID_Article")
@@ -289,19 +303,35 @@ class PageTransfert(ctk.CTkFrame):
         tree.heading("Code", text="Code")
         tree.heading("Désignation", text="Désignation")
         tree.heading("Unité", text="Unité")
-        tree.heading("Stock", text="Stock Actuel (Total)")
+        nom_magasin_courant = (self.combo_mag_sortie.get() or "").strip()
+        tree.heading("Stock", text=f"Magasin {nom_magasin_courant}" if nom_magasin_courant else "Magasin")
+        tree.heading("Prix U.", text="Prix U.")
 
         tree.column("ID_Article", width=0, stretch=False)
         tree.column("ID_Unite", width=0, stretch=False)
-        tree.column("Code", width=150, anchor='w')
-        tree.column("Désignation", width=350, anchor='w')
-        tree.column("Unité", width=100, anchor='w')
-        tree.column("Stock", width=120, anchor='e')
+        tree.column("Code", width=120, anchor='w')
+        tree.column("Désignation", width=300, anchor='w')
+        tree.column("Unité", width=80, anchor='w')
+        tree.column("Stock", width=100, anchor='e')
+        tree.column("Prix U.", width=100, anchor='e')
 
         scrollbar = ttk.Scrollbar(tree_frame, command=tree.yview)
         tree.configure(yscrollcommand=scrollbar.set)
         tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+
+        def formater_nombre(nombre):
+            try:
+                n = float(nombre)
+                return "{:,.2f}".format(n).replace(',', '_TEMP_').replace('.', ',').replace('_TEMP_', '.')
+            except Exception:
+                return "0,00"
+
+        def parser_nombre(texte):
+            try:
+                return float(str(texte).replace('.', '').replace(',', '.'))
+            except Exception:
+                return 0.0
 
         # Fonction de chargement avec la requête consolidée (réservoir commun)
         def charger_articles(filtre=""):
@@ -315,13 +345,14 @@ class PageTransfert(ctk.CTkFrame):
                 cur = conn.cursor()
                 filtre_like = f"%{filtre}%"
 
-                # Même logique réservoir que page_venteParMsin / page_stock :
+                # Même logique réservoir que page_stock :
                 # tous les mouvements sont convertis en "unité de base" via qtunite,
-                # puis le solde commun est divisé par le qtunite de chaque ligne.
+                # puis le solde du magasin actif est divisé par le qtunite de chaque ligne.
                 query = """
                 WITH mouvements_bruts AS (
                     SELECT
                         lf.idarticle,
+                        lf.idmag,
                         COALESCE(u.qtunite, 1) as qtunite_source,
                         lf.qtlivrefrs as quantite,
                         'reception' as type_mouvement
@@ -333,11 +364,12 @@ class PageTransfert(ctk.CTkFrame):
 
                     SELECT
                         vd.idarticle,
+                        v.idmag,
                         COALESCE(u.qtunite, 1) as qtunite_source,
                         vd.qtvente as quantite,
                         'vente' as type_mouvement
                     FROM tb_ventedetail vd
-                    INNER JOIN tb_vente v ON vd.idvente = v.id AND v.deleted = 0
+                    INNER JOIN tb_vente v ON vd.idvente = v.id AND v.deleted = 0 AND v.statut = 'VALIDEE'
                     INNER JOIN tb_unite u ON vd.idarticle = u.idarticle AND vd.idunite = u.idunite
                     WHERE vd.deleted = 0
 
@@ -345,6 +377,7 @@ class PageTransfert(ctk.CTkFrame):
 
                     SELECT
                         t.idarticle,
+                        t.idmagentree as idmag,
                         COALESCE(u.qtunite, 1) as qtunite_source,
                         t.qttransfert as quantite,
                         'transfert_in' as type_mouvement
@@ -356,6 +389,7 @@ class PageTransfert(ctk.CTkFrame):
 
                     SELECT
                         t.idarticle,
+                        t.idmagsortie as idmag,
                         COALESCE(u.qtunite, 1) as qtunite_source,
                         t.qttransfert as quantite,
                         'transfert_out' as type_mouvement
@@ -367,16 +401,24 @@ class PageTransfert(ctk.CTkFrame):
 
                     SELECT
                         u.idarticle,
+                        i.idmag,
                         COALESCE(u.qtunite, 1) as qtunite_source,
                         i.qtinventaire as quantite,
                         'inventaire' as type_mouvement
                     FROM tb_inventaire i
                     INNER JOIN tb_unite u ON i.codearticle = u.codearticle
+                    WHERE u.idunite IN (
+                        SELECT DISTINCT ON (idarticle) idunite
+                        FROM tb_unite
+                        WHERE deleted = 0
+                        ORDER BY idarticle, qtunite ASC
+                    )
 
                     UNION ALL
 
                     SELECT
                         sd.idarticle,
+                        sd.idmag,
                         COALESCE(u.qtunite, 1) as qtunite_source,
                         sd.qtsortie as quantite,
                         'sortie' as type_mouvement
@@ -387,6 +429,7 @@ class PageTransfert(ctk.CTkFrame):
 
                     SELECT
                         ad.idarticle,
+                        ad.idmag,
                         COALESCE(u.qtunite, 1) as qtunite_source,
                         ad.qtavoir as quantite,
                         'avoir' as type_mouvement
@@ -399,6 +442,7 @@ class PageTransfert(ctk.CTkFrame):
 
                     SELECT
                         ci.idarticle,
+                        ci.idmag,
                         COALESCE(u.qtunite, 1) as qtunite_source,
                         ci.qtconsomme as quantite,
                         'consommation_interne' as type_mouvement
@@ -409,6 +453,7 @@ class PageTransfert(ctk.CTkFrame):
 
                     SELECT
                         dce.idarticle,
+                        dce.idmagasin,
                         COALESCE(u.qtunite, 1) as qtunite_source,
                         dce.quantite_entree as quantite,
                         'echange_entree' as type_mouvement
@@ -419,6 +464,7 @@ class PageTransfert(ctk.CTkFrame):
 
                     SELECT
                         dcs.idarticle,
+                        dcs.idmagasin,
                         COALESCE(u.qtunite, 1) as qtunite_source,
                         dcs.quantite_sortie as quantite,
                         'echange_sortie' as type_mouvement
@@ -426,9 +472,10 @@ class PageTransfert(ctk.CTkFrame):
                     INNER JOIN tb_unite u ON dcs.idarticle = u.idarticle AND dcs.idunite = u.idunite
                 ),
 
-                solde_base AS (
+                solde_base_par_mag AS (
                     SELECT
                         idarticle,
+                        idmag,
                         SUM(
                             CASE type_mouvement
                                 WHEN 'reception'           THEN  quantite * qtunite_source
@@ -445,7 +492,32 @@ class PageTransfert(ctk.CTkFrame):
                             END
                         ) as solde
                     FROM mouvements_bruts
-                    GROUP BY idarticle
+                    GROUP BY idarticle, idmag
+                ),
+                unite_hierarchie AS (
+                    SELECT idarticle, idunite, niveau, qtunite, designationunite
+                    FROM tb_unite
+                    WHERE deleted = 0
+                ),
+                unite_coeff AS (
+                    SELECT
+                        idarticle,
+                        idunite,
+                        niveau,
+                        qtunite,
+                        designationunite,
+                        exp(sum(ln(NULLIF(CASE WHEN qtunite > 0 THEN qtunite ELSE 1 END, 0)))
+                            OVER (PARTITION BY idarticle ORDER BY niveau ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+                        ) as coeff_hierarchique
+                    FROM unite_hierarchie
+                ),
+                dernier_prix AS (
+                    SELECT
+                        idarticle,
+                        idunite,
+                        prix,
+                        ROW_NUMBER() OVER (PARTITION BY idarticle, idunite ORDER BY id DESC) AS rn
+                    FROM tb_prix
                 )
 
                 SELECT
@@ -453,28 +525,38 @@ class PageTransfert(ctk.CTkFrame):
                     u.idunite,
                     u.codearticle,
                     a.designation,
-                    u.designationunite,
-                    GREATEST(COALESCE(sb.solde, 0) / NULLIF(COALESCE(u.qtunite, 1), 0), 0) as stock_total
+                    uc.designationunite,
+                    GREATEST(COALESCE(sb.solde, 0) / NULLIF(COALESCE(uc.coeff_hierarchique, 1), 0), 0) as stock_total,
+                    COALESCE(p.prix, 0) as prix_unitaire
                 FROM tb_article a
                 INNER JOIN tb_unite u ON a.idarticle = u.idarticle
-                LEFT JOIN solde_base sb ON sb.idarticle = u.idarticle
+                LEFT JOIN unite_coeff uc ON uc.idarticle = u.idarticle AND uc.idunite = u.idunite
+                LEFT JOIN solde_base_par_mag sb ON sb.idarticle = u.idarticle AND sb.idmag = %s
+                LEFT JOIN dernier_prix p ON a.idarticle = p.idarticle AND u.idunite = p.idunite AND p.rn = 1
                 WHERE a.deleted = 0
                   AND (u.codearticle ILIKE %s OR a.designation ILIKE %s)
-                ORDER BY u.codearticle, u.idunite
+                ORDER BY a.designation ASC, u.codearticle ASC, u.idunite ASC
                 """
+                designationmag = (self.combo_mag_sortie.get() or "").strip()
+                idmag_actif = self.magasins_data.get(designationmag)
+                tree.heading("Stock", text=f"Magasin {designationmag}" if designationmag else "Magasin")
+                if idmag_actif is None:
+                    return
 
-                cur.execute(query, (filtre_like, filtre_like))
+                cur.execute(query, (idmag_actif, filtre_like, filtre_like))
                 articles = cur.fetchall()
 
-                for row in articles:
+                for idx, row in enumerate(articles):
+                    zebra_tag = "even" if idx % 2 == 0 else "odd"
                     tree.insert('', 'end', values=(
                         row[0],          # idarticle
                         row[1],          # idunite
                         row[2] or "",    # codearticle
                         row[3] or "",    # designation
                         row[4] or "",    # designationunite
-                        row[5]           # stock_total
-                    ))
+                        formater_nombre(row[5]),  # stock_total
+                        formater_nombre(row[6])   # prix_unitaire
+                    ), tags=(zebra_tag,))
 
             except Exception as e:
                 messagebox.showerror("Erreur", f"Erreur chargement articles: {str(e)}")
@@ -495,7 +577,10 @@ class PageTransfert(ctk.CTkFrame):
                 messagebox.showwarning("Attention", "Veuillez sélectionner un article")
                 return
 
-            values = tree.item(selection[0])['values']
+            values = tree.item(selection[0]).get('values', [])
+            if len(values) < 7:
+                messagebox.showerror("Erreur", "Données de l'article incomplètes dans le tableau.")
+                return
 
             # Stocker l'article sélectionné avec les mêmes clés utilisées dans ajouter_article
             self.article_selectionne = {
@@ -503,7 +588,9 @@ class PageTransfert(ctk.CTkFrame):
                 'idunite': values[1],      # idunite
                 'code': values[2] or "N/A",
                 'nom': values[3] or "N/A",
-                'unite': values[4] or "N/A"
+                'unite': values[4] or "N/A",
+                'stock_disponible': parser_nombre(values[5]),
+                'prix_unitaire': parser_nombre(values[6])
             }
 
             self.entry_code_article.configure(state="normal")
@@ -1105,7 +1192,6 @@ class PageTransfert(ctk.CTkFrame):
                 conn = self.get_connection()
                 if not conn:
                     return
-                
                 cur = conn.cursor()
                 
                 query = """
@@ -1132,11 +1218,13 @@ class PageTransfert(ctk.CTkFrame):
                 transferts = cur.fetchall()
                 for trf in transferts:
                     self.tree_transferts.insert("", "end", values=trf)
-                
-                cur.close()
-                conn.close()
             except Exception as e:
                 messagebox.showerror("Erreur", f"Erreur chargement transferts: {str(e)}")
+            finally:
+                if 'cur' in locals() and cur:
+                    cur.close()
+                if 'conn' in locals() and conn:
+                    conn.close()
 
         # ---------- activer/désactiver les boutons selon la sélection ----------
         def mettre_a_jour_boutons(*args):

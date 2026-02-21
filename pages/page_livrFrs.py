@@ -215,7 +215,17 @@ class PageBonReception(ctk.CTkFrame):
             self.magasins = {r[1]: r[0] for r in rows}
             self.combo_magasin.configure(values=list(self.magasins.keys()))
             if self.magasins:
-                self.combo_magasin.set(list(self.magasins.keys())[0])
+                idmag_defaut = None
+                cursor.execute("SELECT idmag FROM tb_users WHERE iduser = %s LIMIT 1", (self.iduser,))
+                row_user = cursor.fetchone()
+                if row_user:
+                    idmag_defaut = row_user[0]
+
+                nom_magasin_defaut = next((nom for nom, id_ in self.magasins.items() if id_ == idmag_defaut), None)
+                if nom_magasin_defaut:
+                    self.combo_magasin.set(nom_magasin_defaut)
+                else:
+                    self.combo_magasin.set(list(self.magasins.keys())[0])
         except Exception as e:
             messagebox.showerror("Erreur", f"Erreur chargement magasins: {e}")
         finally:

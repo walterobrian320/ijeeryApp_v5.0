@@ -23,143 +23,134 @@ class PageTransfert(ctk.CTkFrame):
         self.charger_magasins()
         
     def setup_ui(self):
-        # Titre
-        titre = ctk.CTkLabel(self, text="TRANSFERT DE STOCK", 
-                            font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold"))
-        titre.pack(pady=20)
-        
-        # Frame principal
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(2, weight=1)
+
+        titre = ctk.CTkLabel(
+            self,
+            text="TRANSFERT DE STOCK",
+            font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold"),
+        )
+        titre.grid(row=0, column=0, pady=(16, 8))
+
         main_frame = ctk.CTkFrame(self)
-        main_frame.pack(fill="both", expand=True, padx=20, pady=10)
-        
-        # Frame formulaire
-        form_frame = ctk.CTkFrame(main_frame)
-        form_frame.pack(fill="x", padx=10, pady=10)
-        
-        # Date
-        date_frame = ctk.CTkFrame(form_frame)
-        date_frame.pack(fill="x", padx=10, pady=5)
-        ctk.CTkLabel(date_frame, text="Date:", width=150).pack(side="left")
-        self.entry_date = ctk.CTkEntry(date_frame, width=300)
-        self.entry_date.pack(side="left", padx=5)
+        main_frame.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 12))
+        main_frame.grid_columnconfigure(0, weight=1)
+        main_frame.grid_rowconfigure(1, weight=1)
+
+        # Bloc entête transfert
+        header_frame = ctk.CTkFrame(main_frame)
+        header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 6))
+        for i in range(4):
+            header_frame.grid_columnconfigure(i, weight=1)
+
+        ctk.CTkLabel(header_frame, text="Référence:", font=("Segoe UI", 11, "bold")).grid(row=0, column=0, sticky="w", padx=6, pady=(6, 2))
+        self.entry_ref = ctk.CTkEntry(header_frame, state="readonly")
+        self.entry_ref.grid(row=1, column=0, sticky="ew", padx=6, pady=(0, 6))
+
+        ctk.CTkLabel(header_frame, text="Date:", font=("Segoe UI", 11, "bold")).grid(row=0, column=1, sticky="w", padx=6, pady=(6, 2))
+        self.entry_date = ctk.CTkEntry(header_frame)
+        self.entry_date.grid(row=1, column=1, sticky="ew", padx=6, pady=(0, 6))
         self.entry_date.insert(0, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        
-        # Référence
-        ref_frame = ctk.CTkFrame(form_frame)
-        ref_frame.pack(fill="x", padx=10, pady=5)
-        ctk.CTkLabel(ref_frame, text="Référence:", width=150).pack(side="left")
-        self.entry_ref = ctk.CTkEntry(ref_frame, width=300, state="readonly")
-        self.entry_ref.pack(side="left", padx=5)
+
+        ctk.CTkLabel(header_frame, text="Magasin sortie:", font=("Segoe UI", 11, "bold")).grid(row=0, column=2, sticky="w", padx=6, pady=(6, 2))
+        self.combo_mag_sortie = ctk.CTkComboBox(header_frame, values=[""])
+        self.combo_mag_sortie.grid(row=1, column=2, sticky="ew", padx=6, pady=(0, 6))
+
+        ctk.CTkLabel(header_frame, text="Magasin entrée:", font=("Segoe UI", 11, "bold")).grid(row=0, column=3, sticky="w", padx=6, pady=(6, 2))
+        self.combo_mag_entree = ctk.CTkComboBox(header_frame, values=[""])
+        self.combo_mag_entree.grid(row=1, column=3, sticky="ew", padx=6, pady=(0, 6))
+
+        ctk.CTkLabel(header_frame, text="Description:", font=("Segoe UI", 11, "bold")).grid(row=2, column=0, sticky="w", padx=6, pady=(2, 2))
+        self.entry_description = ctk.CTkEntry(header_frame)
+        self.entry_description.grid(row=3, column=0, columnspan=4, sticky="ew", padx=6, pady=(0, 8))
         self.generer_reference()
-        
-        # Magasin sortie
-        mag_sortie_frame = ctk.CTkFrame(form_frame)
-        mag_sortie_frame.pack(fill="x", padx=10, pady=5)
-        ctk.CTkLabel(mag_sortie_frame, text="De (Magasin):", width=150).pack(side="left")
-        self.combo_mag_sortie = ctk.CTkComboBox(mag_sortie_frame, width=300, values=[""])
-        self.combo_mag_sortie.pack(side="left", padx=5)
-        
-        # Magasin entrée
-        mag_entree_frame = ctk.CTkFrame(form_frame)
-        mag_entree_frame.pack(fill="x", padx=10, pady=5)
-        ctk.CTkLabel(mag_entree_frame, text="A (Magasin):", width=150).pack(side="left")
-        self.combo_mag_entree = ctk.CTkComboBox(mag_entree_frame, width=300, values=[""])
-        self.combo_mag_entree.pack(side="left", padx=5)
-        
-        # Description
-        desc_frame = ctk.CTkFrame(form_frame)
-        desc_frame.pack(fill="x", padx=10, pady=5)
-        ctk.CTkLabel(desc_frame, text="Description:", width=150).pack(side="left")
-        self.entry_description = ctk.CTkEntry(desc_frame, width=300)
-        self.entry_description.pack(side="left", padx=5)
-        
-        # Séparateur
-        separator1 = ctk.CTkFrame(form_frame, height=2, fg_color="gray")
-        separator1.pack(fill="x", padx=10, pady=15)
-        
-        # Article
-        article_frame = ctk.CTkFrame(form_frame)
-        article_frame.pack(fill="x", padx=10, pady=5)
-        ctk.CTkLabel(article_frame, text="Article:", width=150).pack(side="left")
-        self.entry_code_article = ctk.CTkEntry(article_frame, width=100, state="readonly")
-        self.entry_code_article.pack(side="left", padx=5)
-        self.entry_nom_article = ctk.CTkEntry(article_frame, width=200, state="readonly")
-        self.entry_nom_article.pack(side="left", padx=5)
-        btn_recherche = ctk.CTkButton(article_frame, text="🔍", width=40, 
-                                      command=self.rechercher_article)
-        btn_recherche.pack(side="left", padx=5)
-        
-        # Unité
-        unite_frame = ctk.CTkFrame(form_frame)
-        unite_frame.pack(fill="x", padx=10, pady=5)
-        ctk.CTkLabel(unite_frame, text="Unité:", width=150).pack(side="left")
-        self.entry_unite = ctk.CTkEntry(unite_frame, width=300, state="readonly")
-        self.entry_unite.pack(side="left", padx=5)
-        
-        # Quantité
-        qte_frame = ctk.CTkFrame(form_frame)
-        qte_frame.pack(fill="x", padx=10, pady=5)
-        ctk.CTkLabel(qte_frame, text="Quantité:", width=150).pack(side="left")
-        self.entry_quantite = ctk.CTkEntry(qte_frame, width=300)
-        self.entry_quantite.pack(side="left", padx=5)
-        
-        # Bouton Ajouter (Stocké comme attribut pour être désactivé/activé)
-        self.btn_ajouter = ctk.CTkButton(form_frame, text="Ajouter", 
-                                    command=self.ajouter_article, height=40)
-        self.btn_ajouter.pack(pady=10)
-        
-        # Treeview
-        tree_frame = ctk.CTkFrame(main_frame)
-        tree_frame.pack(fill="both", expand=True, padx=10, pady=10)
-        
-        # Scrollbar
-        scrollbar = ttk.Scrollbar(tree_frame)
-        scrollbar.pack(side="right", fill="y")
-        
-        # Colonnes
+
+        # Bloc ajout article
+        article_frame = ctk.CTkFrame(main_frame)
+        article_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 8))
+        for i in range(6):
+            article_frame.grid_columnconfigure(i, weight=1 if i in (1, 2) else 0)
+
+        ctk.CTkLabel(article_frame, text="Article:", font=("Segoe UI", 11, "bold")).grid(row=0, column=0, sticky="w", padx=6, pady=(6, 2))
+        self.entry_code_article = ctk.CTkEntry(article_frame, width=110, state="readonly")
+        self.entry_code_article.grid(row=1, column=0, sticky="ew", padx=6, pady=(0, 6))
+
+        self.entry_nom_article = ctk.CTkEntry(article_frame, state="readonly")
+        self.entry_nom_article.grid(row=1, column=1, sticky="ew", padx=6, pady=(0, 6))
+
+        btn_recherche = ctk.CTkButton(article_frame, text="🔍 Rechercher", width=120, command=self.rechercher_article)
+        btn_recherche.grid(row=1, column=2, sticky="ew", padx=6, pady=(0, 6))
+
+        ctk.CTkLabel(article_frame, text="Unité:", font=("Segoe UI", 11, "bold")).grid(row=0, column=3, sticky="w", padx=6, pady=(6, 2))
+        self.entry_unite = ctk.CTkEntry(article_frame, width=130, state="readonly")
+        self.entry_unite.grid(row=1, column=3, sticky="ew", padx=6, pady=(0, 6))
+
+        ctk.CTkLabel(article_frame, text="Quantité:", font=("Segoe UI", 11, "bold")).grid(row=0, column=4, sticky="w", padx=6, pady=(6, 2))
+        self.entry_quantite = ctk.CTkEntry(article_frame, width=120)
+        self.entry_quantite.grid(row=1, column=4, sticky="ew", padx=6, pady=(0, 6))
+
+        self.btn_ajouter = ctk.CTkButton(article_frame, text="Ajouter", command=self.ajouter_article, height=32, fg_color="#2e7d32", hover_color="#1b5e20")
+        self.btn_ajouter.grid(row=1, column=5, sticky="ew", padx=6, pady=(0, 6))
+
+        # Tableau des lignes
+        table_frame = ctk.CTkFrame(main_frame)
+        table_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=(0, 8))
+        table_frame.grid_columnconfigure(0, weight=1)
+        table_frame.grid_rowconfigure(0, weight=1)
+
+        scrollbar = ttk.Scrollbar(table_frame)
+        scrollbar.grid(row=0, column=1, sticky="ns")
+
         columns = ("Code", "Article", "Unité", "Quantité")
-        self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings", 
-                                 yscrollcommand=scrollbar.set, height=10)
+        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", yscrollcommand=scrollbar.set, height=12)
         scrollbar.config(command=self.tree.yview)
-        
-        # Configuration colonnes
+
         self.tree.heading("Code", text="Code Article")
         self.tree.heading("Article", text="Nom Article")
         self.tree.heading("Unité", text="Unité")
         self.tree.heading("Quantité", text="Quantité")
-        
-        self.tree.column("Code", width=120)
-        self.tree.column("Article", width=250)
-        self.tree.column("Unité", width=100)
-        self.tree.column("Quantité", width=100)
-        
-        self.tree.pack(fill="both", expand=True)
-        
-        # Bouton Supprimer (Stocké comme attribut)
-        self.btn_supprimer = ctk.CTkButton(tree_frame, text="Supprimer ligne", 
-                                      command=self.supprimer_ligne, fg_color="red")
-        self.btn_supprimer.pack(pady=5)
-        
-        # Boutons action
-        btn_frame = ctk.CTkFrame(main_frame)
-        btn_frame.pack(fill="x", padx=10, pady=10)
-        
-        # Bouton Enregistrer (Stocké comme attribut)
-        self.btn_enregistrer = ctk.CTkButton(form_frame, text="Enregistrer", 
-                                        command=self.enregistrer_transfert,
-                                        height=40, fg_color="green")
-        self.btn_enregistrer.pack(side="left", padx=5, expand=True, fill="x")
-        
-        # NOUVEAU BOUTON : Charger Transfert
-        self.btn_charger = ctk.CTkButton(form_frame, text="Charger Transfert", 
-                                    command=self.ouvrir_fenetre_chargement, height=40,
-                                    fg_color="orange")
-        self.btn_charger.pack(side="left", padx=5, expand=True, fill="x")
-        
-        # Bouton Nouveau
-        self.btn_nouveau = ctk.CTkButton(form_frame, text="Nouveau", 
-                                    command=self.nouveau_transfert, height=40)
-        self.btn_nouveau.pack(side="left", padx=5, expand=True, fill="x")
+        self.tree.column("Code", width=130, anchor="w")
+        self.tree.column("Article", width=380, anchor="w")
+        self.tree.column("Unité", width=130, anchor="w")
+        self.tree.column("Quantité", width=120, anchor="e")
+        self.tree.grid(row=0, column=0, sticky="nsew")
+
+        self.btn_supprimer = ctk.CTkButton(table_frame, text="Supprimer ligne", command=self.supprimer_ligne, fg_color="#e74c3c", hover_color="#c0392b", height=30)
+        self.btn_supprimer.grid(row=1, column=0, sticky="w", padx=4, pady=(6, 2))
+
+        # Barre d'actions globale
+        action_frame = ctk.CTkFrame(main_frame)
+        action_frame.grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 10))
+        action_frame.grid_columnconfigure((0, 1, 2), weight=1)
+
+        self.btn_enregistrer = ctk.CTkButton(
+            action_frame,
+            text="💾 Enregistrer",
+            command=self.enregistrer_transfert,
+            height=36,
+            fg_color="#2e7d32",
+            hover_color="#1b5e20",
+        )
+        self.btn_enregistrer.grid(row=0, column=0, sticky="ew", padx=4, pady=6)
+
+        self.btn_charger = ctk.CTkButton(
+            action_frame,
+            text="📂 Charger Transfert",
+            command=self.ouvrir_fenetre_chargement,
+            height=36,
+            fg_color="#f39c12",
+            hover_color="#d68910",
+        )
+        self.btn_charger.grid(row=0, column=1, sticky="ew", padx=4, pady=6)
+
+        self.btn_nouveau = ctk.CTkButton(
+            action_frame,
+            text="🆕 Nouveau",
+            command=self.nouveau_transfert,
+            height=36,
+        )
+        self.btn_nouveau.grid(row=0, column=2, sticky="ew", padx=4, pady=6)
         
     def connect_db(self):
         """Connexion à la base de données PostgreSQL"""
@@ -419,7 +410,7 @@ class PageTransfert(ctk.CTkFrame):
                     SELECT
                         dce.idarticle,
                         COALESCE(u.qtunite, 1) as qtunite_source,
-                        dce.qtchange as quantite,
+                        dce.quantite_entree as quantite,
                         'echange_entree' as type_mouvement
                     FROM tb_detailchange_entree dce
                     INNER JOIN tb_unite u ON dce.idarticle = u.idarticle AND dce.idunite = u.idunite
@@ -429,7 +420,7 @@ class PageTransfert(ctk.CTkFrame):
                     SELECT
                         dcs.idarticle,
                         COALESCE(u.qtunite, 1) as qtunite_source,
-                        dcs.qtchange as quantite,
+                        dcs.quantite_sortie as quantite,
                         'echange_sortie' as type_mouvement
                     FROM tb_detailchange_sortie dcs
                     INNER JOIN tb_unite u ON dcs.idarticle = u.idarticle AND dcs.idunite = u.idunite
@@ -658,7 +649,7 @@ class PageTransfert(ctk.CTkFrame):
                 consomm = cursor.fetchone()[0] or 0
 
                 # --- Échange entrant (AUGMENTE le stock) ---
-                q_echange_in = "SELECT COALESCE(SUM(qtchange), 0) FROM tb_detailchange_entree WHERE idarticle = %s AND idunite = %s"
+                q_echange_in = "SELECT COALESCE(SUM(quantite_entree), 0) FROM tb_detailchange_entree WHERE idarticle = %s AND idunite = %s"
                 p_echange_in = [idarticle, idu_boucle]
                 if idmag:
                     q_echange_in += " AND idmagasin = %s"
@@ -667,7 +658,7 @@ class PageTransfert(ctk.CTkFrame):
                 echange_in = cursor.fetchone()[0] or 0
 
                 # --- Échange sortant (RÉDUIT le stock) ---
-                q_echange_out = "SELECT COALESCE(SUM(qtchange), 0) FROM tb_detailchange_sortie WHERE idarticle = %s AND idunite = %s"
+                q_echange_out = "SELECT COALESCE(SUM(quantite_sortie), 0) FROM tb_detailchange_sortie WHERE idarticle = %s AND idunite = %s"
                 p_echange_out = [idarticle, idu_boucle]
                 if idmag:
                     q_echange_out += " AND idmagasin = %s"
@@ -907,16 +898,17 @@ class PageTransfert(ctk.CTkFrame):
                 return
             
             cur = conn.cursor()
-            
-            # Infos société
-            cur.execute("SELECT * FROM tb_infosociete LIMIT 1")
-            info_societe = cur.fetchone()
-            
+
             # Infos transfert
             cur.execute("""
-                SELECT t.*, u.username, 
-                       ms.designationmag as mag_sortie,
-                       me.designationmag as mag_entree
+                SELECT 
+                    t.idtransfert,
+                    t.reftransfert,
+                    t.dateregistre,
+                    t.description,
+                    COALESCE(u.username, 'Utilisateur'),
+                    COALESCE(ms.designationmag, ''),
+                    COALESCE(me.designationmag, '')
                 FROM tb_transfert t
                 LEFT JOIN tb_users u ON t.iduser = u.iduser
                 LEFT JOIN tb_magasin ms ON t.idmagsortie = ms.idmag
@@ -932,85 +924,77 @@ class PageTransfert(ctk.CTkFrame):
                 FROM tb_transfertdetail td
                 LEFT JOIN tb_article a ON td.idarticle = a.idarticle
                 LEFT JOIN tb_unite u ON td.idunite = u.idunite
-                WHERE td.idtransfert = %s
+                WHERE td.idtransfert = %s AND td.deleted = 0
             """, (idtransfert,))
             
             details = cur.fetchall()
             
             cur.close()
             conn.close()
-            
-            # Générer PDF
-            filename = f"Transfert_{transfert[1]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-            doc = SimpleDocTemplate(filename, pagesize=A5)
-            elements = []
-            styles = getSampleStyleSheet()
-            
-            # Style personnalisé
-            titre_style = ParagraphStyle(
-                'CustomTitle',
-                parent=styles['Heading1'],
-                fontSize=14,
-                textColor=colors.HexColor('#1f77b4'),
-                spaceAfter=12,
-                alignment=TA_CENTER
-            )
-            
-            # En-tête société
-            if info_societe:
-                elements.append(Paragraph(f"<b>{info_societe[1]}</b>", titre_style))
-                elements.append(Paragraph(f"{info_societe[2]}", styles['Normal']))
-                elements.append(Paragraph(f"Tél: {info_societe[3]}", styles['Normal']))
-                elements.append(Spacer(1, 10*mm))
-            
-            # Titre document
-            elements.append(Paragraph("<b>BON DE TRANSFERT</b>", titre_style))
-            elements.append(Spacer(1, 5*mm))
-            
-            # Infos transfert
-            info_data = [
-                ['Référence:', transfert[1]],
-                ['Date:', str(transfert[5])],
-                ['De:', transfert[8]],
-                ['A:', transfert[9]],
-                ['Utilisateur:', transfert[7]],
-                ['Description:', transfert[6] or '']
-            ]
-            
-            info_table = Table(info_data, colWidths=[40*mm, 80*mm])
-            info_table.setStyle(TableStyle([
-                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ]))
-            
-            elements.append(info_table)
-            elements.append(Spacer(1, 5*mm))
-            
-            # Table articles
-            data = [['Code', 'Article', 'Unité', 'Quantité']]
-            for detail in details:
-                data.append([detail[0], detail[1], detail[2], str(detail[3])])
-            
-            table = Table(data, colWidths=[30*mm, 50*mm, 20*mm, 20*mm])
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('FONTSIZE', (0, 1), (-1, -1), 9),
-            ]))
-            
-            elements.append(table)
-            
-            doc.build(elements)
-            
-            # Ouvrir le PDF
-            os.startfile(filename)
+
+            if not transfert:
+                messagebox.showwarning("Attention", "Transfert introuvable.")
+                return
+
+            reftransfert = transfert[1]
+            date_operation = transfert[2].strftime('%d/%m/%Y') if transfert[2] else datetime.now().strftime('%d/%m/%Y')
+            description = transfert[3] or ""
+            username = transfert[4] or "Utilisateur"
+            mag_sortie = transfert[5] or ""
+            mag_entree = transfert[6] or ""
+
+            # Construire table_data attendu par _build_pdf_a5
+            columns = ("Code", "Désignation", "Unité", "Quantité", "Mouvement")
+            rows = []
+            mouvement_label = f"{mag_sortie} -> {mag_entree}".strip(" ->")
+            for code, designation, unite, qte in details:
+                rows.append((
+                    str(code or ""),
+                    str(designation or ""),
+                    str(unite or ""),
+                    qte or 0,
+                    mouvement_label
+                ))
+
+            table_data = (columns, rows)
+            filename = f"Transfert_{reftransfert.replace('-', '_')}.pdf"
+
+            try:
+                from EtatsPDF_Mouvements import EtatPDFMouvements
+
+                etat = EtatPDFMouvements()
+                try:
+                    etat.connect_db()
+                except Exception:
+                    pass
+
+                result = etat._build_pdf_a5(
+                    output_path=filename,
+                    titre_entete="BON DE TRANSFERT",
+                    reference=reftransfert,
+                    date_operation=date_operation,
+                    magasin=f"{mag_sortie} -> {mag_entree}",
+                    operateur=username,
+                    table_data=table_data,
+                    description=description,
+                    responsable_1="Le Magasinier",
+                    responsable_2="Le Contrôleur",
+                )
+
+                try:
+                    etat.close_db()
+                except Exception:
+                    pass
+
+                if result:
+                    try:
+                        os.startfile(filename)
+                    except Exception:
+                        pass
+                return result
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Erreur génération PDF transfert (builder): {str(e)}")
+                return None
             
         except Exception as e:
             messagebox.showerror("Erreur", f"Erreur impression: {str(e)}")

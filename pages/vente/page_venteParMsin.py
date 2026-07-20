@@ -1205,6 +1205,12 @@ class PageVenteParMsin(ctk.CTkFrame):
             self.article_selectionne['idunite'],
             idmag
         )
+
+        # Round-trip texte (même logique que page_sortie.py / format_nombre_auto) :
+        # neutralise le bruit binaire du calcul SQL en alignant stock_precis
+        # EXACTEMENT sur ce qui serait affiché à l'écran (2 décimales).
+        stock_precis = self.parser_nombre(self.formater_nombre(stock_precis))
+
         self.stock_temporaire_selection = stock_precis
         if stock_precis <= 0:
             MessageDialog(

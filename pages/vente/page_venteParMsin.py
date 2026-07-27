@@ -234,7 +234,8 @@ class PageVenteParMsin(ctk.CTkFrame):
                 return "{:,}".format(entier).replace(',', '.')
             else:
                 # Avec décimale, 2 chiffres
-                return "{:,.2f}".format(n).replace(',', '.').replace('.', ',', 1)
+                formatted = "{:,.2f}".format(n)
+                return formatted.replace(',', '_').replace('.', ',').replace('_', '.')
         except Exception:
             return "0"
 

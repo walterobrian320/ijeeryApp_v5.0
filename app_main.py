@@ -442,11 +442,12 @@ class Sidebar(ctk.CTkFrame):
         self._is_open       = True
         self._accordions: list[MenuAccordion] = []
 
-        self.grid_rowconfigure(2, weight=1)   # scroll area
+        self.grid_rowconfigure(3, weight=1)   # scroll area
         self.grid_columnconfigure(0, weight=1)
 
         self._build_toggle_row()
         self._build_logo()
+        self._build_user_info()
         self._build_scroll_area()
         self._build_menu()
         self._enable_sidebar_mousewheel()
@@ -496,6 +497,40 @@ class Sidebar(ctk.CTkFrame):
             )
         self._logo_lbl.pack(expand=True)
 
+    def _build_user_info(self):
+        self._user_frame = ctk.CTkFrame(
+            self,
+            fg_color="transparent",
+            corner_radius=0,
+            border_width=0,
+            height=32,
+        )
+        self._user_frame.grid(row=2, column=0, sticky="ew", padx=4, pady=(0, 4))
+        self._user_frame.grid_propagate(False)
+
+        username = str(self._session.get("username") or "Utilisateur")
+
+        inner = ctk.CTkFrame(self._user_frame, fg_color="transparent")
+        inner.pack(fill="x", expand=True)
+        inner.grid_columnconfigure(0, weight=1)
+        inner.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            inner,
+            text="👤",
+            font=_F(13, "bold"),
+            text_color="#FFFFFF",
+        ).grid(row=0, column=0, sticky="e", padx=(0, 4))
+
+        ctk.CTkLabel(
+            inner,
+            text=f"User : {username}",
+            font=_F(10, "bold"),
+            text_color="#FFFFFF",
+            anchor="w",
+            wraplength=150,
+        ).grid(row=0, column=1, sticky="w")
+
     def _build_scroll_area(self):
         self._scroll = ctk.CTkScrollableFrame(
             self,
@@ -503,7 +538,7 @@ class Sidebar(ctk.CTkFrame):
             scrollbar_button_color=Colors.MIDNIGHT_LIGHT,
             scrollbar_button_hover_color=Colors.PRIMARY,
         )
-        self._scroll.grid(row=2, column=0, sticky="nsew", padx=0, pady=0)
+        self._scroll.grid(row=3, column=0, sticky="nsew", padx=0, pady=0)
 
     def _build_menu(self):
         """Construit les accordéons de menu selon les autorisations."""
@@ -597,7 +632,7 @@ class Sidebar(ctk.CTkFrame):
             corner_radius=8,
             command=self._app.logout,
         )
-        self._btn_logout.grid(row=3, column=0, sticky="ew", padx=8, pady=8)
+        self._btn_logout.grid(row=4, column=0, sticky="ew", padx=8, pady=8)
 
     # ── Toggle ────────────────────────────────────────────────────────────────
 
@@ -611,8 +646,9 @@ class Sidebar(ctk.CTkFrame):
         self._is_open = False
         self.configure(width=_SIDEBAR_W_CLOSED)
 
-        # Cacher logo, scroll, logout
+        # Cacher logo, bloc utilisateur, scroll, logout
         self._logo_frame.grid_remove()
+        self._user_frame.grid_remove()
         self._scroll.grid_remove()
         self._btn_logout.grid_remove()
 
@@ -624,6 +660,7 @@ class Sidebar(ctk.CTkFrame):
         self.configure(width=_SIDEBAR_W_OPEN)
 
         self._logo_frame.grid()
+        self._user_frame.grid()
         self._scroll.grid()
         self._btn_logout.grid()
 

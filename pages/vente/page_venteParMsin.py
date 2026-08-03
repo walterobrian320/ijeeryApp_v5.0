@@ -387,8 +387,8 @@ class PageVenteParMsin(ctk.CTkFrame):
             row=0, column=2, padx=4, pady=(6, 0), sticky="w")
         self.entry_qtvente = ctk.CTkEntry(band, **entry_kw, width=90)
         self.entry_qtvente.grid(row=1, column=2, padx=4, pady=(0, 6))
-        # Raccourci : Entrée → valider_detail
-        self.entry_qtvente.bind("<Return>", lambda _e: self.valider_detail())
+        # Raccourci : Entrée → comportement contextuel article / ajout
+        self.entry_qtvente.bind("<Return>", self._on_enter_key)
 
         # — Unité —
         ctk.CTkLabel(band, text="Unité", **lbl_kw).grid(
@@ -439,6 +439,19 @@ class PageVenteParMsin(ctk.CTkFrame):
             command=self.ajouter_details_proforma_en_masse,
         )
         # Sera affiché via afficher_bouton_ajouter_proforma()
+
+    def _on_enter_key(self, event=None):
+        """
+        Gestion unique de la touche Entrée pour le bandeau article.
+
+        Si un article est sélectionné, on valide la ligne en cours.
+        Sinon, on lance la recherche d'article.
+        """
+        if self.article_selectionne:
+            self.valider_detail()
+        else:
+            self.open_recherche_article()
+        return "break"
 
     # ── 4.2  Tableau de détails ────────────────────────────────────────────────
     def _build_detail_table(self):

@@ -154,6 +154,7 @@ MENU_STRUCTURE = [
             ("💲  Prix Article",        "Prix d'article",        "pages.page_prixListe",        "PagePrixListe",       None),
             ("📊  Prix de Revient",     "Prix de revient",       "pages.page_prixRevient",      "PagePrixRevient",     None),
             ("📈  Marge Commerciale",   "Marge Commerciale",     "pages.page_margeCommerciale", "PageStock",           None),
+            ("🚚  Voyage",              "Voyage",                "pages.page_Voyage",          "PageVoyage",          "iduser"),
         ],
     },
     # ── PERSONNEL ──────────────────────────────────────────────────────────

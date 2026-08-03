@@ -55,7 +55,7 @@ class PageAutorisation(ctk.CTkFrame):
                 "Inventaire du Jour", "Stock Alerte", "Péremption d'article",
                 "Historiques livraison", "Bon de Livraison", "Mouvement d'article",
                 "Mouvement Stock", "Liste mouvements",
-                "Prix d'article", "Prix de revient", "Marge Commerciale",
+                "Prix d'article", "Prix de revient", "Marge Commerciale", "Voyage",
             ),
         ),
         MenuGroup(

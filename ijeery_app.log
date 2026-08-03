@@ -328,3 +328,119 @@
 2026-07-27 14:08:26 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
 2026-07-27 14:08:28 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
 2026-07-27 14:08:29 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-03 17:50:55 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 17:51:11 | ERROR    | ijeery | Uncaught exception: 
+Traceback (most recent call last):
+  File "d:\Projets 2026\ijeeryApp_v5.0\ijeeryApp_V5.0.py", line 25, in <module>
+    login_app = LoginWindow()
+  File "d:\Projets 2026\ijeeryApp_v5.0\page_login.py", line 334, in __init__
+    self._setup_ui()
+    ~~~~~~~~~~~~~~^^
+  File "d:\Projets 2026\ijeeryApp_v5.0\page_login.py", line 389, in _setup_ui
+    self._field_user = _UnderlineField(
+                       ~~~~~~~~~~~~~~~^
+        fields_wrap, icon_text="👤",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        placeholder="Nom d'utilisateur")
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "d:\Projets 2026\ijeeryApp_v5.0\page_login.py", line 222, in __init__
+    tk.Label(row, text=icon_text, font=(_FONT_FAM, 14),
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+             bg=_WIN_BG, fg=C.TEXT_MUTED,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+             width=2).pack(side="left", padx=(0, 6))
+             ^^^^^^^^
+  File "C:\Users\embon\AppData\Local\Python\pythoncore-3.14-64\Lib\tkinter\__init__.py", line 3392, in __init__
+    Widget.__init__(self, master, 'label', cnf, kw)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\embon\AppData\Local\Python\pythoncore-3.14-64\Lib\tkinter\__init__.py", line 2805, in __init__
+    self.tk.call(
+    ~~~~~~~~~~~~^
+        (widgetName, self._w) + extra + self._options(cnf))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+
+2026-08-03 17:52:18 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 17:52:21 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-03 17:52:21 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-03 17:52:24 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 17:52:25 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-03 17:56:27 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 17:56:31 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-03 17:56:31 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-03 17:56:34 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 17:56:34 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-03 18:00:39 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 18:00:46 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-03 18:00:46 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-03 18:00:48 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 18:00:49 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-03 18:06:46 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 18:06:53 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-03 18:06:53 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-03 18:06:56 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 18:06:56 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-03 18:07:23 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 18:07:24 | ERROR    | ijeery | Uncaught exception: 
+Traceback (most recent call last):
+  File "d:\Projets 2026\ijeeryApp_v5.0\ijeeryApp_V5.0.py", line 25, in <module>
+    login_app = LoginWindow()
+  File "d:\Projets 2026\ijeeryApp_v5.0\page_login.py", line 334, in __init__
+    self._setup_ui()
+    ~~~~~~~~~~~~~~^^
+  File "d:\Projets 2026\ijeeryApp_v5.0\page_login.py", line 439, in _setup_ui
+    self._build_config_btn(card)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "d:\Projets 2026\ijeeryApp_v5.0\page_login.py", line 529, in _build_config_btn
+    self._db_btn = ctk.CTkButton(
+                   ~~~~~~~~~~~~~^
+        btn_wrap,
+        ^^^^^^^^^
+    ...<9 lines>...
+        corner_radius=6,
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Lib\site-packages\customtkinter\windows\widgets\ctk_button.py", line 106, in __init__
+    self._draw()
+    ~~~~~~~~~~^^
+  File "D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Lib\site-packages\customtkinter\windows\widgets\ctk_button.py", line 224, in _draw
+    self._text_label = tkinter.Label(master=self,
+                       ~~~~~~~~~~~~~^^^^^^^^^^^^^
+                                     font=self._apply_font_scaling(self._font),
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+                                     borderwidth=1,
+                                     ^^^^^^^^^^^^^^
+                                     textvariable=self._textvariable)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\embon\AppData\Local\Python\pythoncore-3.14-64\Lib\tkinter\__init__.py", line 3392, in __init__
+    Widget.__init__(self, master, 'label', cnf, kw)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\embon\AppData\Local\Python\pythoncore-3.14-64\Lib\tkinter\__init__.py", line 2805, in __init__
+    self.tk.call(
+    ~~~~~~~~~~~~^
+        (widgetName, self._w) + extra + self._options(cnf))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+
+2026-08-03 18:07:38 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 18:07:43 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-03 18:07:44 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-03 18:07:46 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 18:07:47 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-03 18:10:18 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 18:10:21 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-03 18:10:21 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-03 18:10:23 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 18:10:24 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-03 18:10:52 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 18:10:55 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-03 18:10:55 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-03 18:10:58 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 18:10:58 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-03 18:21:20 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 18:21:23 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-03 18:21:23 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-03 18:21:26 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-03 18:21:27 | INFO     | ijeery | [DB] Connexion établie.

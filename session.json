@@ -275,6 +275,10 @@
         [
             "Ventes par Dépôt",
             "PageVenteParMsin"
+        ],
+        [
+            "Voyage",
+            ""
         ]
     ]
 }

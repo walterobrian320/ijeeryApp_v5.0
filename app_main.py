@@ -515,18 +515,12 @@ class Sidebar(ctk.CTkFrame):
         inner.grid_columnconfigure(0, weight=1)
         inner.grid_columnconfigure(1, weight=1)
 
+        
         ctk.CTkLabel(
             inner,
-            text="👤",
-            font=_F(13, "bold"),
-            text_color="#FFFFFF",
-        ).grid(row=0, column=0, sticky="e", padx=(0, 4))
-
-        ctk.CTkLabel(
-            inner,
-            text=f"User : {username}",
+            text=f"Utilisateur: {username}",
             font=_F(10, "bold"),
-            text_color="#FFFFFF",
+            text_color="#CCEAEC",
             anchor="w",
             wraplength=150,
         ).grid(row=0, column=1, sticky="w")

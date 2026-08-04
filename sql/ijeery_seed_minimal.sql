@@ -71,6 +71,12 @@ INSERT INTO tb_param_livraison_client (id, idtransporteur_defaut, transporteur_b
 INSERT INTO tb_param_commande_frs (id, idfrs_defaut) VALUES
   (1, NULL);
 
+INSERT INTO tb_categoriepersonnel (idcategorie, titre, description, dateregistre, deleted) VALUES
+  (1, 'Administration', 'Catégorie par défaut du module personnel', CURRENT_TIMESTAMP, 0);
+
+INSERT INTO tb_postepersonnel (idposte, idcategorie, titre, description, dateregistre, deleted) VALUES
+  (1, 1, 'Administrateur', 'Poste par défaut du module personnel', CURRENT_TIMESTAMP, 0);
+
 -- Menus exportés depuis sarah_gros
 INSERT INTO tb_menu (id, designationmenu, page) VALUES
   (1, 'Caisse', 'PageCaisse'),
@@ -159,15 +165,7 @@ INSERT INTO tb_menu (id, designationmenu, page) VALUES
   (84, 'BLOC: BASE DE DONNÉES', ''),
   (85, 'Paramètres', ''),
   (86, 'Historiques livraison', ''),
-  (87, 'Bon de Livraison', ''),
-  (88, 'BLOC: LOGISTIQUE', ''),
-  (89, 'Parc Vehicule', 'pages.page_parcVehicule'),
-  (90, 'Pieces Detachees', 'pages.page_piecesDetachees'),
-  (91, 'Carburant', 'pages.page_carburant'),
-  (92, 'Itineraires', 'pages.page_itineraires'),
-  (93, 'Bons Sortie', 'pages.page_bonsSortie'),
-  (94, 'Maintenance', 'pages.page_maintenance'),
-  (95, 'Rapport Logistique', 'pages.page_rapportLogistique');
+  (87, 'Bon de Livraison', '');
 
 -- Droits administrateur : tous les menus
 INSERT INTO tb_autorisation (idfonction, idmenu)
@@ -199,5 +197,7 @@ SELECT setval('public.tb_configdb_id_seq', 1, true);
 SELECT setval('public.tb_transporteur_idtransporteur_seq', 1, true);
 SELECT setval('public.tb_codeautorisation_id_seq', 1, true);
 SELECT setval('public.tb_users_iduser_seq', 1, true);
-SELECT setval('public.tb_menu_id_seq', 95, true);
+SELECT setval('public.tb_menu_id_seq', 87, true);
+SELECT setval('public.tb_categoriepersonnel_idcategorie_seq', 1, true);
+SELECT setval('public.tb_postepersonnel_idposte_seq', 1, true);
 COMMIT;

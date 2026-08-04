@@ -1,23 +1,13 @@
--- =============================================================================
--- iJeery V5.0 — Base de données VIERGE (structure complète, aucune donnée)
--- =============================================================================
--- Source  : Structure database.sql + base sarah_gros (PostgreSQL 16)
--- Usage   :
---   1) Créer la base : CREATE DATABASE ijeery_vierge OWNER postgres;
---   2) psql -U postgres -d ijeery_vierge -f sql/ijeery_schema_vide.sql
---   3) psql -U postgres -d ijeery_vierge -f sql/ijeery_seed_minimal.sql
 --
--- Contenu : tables, séquences, contraintes, index, clés étrangères — 0 ligne métier
--- =============================================================================
+-- PostgreSQL database dump
+--
 
-BEGIN;
+\restrict dGbpmZgGebNfDi017u0gdzc6XIUcDmPsL6vWA8DMusXfkgU3AOtrW9GtOi4Gj96
 
-DROP SCHEMA IF EXISTS public CASCADE;
-CREATE SCHEMA public;
-GRANT ALL ON SCHEMA public TO postgres;
-GRANT ALL ON SCHEMA public TO public;
+-- Dumped from database version 16.13
+-- Dumped by pg_dump version 16.13
 
-SET search_path TO public, pg_catalog;
+-- Started on 2026-08-04 10:16:36
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -6184,33 +6174,3 @@ ALTER TABLE ONLY public.tb_postepersonnel
 
 \unrestrict dGbpmZgGebNfDi017u0gdzc6XIUcDmPsL6vWA8DMusXfkgU3AOtrW9GtOi4Gj96
 
-
--- Tables paramètres (présentes sur sarah_gros, absentes du dump Structure initial)
-CREATE TABLE public.tb_param_livraison_client (
-    id smallint NOT NULL DEFAULT 1,
-    idtransporteur_defaut integer,
-    transporteur_bl_auto smallint NOT NULL DEFAULT 0,
-    CONSTRAINT tb_param_livraison_client_pkey PRIMARY KEY (id),
-    CONSTRAINT tb_param_livraison_client_singleton CHECK (id = 1)
-);
-
-CREATE TABLE public.tb_param_commande_frs (
-    id smallint NOT NULL DEFAULT 1,
-    idfrs_defaut integer,
-    CONSTRAINT tb_param_commande_frs_pkey PRIMARY KEY (id),
-    CONSTRAINT tb_param_commande_frs_singleton CHECK (id = 1)
-);
-
-ALTER TABLE ONLY public.tb_param_livraison_client
-    ADD CONSTRAINT tb_param_livraison_client_idtransporteur_fkey
-    FOREIGN KEY (idtransporteur_defaut) REFERENCES public.tb_transporteur(idtransporteur)
-    ON UPDATE CASCADE ON DELETE SET NULL;
-
-ALTER TABLE ONLY public.tb_param_commande_frs
-    ADD CONSTRAINT tb_param_commande_frs_idfrs_defaut_fkey
-    FOREIGN KEY (idfrs_defaut) REFERENCES public.tb_fournisseur(idfrs)
-    ON UPDATE CASCADE ON DELETE SET NULL;
-
-COMMIT;
-
--- Fin schéma vide — exécuter ensuite : sql/ijeery_seed_minimal.sql

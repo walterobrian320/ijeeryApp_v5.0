@@ -4,7 +4,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SQL_DIR = ROOT / "sql"
-STRUCTURE = ROOT / "Structure database.sql"
+STRUCTURE_CANDIDATES = [
+    ROOT / "Structure database.sql",
+    SQL_DIR / "base_vide_0308.sql",
+    ROOT / "base_vide_0308.sql",
+]
+STRUCTURE = next((path for path in STRUCTURE_CANDIDATES if path.exists()), None)
 MENUS_EXPORT = SQL_DIR / "_menus_admin_export.sql"
 
 SCHEMA_OUT = SQL_DIR / "ijeery_schema_vide.sql"
@@ -91,6 +96,8 @@ SET search_path TO public, pg_catalog;
 
 def main():
     SQL_DIR.mkdir(exist_ok=True)
+    if STRUCTURE is None:
+        raise FileNotFoundError("Aucun fichier de structure de base disponible trouvé.")
     body = STRUCTURE.read_text(encoding="utf-8")
     # Retirer l'en-tête pg_dump redondant (on garde le corps CREATE)
     start = body.find("SET statement_timeout")
@@ -167,6 +174,12 @@ INSERT INTO tb_param_livraison_client (id, idtransporteur_defaut, transporteur_b
 INSERT INTO tb_param_commande_frs (id, idfrs_defaut) VALUES
   (1, NULL);
 
+INSERT INTO tb_categoriepersonnel (idcategorie, titre, description, dateregistre, deleted) VALUES
+  (1, 'Administration', 'Catégorie par défaut du module personnel', CURRENT_TIMESTAMP, 0);
+
+INSERT INTO tb_postepersonnel (idposte, idcategorie, titre, description, dateregistre, deleted) VALUES
+  (1, 1, 'Administrateur', 'Poste par défaut du module personnel', CURRENT_TIMESTAMP, 0);
+
 """,
         menus_sql,
         "\n-- Droits administrateur : tous les menus\n",
@@ -209,6 +222,8 @@ def _sequence_resets() -> str:
         ("tb_codeautorisation_id_seq", 1),
         ("tb_users_iduser_seq", 1),
         ("tb_menu_id_seq", 87),
+        ("tb_categoriepersonnel_idcategorie_seq", 1),
+        ("tb_postepersonnel_idposte_seq", 1),
     ]
     lines = [
         "SELECT setval('public.tb_autorisation_id_seq', "

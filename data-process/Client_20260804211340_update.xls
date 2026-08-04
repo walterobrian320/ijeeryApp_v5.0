@@ -1,0 +1,625 @@
+ID	NOM & PRENOMS	ADRESSE	CONTACT	CREDIT	JOUR	entity	
+29074	ANNEXE SHOP			298 425 300 Ar	0	dds.backend.entities.Client@1609144	
+500	BOUTIQUE MAHAMBOLONA			112 639 100 Ar	0	dds.backend.entities.Client@13b31e0	
+73	MR LUC VANILLE		032 05 085 74	77 315 400 Ar	269	dds.backend.entities.Client@55c8c8	
+185477	SOCIETE DOUNIA SARL			49 255 000 Ar	308	dds.backend.entities.Client@3e8be7	
+55	MME RASOA FLAVIENNE			30 783 500 Ar	530	dds.backend.entities.Client@139cf95	
+206	MME ODILE BAZARY			29 913 700 Ar	35	dds.backend.entities.Client@15b4863	
+69	TOMBO SANDRAKATSY			19 941 600 Ar	6	dds.backend.entities.Client@130cbc8	
+332	MME CATHERINE MANANARA CENTRE			18 521 030 Ar	530	dds.backend.entities.Client@1590e7a	
+38	MR FRANK SANDRAKATSY			16 640 000 Ar	530	dds.backend.entities.Client@c33a63	
+122	MR VIN AMBODIVOANIO		034 78 888 14	16 583 000 Ar	6	dds.backend.entities.Client@1c67f48	
+129616	DJINO SANDRAKATSY 		0343158527 	13 510 000 Ar	5	dds.backend.entities.Client@9194b3	
+28530	COLDONIE AMBODIHAMPANA 	AMBODIHAMPANA 	 034 51 577 71 ; 034 09 321 50 	11 487 000 Ar	530	dds.backend.entities.Client@1c46985	
+476	MR RODOLPHE ANANDRIVOLA			10 257 000 Ar	530	dds.backend.entities.Client@a55dbc	
+254765	NADINE ( MME DIRY ) 		034 13 275 62 	10 093 000 Ar	1	dds.backend.entities.Client@df569f	
+41513	ELIVIENNE VINAGNIVAO 		034 96 275 53 . 032 42 188 18 	9 967 200,01 Ar	0	dds.backend.entities.Client@2b6ebb	
+211712	MME SANDRA AMPASINA		034 25 854 18 ; 034 12 310 38	9 964 000 Ar	35	dds.backend.entities.Client@b3bffa	
+265096	A . ALDREDICE CHRYSANTE	LABINY	032 91 964 97 	9 800 000 Ar	244	dds.backend.entities.Client@93506d	
+446	MR FRANCK CAISSIER			9 800 000 Ar	530	dds.backend.entities.Client@682ce	
+13210	Mme THONNY CARBURANT		033 08 374 93	9 639 000 Ar	10	dds.backend.entities.Client@1c76283	
+113	CHRISTOPHE MANAMBOLOSY			8 655 000 Ar	10	dds.backend.entities.Client@c25aae	
+460	MR FRANCIS SANDRAKATSY	0336749914 - 038 79 605 78		8 249 800 Ar	20	dds.backend.entities.Client@f46063	
+31629	LETTE AMBODIVOANIO	034 35 413 64		7 852 000 Ar	8	dds.backend.entities.Client@929401	
+129	ANGELINE AMBODIVANDROZANA		034 29 235 61	7 449 900 Ar	530	dds.backend.entities.Client@a7256a	
+447	MR TRANCK ANALAMPENJA		0324079553	7 440 000 Ar	530	dds.backend.entities.Client@361cba	
+103	MR DANIEL MANAMBOLOSY			7 406 000 Ar	21	dds.backend.entities.Client@1d08727	
+3	MR REMIE AMBODIMANGA		034 41 158 64	7 016 600 Ar	530	dds.backend.entities.Client@1b23f00	
+404	MME URCHILAH ANTADIMITA			6 348 000 Ar	530	dds.backend.entities.Client@25daa9	
+463	MR RABEHATONINA JACQUOT		032 88 827 93	6 300 000 Ar	530	dds.backend.entities.Client@e2da1b	
+507	RIEL IFASINA	IFASINA	034 45 145 23	5 936 000 Ar	6	dds.backend.entities.Client@13a91df	
+55778	VEVE_FONTSIMARO		038 40 147 07	5 906 700 Ar	21	dds.backend.entities.Client@104ff87	
+147086	JEAN CLAUDE AMPASINA FAHAMBA	034 31 637 69 , 032 45 791 71	AMPASINA FAHAMBA	5 862 400 Ar	530	dds.backend.entities.Client@124885c	
+27	MAMAN I VAZAHA			5 328 000 Ar	530	dds.backend.entities.Client@1eab7a1	
+1307	BE ROLIEN		033 24 999 14 / 034 66 437 95	4 890 000 Ar	530	dds.backend.entities.Client@517a6a	
+49136	MME JESSICA SANDRAKATSY 	034 90 500 83 	SANDRAKATSY 	4 884 000 Ar	530	dds.backend.entities.Client@2154a0	
+43241	GERVAIS ANTANANANIVO		 034 26 423 42 	4 518 300 Ar	530	dds.backend.entities.Client@11c5a10	
+32038	TANY AMBITSIKA			4 156 000 Ar	530	dds.backend.entities.Client@19db9ed	
+282	MME ELALIE SANDRAKATSY		032 38 433 57	4 000 000 Ar	22	dds.backend.entities.Client@18009e	
+75	BOA MANANARA			3 986 500 Ar	530	dds.backend.entities.Client@92c1a9	
+340	JACKIELY MANAMBOLOSY		034 51 464 80 ; 034 74 473 97	3 904 000 Ar	530	dds.backend.entities.Client@1e3c771	
+506	MAMAN I PAULIN 	ANDAPANAMPOMBO	034 85 284 39	3 852 000 Ar	15	dds.backend.entities.Client@1d543f1	
+148	MME GERVAIS ANDROKAROKA			3 838 400 Ar	4	dds.backend.entities.Client@187a4a5	
+320	MME EDWIGE		0344308079 & 0322929125	3 808 000 Ar	530	dds.backend.entities.Client@10eb075	
+453	MME JEANINE AMPITARIHANA			3 800 000 Ar	530	dds.backend.entities.Client@f5276a	
+213052	MARIE ANGELINE ANTANAMIRANTINA		 034 81 023 29 	3 620 800 Ar	530	dds.backend.entities.Client@1cc220e	
+331	MR JAR_ONE SANDRAKATSY			3 597 000 Ar	1	dds.backend.entities.Client@144161e	
+71	NARCIS PISITASY			3 451 000 Ar	530	dds.backend.entities.Client@1bd9c1b	
+34085	BNI MANANARA			3 381 200 Ar	1	dds.backend.entities.Client@f834f1	
+2	PERIN MANAMBOLOSY		038 05 303 52	3 195 000 Ar	530	dds.backend.entities.Client@94ba32	
+66	HORTANCE BAZARY		034 67 029 09	3 184 500 Ar	454	dds.backend.entities.Client@1bbbe58	
+84	MAHAZAKA AMBODISATRANA		034 06 616 10	3 131 500 Ar	530	dds.backend.entities.Client@85aaf0	
+329	MR BE SORATANA  AMBODIVONIO		038 92 537 14	2 900 000 Ar	530	dds.backend.entities.Client@11f482d	
+79	GAETHAN MANAMBOLOSY			2 860 000 Ar	530	dds.backend.entities.Client@4b3e16	
+95013	CELESTIN [ MASOALA ] 		038 08 520 34	2 693 200 Ar	530	dds.backend.entities.Client@b01239	
+297943	HYACINTHE VINAGNIVAO		034 58 424 53 ;037 59 411 60	2 670 900 Ar	17	dds.backend.entities.Client@143e7b5	
+12	PAPAN I LARISSA BAZARY			2 484 000 Ar	12	dds.backend.entities.Client@2e90d0	
+10	ZOZO DEPANNEUR	ANDATSADRANO		2 332 000 Ar	530	dds.backend.entities.Client@114aa4d	
+304	MME JOSLINE ANTETEZAMBE			2 230 400 Ar	530	dds.backend.entities.Client@1df4e8c	
+108572	MARCELLIN AMPASINA FAHAMBAHY	034 31 123 09	 FAHAMBAHY	2 200 000 Ar	530	dds.backend.entities.Client@1f57d0d	
+151	YVON ANDROKAROKA			2 200 000 Ar	119	dds.backend.entities.Client@151cd33	
+87	MME VICTORINE MANOHANA		032 48 559 27	2 150 000 Ar	530	dds.backend.entities.Client@14b40d6	
+422	RHY CEDRICK ANDATSADRANO		0331948626	2 100 000 Ar	530	dds.backend.entities.Client@9c79d	
+213572	MME ELIETTE MANANARA CENTRE 		034 71 039 39 ; 032 41 159 61 	2 003 500 Ar	15	dds.backend.entities.Client@f8d044	
+150359	MARCEL ANTANAMIRANTINA 		034 40 422 15 	2 000 000 Ar	530	dds.backend.entities.Client@105bf7d	
+40587	MAMAN I FLANDERS		034 22 091 53 	2 000 000 Ar	4	dds.backend.entities.Client@518bb	
+64	NIRINA BAZARY		032 44 348 40	1 999 000 Ar	530	dds.backend.entities.Client@801149	
+112405	NICOLAS ANTANANANIVO			1 963 000 Ar	14	dds.backend.entities.Client@2e9ead	
+140893	BE GEORGE SAHIVO		034 90 137 97 - 032 57 340 85 	1 873 000 Ar	530	dds.backend.entities.Client@2a2842	
+363	MR DONNE ANDROKAROKA		038 29 412 64	1 763 000 Ar	530	dds.backend.entities.Client@5828bc	
+199	MME NATHACHA AMPITARIHANA			1 760 000 Ar	530	dds.backend.entities.Client@786d67	
+40042	MAMY ANDATSADRANO		033 28 003 21	1 635 000 Ar	530	dds.backend.entities.Client@2953b3	
+77830	JOSEPH ANALAMPENJA			1 630 000 Ar	530	dds.backend.entities.Client@114010c	
+60	MR MAURICE SANDRAKATSY			1 609 000 Ar	530	dds.backend.entities.Client@7edc1a	
+477	MR ELISEE MANAMBOLOSY	034 22 905 60		1 604 000 Ar	530	dds.backend.entities.Client@1329ca7	
+426	MR DIN IMORONA		034 15 576 59 ; 033 14 468 63	1 600 000 Ar	530	dds.backend.entities.Client@1daeeb9	
+163	MME FERLISSE  AMBODIMANGA			1 570 000 Ar	530	dds.backend.entities.Client@25952f	
+212234	BRUTHO MAGASINIER		034 42 228 00 	1 570 000 Ar	530	dds.backend.entities.Client@791dbd	
+93	WILLY ANTANANKORO			1 484 000 Ar	530	dds.backend.entities.Client@1516c71	
+150355	MME PATRICIA ANTANAMBAO		034 39 749 50 	1 473 000 Ar	530	dds.backend.entities.Client@11ef8c4	
+212235	ALEX POINTEUR SARAH IV			1 470 000 Ar	530	dds.backend.entities.Client@16a9825	
+248	LIVA KOFIFEN			1 450 000 Ar	22	dds.backend.entities.Client@120e740	
+741	LADYS AMBATOFITARAFANA			1 416 900 Ar	530	dds.backend.entities.Client@1703431	
+97	WILLY AMBODIVOANIO			1 335 000 Ar	530	dds.backend.entities.Client@1563d83	
+28671	SARAH GROS ANTALAHA			1 253 000 Ar	530	dds.backend.entities.Client@58307c	
+376	MR JAOFALY SAHAVE		034 85 024 39	1 245 000 Ar	25	dds.backend.entities.Client@6acf10	
+44	MME MONIQUE ANIRIBE			1 214 900 Ar	530	dds.backend.entities.Client@77a550	
+138	MME KARANA SANDRAKATSY	SANDRAKATSY		1 171 000 Ar	530	dds.backend.entities.Client@cf24b8	
+421	MR ADRIEN ANDILAMBOHANGY	ANDILAMBOHANGY	034 65 588 07	1 110 000 Ar	162	dds.backend.entities.Client@1c3310d	
+160	ZOZO BATTERIE			1 030 000 Ar	530	dds.backend.entities.Client@1b968aa	
+515	MR JEAN JACQUES		034 37 838 37 	1 010 500 Ar	530	dds.backend.entities.Client@ab1928	
+390	MME JULIE MANAMBOLOSY		0346673661	1 000 000 Ar	530	dds.backend.entities.Client@1c81761	
+152633	RAMANANTSENA JULIEN	ANDAPARATIBE	038 79 991 62	1 000 000 Ar	530	dds.backend.entities.Client@1bd140c	
+85	ECOLE LOVASOA ANTANAMBAO			978 000 Ar	530	dds.backend.entities.Client@1c5c669	
+412	MR BEMICHEL YOYO BEACH		0328935402	900 000 Ar	530	dds.backend.entities.Client@1fffb60	
+47367	NDRIANASY ANTANAMIRANTINA 		034 94 565 62 	836 500 Ar	456	dds.backend.entities.Client@459a61	
+87780	FRANCOIS ANDROKAROKA		032 67 072 03	807 300 Ar	530	dds.backend.entities.Client@107e751	
+154	VIO AMBITSIKA			800 000 Ar	164	dds.backend.entities.Client@ec8016	
+339	RAJAOZANDRY ANTANAMBAOBE		034 70 818 59	750 000 Ar	530	dds.backend.entities.Client@5c4390	
+142539	HERY SONY	ANDATSADRANO 	033 11 834 12 	710 000 Ar	530	dds.backend.entities.Client@4449e8	
+462	MR JACOB		0324622147	700 000 Ar	530	dds.backend.entities.Client@bb049e	
+212861	RVY DINA			700 000 Ar	530	dds.backend.entities.Client@d3dfaf	
+410	MR NESTOR FAHAMBA		034 39 997 54	684 000 Ar	530	dds.backend.entities.Client@54b66	
+91	JIRAMA MANANARA			650 000 Ar	530	dds.backend.entities.Client@d64cc7	
+146122	SAHONDRA MALALA SERAPHINE	038 34 328 69	AMBODIHAMPANA	643 900 Ar	530	dds.backend.entities.Client@a939f7	
+96995	CLAUDE IMORONA		 034 85 227 98 	640 000 Ar	530	dds.backend.entities.Client@a5b2aa	
+119	MR ROMULD ANDROKAROKA			600 000 Ar	530	dds.backend.entities.Client@fb91a3	
+222	MME SUZY ANALANAMPOTSY			600 000 Ar	530	dds.backend.entities.Client@b530f	
+86	MORA WILLY			600 000 Ar	530	dds.backend.entities.Client@136ba78	
+161	MR MICKAEL SANDRAKATSY		034 06 523 92	555 000 Ar	530	dds.backend.entities.Client@1b6d56	
+35314	CLAUDIN			550 000 Ar	530	dds.backend.entities.Client@8194bf	
+46588	ANGELIQUE 		032 87 510 29 	540 000 Ar	530	dds.backend.entities.Client@3837cb	
+302019	PST FREDO IMORONA		038 61 978 86	500 000 Ar	38	dds.backend.entities.Client@43b6ce	
+216982	MME NDRIA BE MANANARA CENTRE 		034 05 879 84	498 000 Ar	406	dds.backend.entities.Client@1df178d	
+137	MME ONJA MAHANORO	MAHANORO		435 000 Ar	530	dds.backend.entities.Client@12d4f25	
+88	MIMO			429 000 Ar	530	dds.backend.entities.Client@9aac24	
+9375	AURELIEN AMPITARIHANA		034 53 513 32	405 000 Ar	530	dds.backend.entities.Client@11c93bf	
+310	TAKASAGO MADAGASCAR			375 000 Ar	530	dds.backend.entities.Client@48dae	
+89	MARINAH  AMBITSIKA			353 000 Ar	530	dds.backend.entities.Client@16fb36c	
+90	MR RANDRIA  ANALANAMPONTSY			350 000 Ar	530	dds.backend.entities.Client@25cea9	
+28073	MADAME			335 000 Ar	530	dds.backend.entities.Client@1573839	
+228929	TOLOTRA AIDE MAGASINIER			300 000 Ar	447	dds.backend.entities.Client@176ae40	
+76982	RADO (VILLA SOLEIL)			237 000 Ar	530	dds.backend.entities.Client@1ac82d1	
+498	PAPA RODDY			224 100 Ar	116	dds.backend.entities.Client@1305a0b	
+18918	Mr OLIDIER MAGASINIER			223 500 Ar	530	dds.backend.entities.Client@10e2ba4	
+98	MAMAN I GIVANO			188 200 Ar	530	dds.backend.entities.Client@1e6832b	
+488	MR ERIC CHAUFFEUR			150 000 Ar	530	dds.backend.entities.Client@4f2c0c	
+26560	BEROJO ( DOCKER ) 			150 000 Ar	530	dds.backend.entities.Client@196d38c	
+514	DOCKER			149 800 Ar	530	dds.backend.entities.Client@1a79191	
+102	KETRIKA  ANTANANKORO			120 000 Ar	530	dds.backend.entities.Client@93a395	
+21904	MAMAN I GILDO			119 000 Ar	530	dds.backend.entities.Client@129cf47	
+1932	PELA			105 000 Ar	530	dds.backend.entities.Client@406b5d	
+503	MAMAN I PELA			100 000 Ar	339	dds.backend.entities.Client@1e0489d	
+96	VIENNE			100 000 Ar	530	dds.backend.entities.Client@8ecc3f	
+428	MR STANISLAS JOHN		0330840519	100 000 Ar	530	dds.backend.entities.Client@17a749e	
+280	MR EUGENE SANDRAKATSY			99 000 Ar	530	dds.backend.entities.Client@e9e5af	
+457	GERARD ANTALAHA			94 000 Ar	339	dds.backend.entities.Client@14ef84f	
+100	LANTO			85 000 Ar	530	dds.backend.entities.Client@1373aed	
+28041	BOUTIQUE			40 000 Ar	530	dds.backend.entities.Client@17d6b91	
+145	FELIX  ANDROKAROKA			14 000 Ar	530	dds.backend.entities.Client@382b4c	
+16191	CUISINE HARIVA			2 200 Ar	530	dds.backend.entities.Client@e2e44	
+218	FIARAM TSARARIVOTRA			-		dds.backend.entities.Client@c827a	
+130782	LAPISO SANDRAKATSY		034 26 565 31 	-		dds.backend.entities.Client@942c9	
+497	MS STEPHANO			-		dds.backend.entities.Client@1e46d8f	
+149	FLORENTINE @ JIRAMA			-		dds.backend.entities.Client@1d0879	
+231933	MR SINOT		034 38 291 82 	-		dds.backend.entities.Client@704252	
+157	TONTON I JESSI			-		dds.backend.entities.Client@175edf	
+89949	RASOMOTRA 		037 66 155 32	-		dds.backend.entities.Client@1c507	
+237	MR RIEL SANDRAKATSY		032 88 298 99   034 33 436 70 	-		dds.backend.entities.Client@8f4e3e	
+258555	MME FRANCINE SANDRAKATSY 		032 98 677 75 ; 034 97 325 00	-		dds.backend.entities.Client@25f12f	
+423	MME BENY AMPITARIHANA		0334576068	-		dds.backend.entities.Client@4ca0d2	
+9	MR ROGIN ( MANDROSO )	AMBODIVOANIO 	 034 54 804 99 	-		dds.backend.entities.Client@c773a1	
+39662	VELONOSY LOUISETTE AMPITARIHANA		 034 97 757 30 	-		dds.backend.entities.Client@3f20f9	
+55149	DIDI_ANALANAMPONTSY	ANALANAMPONTSY	032 98 772 48 	-		dds.backend.entities.Client@1081658	
+306648	TATIE LANDY		034 76 432 17	-		dds.backend.entities.Client@1b6cdb	
+152	MME MARIE SAVA		032 05 096 34	-		dds.backend.entities.Client@1e44642	
+146637	JAMILA ASSOUMANE	034 71 820 62	ANALAMPENJA	-		dds.backend.entities.Client@bd89af	
+252089	RIRI GARAGE			-		dds.backend.entities.Client@144f6f6	
+278769	DISTRICT MANANARA			-		dds.backend.entities.Client@b82431	
+315	MME SASADY ANTSIRABE			-		dds.backend.entities.Client@1b3afb2	
+13	MME SIMONE ANTADIMITA			-		dds.backend.entities.Client@131beda	
+260	PAPAN I CEDRICK			-		dds.backend.entities.Client@138150c	
+496	MME ZARASOA MANAMBOLOSY	034 45 383 42		-		dds.backend.entities.Client@3c21b6	
+45	MR LIVA MANAMBOLOSY		034 71 807 21	-		dds.backend.entities.Client@eec2bc	
+80	SAMBIRENINY AMPITARIHANA			-		dds.backend.entities.Client@577a15	
+236	MR SALALA ANDATSADRANO		034 66 516 49	-		dds.backend.entities.Client@10e81a6	
+8	MR JOSE AMBODIVOANIO		034 55 481 93 	-		dds.backend.entities.Client@4a2660	
+220	MR KENNEDY		034 56 245 44 	-		dds.backend.entities.Client@4ff6b7	
+138781	EDRIEN  ANALAMPENJA		032 21 705 89	-		dds.backend.entities.Client@185b5f9	
+214003	MOHIDINY AMEDE 			-		dds.backend.entities.Client@cd18de	
+298	MME BEA 			-		dds.backend.entities.Client@1af51c1	
+333	MR BLAISE ANTANAMIRANTINA		0336168667	-		dds.backend.entities.Client@9ef00d	
+244703	RAZAFIARISOA FANIRY YOLANDE	 TALE BNI MANANARA	034 42 919 40 	-		dds.backend.entities.Client@60abda	
+4	MR LAZA BAZARY			-		dds.backend.entities.Client@b15e20	
+51152	JEAN CHRIS_ANALAMPENJA		034 33 887 09	-		dds.backend.entities.Client@1432b2e	
+41183	ROMAIN @ FJKM			-		dds.backend.entities.Client@c8ba53	
+224304	STE VIDEEKO VANILLA SARLU		032 64 847 40 ; 034 58 327 40	-		dds.backend.entities.Client@145faab	
+464	MR RAMILAMANANA AMBODIHAMPANA	TANAMBAO TSARAVOLY	 034 37 440 01	-		dds.backend.entities.Client@1e3f7fd	
+7	MME CLAUDE MPANDISA VARY			-		dds.backend.entities.Client@15fb974	
+54353	MAGASIN EUGENE			-		dds.backend.entities.Client@2a9a2e	
+246	MME ZORA MANAMBOLOSY			-		dds.backend.entities.Client@cbee2	
+153172	JEAN CHRISTOME	ANDROKAROKA		034 32 677 10		-		dds.backend.entities.Client@30fd01	
+516	SAMSON ANDROKAROKA		034 61 023 86	-		dds.backend.entities.Client@807c6a	
+40	MR ALEXICE SANDRAKATSY		034 80 161 30 ; 032 47 382 89	-		dds.backend.entities.Client@99653e	
+239704	DOCTEUR ZAKARIA		032 60 731 44	-		dds.backend.entities.Client@10724a1	
+158	MALAGASY SPICES			-		dds.backend.entities.Client@381135	
+263623	BOTRATIANA STEPHANIOLAT 	TALE BNI MANANARA 	034 42 919 40	-		dds.backend.entities.Client@11c5af4	
+54	LEONETTE [ RAVAO ] IFASINA			-		dds.backend.entities.Client@c1733c	
+437	MR LANDRY			-		dds.backend.entities.Client@197c69	
+129848	PATA JEUNE		034 89 461 79 	-		dds.backend.entities.Client@4c6a66	
+328	MR DELIEGE 		038 36 400 77	-		dds.backend.entities.Client@1065961	
+111	MME KO-WENG			-		dds.backend.entities.Client@5b80ee	
+219055	SOA AGNES ANTANAMBAO		034 84 668 57 ; 033 70 435 27 	-		dds.backend.entities.Client@19e5c38	
+54072	EUPHRASIE 			-		dds.backend.entities.Client@f20c77	
+288998	DOCTEUR PATRICK		032 04 737 34 	-		dds.backend.entities.Client@19c8b59	
+441	MME BERNADETTE ANDROKAROKA		0326443222	-		dds.backend.entities.Client@1882834	
+22	MAMAN I NIRINA BAZARY			-		dds.backend.entities.Client@aecde1	
+482	MME SOA ANDROKAROKA			-		dds.backend.entities.Client@77e577	
+57	JULIENNE DELIEGE			-		dds.backend.entities.Client@12e6423	
+95	VENOR FAHAMBAHY			-		dds.backend.entities.Client@195323a	
+28074	MOTO LAFO 			-		dds.backend.entities.Client@1482fec	
+135	LEXE SANDRAKATSY	SANDRAKATSY		-		dds.backend.entities.Client@8934af	
+40585	MAMAN I NOLWEN	ANTANAMBAO	034 66 480 27 	-		dds.backend.entities.Client@484e21	
+169	GERVAIS AMPITARIANA		0349973268	-		dds.backend.entities.Client@2ab8f0	
+70397	GROUPE SDMO KOHLER			-		dds.backend.entities.Client@8fdc96	
+210	RAMANANDRAIBE EXPORTATION			-		dds.backend.entities.Client@1a4b2e4	
+253	MME ENNY MANANARA CENTRE			-		dds.backend.entities.Client@15fc3f7	
+198231	BRUNO MAGASINIER			-		dds.backend.entities.Client@10014	
+288	MORA SERVICE			-		dds.backend.entities.Client@6007ae	
+324	MR BONDO AMBODIVONIO			-		dds.backend.entities.Client@5a7d4	
+364	PAPAN I SAFIDY ANDROKAROKA		0320226030	-		dds.backend.entities.Client@10a9798	
+400	MME CHARLINE MANABOLOSY	MANABOLOSY	0330971374	-		dds.backend.entities.Client@101340d	
+449	MME MARIE ELIDIE	CIN 300012032802	0329423796	-		dds.backend.entities.Client@1541db4	
+30	MR DAKOTO ANTADIMITA			-		dds.backend.entities.Client@1c230d	
+490	MR CALIXTE ANTADIMITA		034 92 708 80	-		dds.backend.entities.Client@1efcec1	
+142	EVRON MAHAMBOLONA			-		dds.backend.entities.Client@15c372d	
+41473	RALAY JEAN ROBERT		034 98 136 78 	-		dds.backend.entities.Client@5635cf	
+180	MME JEANNE AMPITARIHANA			-		dds.backend.entities.Client@1d36a03	
+74357	MAGASIN E (ANICET)			-		dds.backend.entities.Client@1135be	
+261	MME RAZAFY BAZARY			-		dds.backend.entities.Client@22840e	
+296	MME BRIGITTE AMPITARIHANA			-		dds.backend.entities.Client@1ef2088	
+372	MR ELYSE			-		dds.backend.entities.Client@1f2c644	
+407	RHY LORIEN	304011036540	0337228341	-		dds.backend.entities.Client@99bb41	
+458	MR ALFRED			-		dds.backend.entities.Client@75328	
+39	MME GERARD SANDRAKATSY			-		dds.backend.entities.Client@28d5c0	
+72	NENY FIARAM			-		dds.backend.entities.Client@15de6e7	
+4843	SAM AMPITARIHANA			-		dds.backend.entities.Client@27153e	
+114	MME MASENGO IFASINA			-		dds.backend.entities.Client@eb9c01	
+44693	CHARLIN ( KAMBANA ) 	AMBODIVOHITRA 	 034 33 288 91 	-		dds.backend.entities.Client@87c149	
+191	MR VADOR ANTANAMBAO			-		dds.backend.entities.Client@1b6660	
+79159	VANILLE 2022			-		dds.backend.entities.Client@8d0078	
+227	MR FERNANDO			-		dds.backend.entities.Client@a8913c	
+144326	SILY SAHAVE	SAHAVE	034 13 505 62		-		dds.backend.entities.Client@839ee9	
+268	MME SERA ANTSIRATENINA			-		dds.backend.entities.Client@11ecf3f	
+338	RAZAFY SANDRAKATSY			-		dds.backend.entities.Client@18e88e4	
+380	MAMAN I DOMINAH			-		dds.backend.entities.Client@1b3d218	
+416	MME VIVIANE M. RAVAKA			-		dds.backend.entities.Client@1257911	
+466	MR SANDRO MAGASINIER			-		dds.backend.entities.Client@ff3c7d	
+46	MAMAN I KESSY ANALANAMPOTSY	ANALANAMPOTSY		-		dds.backend.entities.Client@1175fee	
+504	RANDRIANARIVELO DIMILAHY FLORENT			-		dds.backend.entities.Client@e36806	
+81	RAJOELINA MAROANTSETRA			-		dds.backend.entities.Client@8e68fa	
+121	MR SINETTE ANTEDRO TERRAIN			-		dds.backend.entities.Client@17dac42	
+33881	PAPAN I DERCO 			-		dds.backend.entities.Client@187a6c	
+49323	M/S YALAN			-		dds.backend.entities.Client@1408171	
+198	MR RAFALIMANANA AMBODIVOANIO			-		dds.backend.entities.Client@9aef1b	
+151192	ANICET MAGASINIER			-		dds.backend.entities.Client@e751b6	
+275	CHRISTOPHE ANTANAKORO			-		dds.backend.entities.Client@1ed91dc	
+311	MME CAROLINE			-		dds.backend.entities.Client@5bda99	
+347	MR JACKLIN ANDRAVOLASOA		0347181966	-		dds.backend.entities.Client@184193e	
+387	MR DIMY			-		dds.backend.entities.Client@15c8359	
+17	VELONDADY	ANALAMPENJA		-		dds.backend.entities.Client@1a969f	
+478	MR BONIFACE MAGASINIER			-		dds.backend.entities.Client@ff08d7	
+53	MR JUSTIN AMBODIMANGA			-		dds.backend.entities.Client@11ba29f	
+511	MR GERALDO ANTSIRABE	ANTSIRABE	0342275669	-		dds.backend.entities.Client@82b42e	
+27932	4X4 - 1656 TBA  [ ARMAND ]			-		dds.backend.entities.Client@e6748f	
+130	LISTA IFASINA ( ANTARAMBARAHANA )	ANTARAMBARAHANA	038 65 002 85	-		dds.backend.entities.Client@d364f4	
+165	PETIT BAZARY			-		dds.backend.entities.Client@dc39ab	
+103995	FRANCK ( MAHADERA ) 		034 42 666 72	-		dds.backend.entities.Client@1e8d6da	
+249	FRANCK BERYL			-		dds.backend.entities.Client@519224	
+162590	COOPERATIVE MIFANOHAGNA			-		dds.backend.entities.Client@17ab71e	
+284	MME ANGELINAS ANALANAPONTSY			-		dds.backend.entities.Client@cec93b	
+360	MARIETTE AMPITARIHANA			-		dds.backend.entities.Client@1858bbe	
+396	MME VAVISOA  ANDROKAROKA			-		dds.backend.entities.Client@161e1d8	
+436	MR NOLIN TAVARATRA		0328309550	-		dds.backend.entities.Client@10178ed	
+444	MME NINA BAZAR		0324753088	-		dds.backend.entities.Client@122e6e7	
+25	RVY NIRINA TSARARIVOTRA			-		dds.backend.entities.Client@115986	
+485	MR MAROLAHY MANAMBOLOSY			-		dds.backend.entities.Client@9216bd	
+634	RFM Distribution			-		dds.backend.entities.Client@1edc12	
+28156	ANGELICO MAGASINIER 			-		dds.backend.entities.Client@f90228	
+40760	Mme TSARASAOSY AMBODIHAMPANA	AMBODIHAMPANA	 034 51 370 11 	-		dds.backend.entities.Client@a0bd98	
+174	CHRISTIAN ANALANJAHANA			-		dds.backend.entities.Client@f57f0f	
+74353	MAGASIN A ( EUPHRASIE )			-		dds.backend.entities.Client@55d8cf	
+214	RATANJONA MANANARA CENTRE			-		dds.backend.entities.Client@2f6cef	
+256	ODILLE AMBITSIKA			-		dds.backend.entities.Client@1b8510f	
+292	MR RAYMOND AMBODIMANGA			-		dds.backend.entities.Client@b24c70	
+327	MR JOHNNA SANDRAKATSY		034 88 321 74	-		dds.backend.entities.Client@7d6889	
+367	MME LEONIE MAHALINA		034 06 935 82 	-		dds.backend.entities.Client@12e287d	
+403	EGLISE RHEFI			-		dds.backend.entities.Client@672e3e	
+33	SONSON SANDRAKATSY			-		dds.backend.entities.Client@9823ce	
+493	MR ALEXANDRE AMBITSIKA		032 24 793 46	-		dds.backend.entities.Client@1aa2ff4	
+68	ISSOUF MAROANDIANA			-		dds.backend.entities.Client@14d96bc	
+2237	EVELYNE		034 67 415 16 , 034 33 024 95	-		dds.backend.entities.Client@e05bf5	
+107	MR ROCARD TOYOTA 9998TS			-		dds.backend.entities.Client@10b9cb4	
+28744	CUISINE MARAINA			-		dds.backend.entities.Client@128d9ae	
+185	FERNAND BERYL			-		dds.backend.entities.Client@9156c1	
+221	MME RAFARASOA FREDINE			-		dds.backend.entities.Client@3a9355	
+264	FJKM AMPANAOVAMARINA			-		dds.backend.entities.Client@1735ada	
+299	MR RANDRIA AMBODIVOHOTRA			-		dds.backend.entities.Client@dd1933	
+334	MME SOLANGE			-		dds.backend.entities.Client@3c6637	
+375	MR TIONE AMBATOFITARAFANA			-		dds.backend.entities.Client@90e31e	
+42	MAGASIN VAOVAO			-		dds.backend.entities.Client@1d0d39c	
+117	MR VICTOR HONG S/TSY			-		dds.backend.entities.Client@1184554	
+194	MME RAKOTO			-		dds.backend.entities.Client@48e5e	
+87650	NAINA BAZARY		034 93 304 22 	-		dds.backend.entities.Client@1f50f93	
+230	MME GYBELLINE ANALANJAHANA		034 12 227 18 ; 032 52 579 60	-		dds.backend.entities.Client@2465c2	
+271	MME BERTINE			-		dds.backend.entities.Client@113b437	
+307	MR RANDRIAMANANA			-		dds.backend.entities.Client@197baf5	
+341	ROCARD			-		dds.backend.entities.Client@19bc43	
+383	DENIS BERYL			-		dds.backend.entities.Client@102dbb7	
+419	MR RAZISY			-		dds.backend.entities.Client@11a7fec	
+5	MR DERA ANTADIMITA			-		dds.backend.entities.Client@1222228	
+471	THEOPHILE AMPITARIHANA		0348423673	-		dds.backend.entities.Client@d67deb	
+49	MR TSIALONANA BAZARY			-		dds.backend.entities.Client@1ccc0e5	
+125	CAMION JAUNE [ RAPHAEL ]			-		dds.backend.entities.Client@183236f	
+34518	4X4 - 3927 AD [ .... ]			-		dds.backend.entities.Client@1a07e15	
+51486	ADRIEN_ANDROKAROKA	ANDROKAROKA	034 68 097 84 - 034 59 935 49 	-		dds.backend.entities.Client@246cef	
+201	MME SIMONE AMBITSIKA			-		dds.backend.entities.Client@1425666	
+95408	Mr ZORO ANDRATAMARINA 		034 66 141 56 	-		dds.backend.entities.Client@1a2997a	
+243	MME STELLAH ANALANAMPONTSY			-		dds.backend.entities.Client@1801c8d	
+152522	4x4 - 5370 TBV [ CHRISTIAN ]			-		dds.backend.entities.Client@2c4606	
+350	MLE SINDY			-		dds.backend.entities.Client@1aec183	
+439	RHY FALY ANDATSADRANO		0332168003	-		dds.backend.entities.Client@caff45	
+21	SOPRAL			-		dds.backend.entities.Client@1c5f0e5	
+481	MME FARA ANTANAMBAO			-		dds.backend.entities.Client@13f88ad	
+56	FRANCK AMBODIVANIO			-		dds.backend.entities.Client@1cfd10	
+134	MME MARCELINE ANTANAMBAO	ANTANAMBAO		-		dds.backend.entities.Client@1810441	
+40584	ROMEO ANALANAMPONTSY	ANALANAMPONTSY 	034 25 445 96 	-		dds.backend.entities.Client@17d950c	
+168	DALALY DELIEGE			-		dds.backend.entities.Client@8c13ee	
+57523	MELTINE ANALANAMPONTSY		 034 47 724 25 	-		dds.backend.entities.Client@1699752	
+209	MR BOZAKA AMPITARIHANA			-		dds.backend.entities.Client@9937f2	
+105541	4X4 - BD 745 YE [ SAMOELA ] 			-		dds.backend.entities.Client@1451298	
+252	MME KALOZETY BAZARY			-		dds.backend.entities.Client@15866bd	
+287	MAMAN I SINI			-		dds.backend.entities.Client@b8b783	
+323	MR DONALD ANTANAMBAO			-		dds.backend.entities.Client@17b35c1	
+399	NIRINA BOUTIQUE MANANARA CENTRE		0331902284	-		dds.backend.entities.Client@a72924	
+28	STEPHAN FAHAMBA	FAHAMBAHY		-		dds.backend.entities.Client@22d403	
+489	MR RABE ANTSIRAKIVOLO		033 21 042 79	-		dds.backend.entities.Client@1fb7c2b	
+63	SOLA SANDRAKATSY			-		dds.backend.entities.Client@10a8c68	
+893	MME RICHARD ANALANAMPOTSY		ANALANAMPOTSY	-		dds.backend.entities.Client@2d7764	
+101	MAMAN I FRANCKY			-		dds.backend.entities.Client@a13cae	
+28383	M/S SARAH V			-		dds.backend.entities.Client@a50675	
+141	LITA  ANDROKAROKA			-		dds.backend.entities.Client@179a4c5	
+41334	LATOU AMBODIVOANIO 			-		dds.backend.entities.Client@ac7459	
+177	NDRIAKELY BAZARY			-		dds.backend.entities.Client@1c7656e	
+74356	MAGASIN D (HENRI)			-		dds.backend.entities.Client@141418d	
+217	MME ROLLANDE AMBODIMANGA			-		dds.backend.entities.Client@15e8cec	
+130289	VAZAHA ANTANANANIVO 		034 70 355 96 	-		dds.backend.entities.Client@fd2822	
+295	MR RAZOKONY ANALANAMPOTSY			-		dds.backend.entities.Client@cbd2c6	
+330	RAKOTO MARCHEL ANTANAMBAOHELY			-		dds.backend.entities.Client@17daebb	
+371	MR PIRA SANDRAKATSY			-		dds.backend.entities.Client@17c14	
+406	MR ARSON			-		dds.backend.entities.Client@148f70e	
+4032	Henrie Magasinier			-		dds.backend.entities.Client@18d5983	
+31213	LEONARD ( M/S SARAH )		034 22 876 43 	-		dds.backend.entities.Client@15525ff	
+44449	BEVELO	MANAMBOLOSY 	034 21 685 76	-		dds.backend.entities.Client@c7009d	
+188	MME ZAINAH			-		dds.backend.entities.Client@fd61cc	
+78230	ARSON AMPITARIHANA		 032 44 529 75 . 034 51 668 81 	-		dds.backend.entities.Client@1c36e91	
+226	MME DESCARTES AMBITSIKA			-		dds.backend.entities.Client@1d5c9cb	
+267	MR TSARAFANDRAY MANANARA CENTRE			-		dds.backend.entities.Client@198ef44	
+303	MR JEAN CHRISTOPHE MAHAMBOLO			-		dds.backend.entities.Client@fc01ba	
+337	MR FELIX SANDRAKATSY		0341640075	-		dds.backend.entities.Client@535e12	
+378	MME SELA SANDRAKATSY			-		dds.backend.entities.Client@1095982	
+414	SOCIETE STE SUNTOUR			-		dds.backend.entities.Client@1cd61e8	
+1	DIVERS			-		dds.backend.entities.Client@1aa50ba	
+465	MR BRUNO TANAMBAOBE	VOHIPATAKANA	034 71 749 91	-		dds.backend.entities.Client@1fd3e93	
+16609	CUISINE 			-		dds.backend.entities.Client@ddaf27	
+120	VELONORO BAZARY			-		dds.backend.entities.Client@fd4d35	
+33840	MAGASIN AMBALAMANASY			-		dds.backend.entities.Client@19fff90	
+156	FRANCKLIN AMBODIMANGA			-		dds.backend.entities.Client@1944496	
+197	MME BERNADETTE ANALANAMPOTSY			-		dds.backend.entities.Client@d36354	
+88569	SABINE ANDROKAROKA		034 20 414 33 	-		dds.backend.entities.Client@411a9e	
+274	MR JEAN AMBITSIKA			-		dds.backend.entities.Client@7c0eb9	
+254914	M/S MEVA V		034 64 141 47 	-		dds.backend.entities.Client@1cd49d4	
+345	MR GARDIEN RANDRIA			-		dds.backend.entities.Client@df407a	
+386	MR RECHAT AMBODIVONIO		0322960332	-		dds.backend.entities.Client@42755	
+16	MAMAN I AGATHE BAZARY			-		dds.backend.entities.Client@f5f9aa	
+52	RICHARD MANANARA CENTRE			-		dds.backend.entities.Client@1059d09	
+510	MR JAOHAMATRA REUNEL		032 73 527 12	-		dds.backend.entities.Client@1e1d103	
+27931	4X4 - 9016 TS [ .... ] 			-		dds.backend.entities.Client@726725	
+39338	GROUPE SDMO			-		dds.backend.entities.Client@191e468	
+55021	MAMAN I ROCARD BERYL		034 17 923 17	-		dds.backend.entities.Client@57d586	
+204	MR NDRIA MATELAS			-		dds.backend.entities.Client@10f7906	
+157515	TONDEUSE A GAZON			-		dds.backend.entities.Client@45770d	
+283	MME FANJA AMBANY BARRE FALAFA			-		dds.backend.entities.Client@316b89	
+319	MME ANGENA CARIS			-		dds.backend.entities.Client@16676c	
+354	MME VIVIANE SANDRAVAZAHA		0347902969	-		dds.backend.entities.Client@f9e021	
+395	TINAH ANTANANKORO		033 74 226 68	-		dds.backend.entities.Client@17d0e2c	
+434	SYLVAIN BALLUSTRE			-		dds.backend.entities.Client@f43a9	
+443	SORAK TANTELY			-		dds.backend.entities.Client@1d96903	
+24	MAMAN I ANGELITA BAZARY			-		dds.backend.entities.Client@8e6671	
+484	MR BE EDGARD			-		dds.backend.entities.Client@1730e62	
+59	ODETTE ANTANAMBAO			-		dds.backend.entities.Client@11d03ae	
+584	4X4 - 0401 TBA [ HERY ] 			-		dds.backend.entities.Client@1baf83f	
+28155	SONNET			-		dds.backend.entities.Client@26b697	
+173	KOANA ANDROKAROKA			-		dds.backend.entities.Client@11db1ef	
+73822	4x4 - 5052 AD [ RAPHAEL ]			-		dds.backend.entities.Client@2adc51	
+212	MME GERMAINE			-		dds.backend.entities.Client@6fbfeb	
+123922	 REPARATION 			-		dds.backend.entities.Client@1003c3f	
+255	RABE AMBODIVANIO			-		dds.backend.entities.Client@18c67f9	
+210479	LEOPOLD SANDRAKATSY 		032 98 533 44 ; 032 94 703 24	-		dds.backend.entities.Client@1d6f8cd	
+290	NIRY ANTADIMITA		034 51 702 30 , 033 14 809 08 	-		dds.backend.entities.Client@c19ebb	
+326	MME RINA ANTENINA			-		dds.backend.entities.Client@26bad8	
+366	MR FREDIS			-		dds.backend.entities.Client@efa7ca	
+402	MAEVA LALA			-		dds.backend.entities.Client@c3298a	
+452	MR ERIC			-		dds.backend.entities.Client@f752ef	
+32	MME RASOALINE BAZARY			-		dds.backend.entities.Client@138d1d3	
+492	MME LANDRISCO ANDROKAROKA 		038 39 411 90	-		dds.backend.entities.Client@e4f989	
+67	RASOLO ANTANAMBAO			-		dds.backend.entities.Client@13e00a6	
+2218	PASCAL		034 45 949 63	-		dds.backend.entities.Client@1a84f04	
+105	LAFAZA TRADING COMPANY	ANTANANKORO		-		dds.backend.entities.Client@abab2b	
+28698	CAMION BLEU ( 58 30 FE ) 			-		dds.backend.entities.Client@1da3f06	
+144	DINA BERYL			-		dds.backend.entities.Client@3a32ab	
+41845	ELTON ( FACTURATION )			-		dds.backend.entities.Client@1759087	
+184	SASA MARIO	MADITONA		-		dds.backend.entities.Client@b29ff1	
+75629	KAPA  EVARISTE 		032 61 536 79 - 034 63 443 46 	-		dds.backend.entities.Client@70baee	
+263	MR RAVELOSON TSARAVATO			-		dds.backend.entities.Client@1e46b21	
+374	MR THIERRY			-		dds.backend.entities.Client@cc2172	
+409	MR LINLIN ANALANAMPOTSY		0331479334	-		dds.backend.entities.Client@5573cd	
+41	MME SITRAKA MATELAS			-		dds.backend.entities.Client@1d70c23	
+499	MR MAURICE			-		dds.backend.entities.Client@1d2c41b	
+74	JOHN PARCKAGE			-		dds.backend.entities.Client@36b3a2	
+11901	RAVOMANANA Benjamain Fidel		032 92 602 23	-		dds.backend.entities.Client@1c06672	
+116	MR DAVIDA MPIDALALY			-		dds.backend.entities.Client@7dc6fd	
+31839	DIMILAHY		034 71 674 85	-		dds.backend.entities.Client@1122b35	
+193	MR PAUL ANDROKAROKA			-		dds.backend.entities.Client@243356	
+87643	TINA BERNADETTE 	ANALANAMPOTSY	034 16 526 32	-		dds.backend.entities.Client@c13516	
+229	MR SIMON LAI ANTADIMITA			-		dds.backend.entities.Client@7b50dd	
+270	MME COLLANCE AGNALANJAHANA			-		dds.backend.entities.Client@228764	
+306	MME CAROLINE			-		dds.backend.entities.Client@1a3a7f5	
+382	MME VAZAHA  ANALANAMPOTSY			-		dds.backend.entities.Client@cb51d2	
+418	MME GABY ANALAMPENJA		033 48 608 30	-		dds.backend.entities.Client@140e2e	
+469	MME JULIETTE TANAMBAOBE	TANAMBAOBE		-		dds.backend.entities.Client@f3ae2f	
+48	MME VE SANDRAKATSY			-		dds.backend.entities.Client@a73ccb	
+20846	Mme BA TRANSBORDEMENT			-		dds.backend.entities.Client@6ca0cc	
+123	SYLVESTRE			-		dds.backend.entities.Client@5fb251	
+34142	LAND CRUISER			-		dds.backend.entities.Client@148e5a3	
+159	DALALY BOTA			-		dds.backend.entities.Client@f0d1a5	
+200	MME MOUSTAKY SANDRAKATSY			-		dds.backend.entities.Client@1b17537	
+242	MR ANICET IFASINA			-		dds.backend.entities.Client@9989aa	
+152326	ROMARIC RANTABE		034 18 863 15 	-		dds.backend.entities.Client@3606a7	
+279	MR LOIVIER SARAH			-		dds.backend.entities.Client@b98cfd	
+314	MME FLORIA AMPITARIHANA			-		dds.backend.entities.Client@754950	
+349	FRANCKLIN ANTANANANIVO		0337430148	-		dds.backend.entities.Client@d74eed	
+389	MME MERANCE BERYL		0339105445	-		dds.backend.entities.Client@14776e	
+425	MME RAZAFY ANDROKAROKA			-		dds.backend.entities.Client@84d1f5	
+20	THONNY CARBURANT	ANTADIMITA	034 54 660 95	-		dds.backend.entities.Client@4732bc	
+480	MR TANDRA			-		dds.backend.entities.Client@7dbe3f	
+513	MR AIME SANDRAKATSY		034 17 074 54	-		dds.backend.entities.Client@1910f59	
+133	FERDA  ANALAMPOTSY			-		dds.backend.entities.Client@1126ca7	
+167	NICOLAS IFASINA			-		dds.backend.entities.Client@ab6cab	
+208	MR COCO MANAMBOLOSY			-		dds.backend.entities.Client@102abc7	
+105031	CHEF AUGUSTE			-		dds.backend.entities.Client@ea8ef9	
+251	MME MELANIE ANTANAMBAO	0325997470		-		dds.backend.entities.Client@da4d7	
+177444	HENRI FRAISE			-		dds.backend.entities.Client@1f04589	
+286	MR TOTO ANDATSADRANO			-		dds.backend.entities.Client@1f49763	
+322	JEAN PAUL 3927AD			-		dds.backend.entities.Client@1735a62	
+362	MR VICTORIEN ANTENINA			-		dds.backend.entities.Client@eb7847	
+398	TRANO MAHANORO			-		dds.backend.entities.Client@158aa5e	
+438	LALASON CHARLES HONORE		0329859061	-		dds.backend.entities.Client@664d9	
+62	JACQUOT ANDROKAROKA			-		dds.backend.entities.Client@19382b1	
+28382	M/S SARAH IV			-		dds.backend.entities.Client@fde144	
+140	RAVAO BAZARY			-		dds.backend.entities.Client@41b35f	
+176	MME LALAO			-		dds.backend.entities.Client@1302be2	
+74355	MAGASIN C (BOUTIQUE)			-		dds.backend.entities.Client@7db9bf	
+216	MME URCHILAH AMBODIVANIO			-		dds.backend.entities.Client@17588b5	
+129921	MAGASIN ANTANANKORO			-		dds.backend.entities.Client@500cf	
+259	MR COCO MADITONA			-		dds.backend.entities.Client@1c5916	
+294	ECOLE FAHASOAVANA			-		dds.backend.entities.Client@17dab2b	
+370	SOCIETE GEDECO			-		dds.backend.entities.Client@22a251	
+405	MR FLAVIEN			-		dds.backend.entities.Client@61cde2	
+456	MR THIERRY AGNALANJAHANA			-		dds.backend.entities.Client@49ec11	
+35	SEKOLY FJKM ANTANAKORO			-		dds.backend.entities.Client@4f3840	
+495	MR KELLY			-		dds.backend.entities.Client@1ca25f2	
+70	MME JEAN CLAUDE ANTANAMBAOBE			-		dds.backend.entities.Client@12ae7b4	
+3555	BERAVO Dieu-Donné	Antanankoro	032 59 009 26 ; 034 05 009 26	-		dds.backend.entities.Client@50a664	
+112	MME MAMARO ANALAMPENJA			-		dds.backend.entities.Client@19a15d6	
+30332	FRANCOISE ( MPAHANDRO ) 			-		dds.backend.entities.Client@1a54ba2	
+147	PAULETTE BAZARY			-		dds.backend.entities.Client@1800e25	
+44114	TARISINY ( MAMAN I NABILLA )	 ANALANAMPONTSY 	034 93 839 63	-		dds.backend.entities.Client@50f8f7	
+187	MR NJATO			-		dds.backend.entities.Client@1c56cce	
+224	MME CYLETTE ANALAMPENJA			-		dds.backend.entities.Client@bcde4f	
+141412	FILAZARA ZACKIEL dit (TORRIS)	AMPITARIHANA	032 40 237 93 // 034 10 802 59	-		dds.backend.entities.Client@1d4081b	
+266	DEMONCHY NATURAL PRODUCTS			-		dds.backend.entities.Client@eecdd6	
+302	MR ABOUDOU			-		dds.backend.entities.Client@ed75d9	
+336	MR ZOE AMBODIMANGA I			-		dds.backend.entities.Client@4f8eed	
+377	MR PAULIN AMBITSIKA			-		dds.backend.entities.Client@1e8c46f	
+413	MR DIDIER IMORONA		033 32 693 98	-		dds.backend.entities.Client@12031f9	
+502	GIRES KAFE			-		dds.backend.entities.Client@96ceb9	
+16192	CUISINE DIMANCHE			-		dds.backend.entities.Client@a00f20	
+33090	V8			-		dds.backend.entities.Client@16c66a7	
+155	ZAZOLY SANDRAKATSY		034 12 972 22	-		dds.backend.entities.Client@1cb2e0a	
+48094	MME NATHALIE_RANTABE	RANTABE	0345220695	-		dds.backend.entities.Client@162d40c	
+196	NORA CARBURANT			-		dds.backend.entities.Client@14914cf	
+87984	CAMION MARMON			-		dds.backend.entities.Client@1861b9f	
+232	MME CLEMENCE ANDATSADRANO			-		dds.backend.entities.Client@199c49b	
+273	MR TSIFERANA BAZARY	AMPITAN NY PHARMACIE	0330622678	-		dds.backend.entities.Client@fabcd0	
+309	MAMA BOTA ANTADIMITA			-		dds.backend.entities.Client@11825ac	
+344	MR ERNEST SANDRAKATSY			-		dds.backend.entities.Client@a187b3	
+385	MR JAQUIS SANDRAKATSY	0344225677		-		dds.backend.entities.Client@1a52120	
+51	RASOA BAZARY			-		dds.backend.entities.Client@ba11f8	
+509	MME PASCALINE ANIRIBE			-		dds.backend.entities.Client@957146	
+27669	VANILLE 2021			-		dds.backend.entities.Client@3de1f8	
+128	MAN AMPITARIHANA	AMPITARIHANA		-		dds.backend.entities.Client@39797e	
+162	MME ZAFY TSARA BAZARY	 MME ALBERT 	038 77 723 41	-		dds.backend.entities.Client@5e9dd0	
+203	PAPAN DADA			-		dds.backend.entities.Client@172c91c	
+96312	MICKAEL MANAMBOLOSY 		0344768457	-		dds.backend.entities.Client@3d66b	
+317	PREMIUM SPICES			-		dds.backend.entities.Client@13ea95c	
+353	JAC BLEU MARINE 40657 WWT [ ... ] 			-		dds.backend.entities.Client@12c19b6	
+393	MR DOLIN TAVARATRA			-		dds.backend.entities.Client@e503e6	
+430	MME OLIVIA BAZARY		0331431187	-		dds.backend.entities.Client@6d2a1f	
+15	ZAMAN I AGATHE	BAZARY		-		dds.backend.entities.Client@50707	
+442	MR CARLOS			-		dds.backend.entities.Client@1cf5c98	
+23	SPICES  AND OIL			-		dds.backend.entities.Client@1a583b4	
+483	MR FLORENT AMBODIHAMPANA		034 98 329 70	-		dds.backend.entities.Client@71688d	
+58	KIRA AMPITARIANA			-		dds.backend.entities.Client@f8737b	
+28116	 BUGGY			-		dds.backend.entities.Client@11ecb20	
+136	MME ELIETTE ANALAMPOTSY	ANALAMPOTSY		-		dds.backend.entities.Client@ad4654	
+40586	LAPO BAZARY 			-		dds.backend.entities.Client@1dd644c	
+170	MR SOLO ANALAMPENJA			-		dds.backend.entities.Client@7b3a7	
+70834	VILLA SOLEIL			-		dds.backend.entities.Client@101374c	
+211	MR PRISCA ANDROKAROKA			-		dds.backend.entities.Client@1484ede	
+254	MR FRANCKA  ANTANANKORO			-		dds.backend.entities.Client@1a5af7f	
+206016	FELICIEN ( FALISY ) 		038 63 107 03 ; 032 49 516 60 	-		dds.backend.entities.Client@42a6e7	
+289	MR HONORE BERYL			-		dds.backend.entities.Client@f15df4	
+325	MME SOA AMBODIVOHOTRA			-		dds.backend.entities.Client@15acb8a	
+365	FIARAM SANDRAKATSY			-		dds.backend.entities.Client@16c4609	
+401	MR CHRISTOPHE BAZARY			-		dds.backend.entities.Client@b4b4dd	
+451	MR BAH TRANSBORDEMENT			-		dds.backend.entities.Client@905bc2	
+31	TENDANCE BOUTIQUE			-		dds.backend.entities.Client@165cd81	
+491	MR RABENARIVO MANAMBOLOSY			-		dds.backend.entities.Client@968aaa	
+143	CHRISTOPHE ANDROKAROKA			-		dds.backend.entities.Client@141c4f9	
+182	M/S NADIA			-		dds.backend.entities.Client@1d7d918	
+74916	BUREAU [MAGASIN AMBITSIKA]			-		dds.backend.entities.Client@591626	
+219	MME MARONIRINA ANTENINA			-		dds.backend.entities.Client@281cdd	
+135532	NICOLIN		038 47 189 40	-		dds.backend.entities.Client@18373ed	
+262	DONATIEN SANDRAKATSY			-		dds.backend.entities.Client@39699c	
+297	MR ZINOX FAHAMBAHY			-		dds.backend.entities.Client@85af5b	
+373	MME CATHERINE			-		dds.backend.entities.Client@259722	
+408	MR AUGUSTIN SERANAMBE			-		dds.backend.entities.Client@c19f50	
+459	MR TOVO MATELAS ANDATSADRANO		0334936949	-		dds.backend.entities.Client@13973dd	
+115	MME STEPHANIE ANALAMPENJA			-		dds.backend.entities.Client@f9fad6	
+31630	JACQUOT AMBODIVOANIO		034 72 399 12	-		dds.backend.entities.Client@35e7ac	
+150	NARINDRA ANTANAMBAO			-		dds.backend.entities.Client@86cf25	
+45335	MENA ( POINTEMENT )			-		dds.backend.entities.Client@e3eeb3	
+192	OCLINE ANDROKAROKA			-		dds.backend.entities.Client@1358eb3	
+84312	JIRAMA SECTEUR MANANARA		034 83 349 65	-		dds.backend.entities.Client@f41b3e	
+228	MR DOMICKA			-		dds.backend.entities.Client@d30062	
+145759	SAID CHAUFFEUR			-		dds.backend.entities.Client@176f83d	
+269	MR RANDRIAMPARANY RABENIRINA			-		dds.backend.entities.Client@4fb076	
+305	MR FREDY			-		dds.backend.entities.Client@de676a	
+381	MME VANA AMBITSIKA			-		dds.backend.entities.Client@52a143	
+417	BE KAPPA ANTADIMITA			-		dds.backend.entities.Client@a50ba4	
+467	BEBE			-		dds.backend.entities.Client@19ac206	
+47	MME FRANCINE ANDROKAROKA	ANDROKAROKA		-		dds.backend.entities.Client@be0be8	
+505	MR MIO SERANAMBE			-		dds.backend.entities.Client@11de985	
+83	OLIVIER SANDRAKATSY			-		dds.backend.entities.Client@1e326e9	
+20158	DOMINIQUE SLOW-FOOD	032 49 528 91		-		dds.backend.entities.Client@624221	
+49823	ANGELICO_MAHAMBOLONA	AMPITAN'NY SOLFOOD	034 08 322 26	-		dds.backend.entities.Client@6ff5ce	
+94451	BE RUPHILIEN [ FAMPOTABE ] 	 	034 08 352 45 	-		dds.backend.entities.Client@366547	
+240	MME ARMAND IMORONA			-		dds.backend.entities.Client@1ade06	
+151933	INDIANA LYDIE SANDRAKATSY 		038 77 067 33	-		dds.backend.entities.Client@91f9ae	
+277	MR FRANCK A/ROKA FACE LA ROSETTE			-		dds.backend.entities.Client@129bc37	
+313	MR ROMEO AMBODIVONIO			-		dds.backend.entities.Client@88f3c8	
+348	MAMAN I ELIE			-		dds.backend.entities.Client@42ee71	
+388	MME FINNA			-		dds.backend.entities.Client@19f261e	
+424	MR OSCAR			-		dds.backend.entities.Client@16de75e	
+18	MAMAN I JONATHAN			-		dds.backend.entities.Client@f64808	
+479	MME LYDIA			-		dds.backend.entities.Client@13a0481	
+512	MR CLARET ANALANAMPOTSY	ANALANAMPOTSY	+261343976385	-		dds.backend.entities.Client@107796e	
+28009	BEZANDRY Albin Mickael		 032 81 416 92	-		dds.backend.entities.Client@16e2f47	
+132	CHARLES VARARY			-		dds.backend.entities.Client@1b680ea	
+39710	ALAIN ANTANETILAVA 		034 05 384 03 	-		dds.backend.entities.Client@598e11	
+166	ANICET ANDATSADRANO			-		dds.backend.entities.Client@1d493d	
+55711	SOLO  A/PONTSY  ( MME TOTO )		034 66 462 77 	-		dds.backend.entities.Client@f5592e	
+207	MAMY MANAMBOLOSY		034 13 674 14 	-		dds.backend.entities.Client@11334ca	
+104838	MAGASIN AMBITSIKA			-		dds.backend.entities.Client@1e41dff	
+250	MME RAZAKA ANALANAMPOTSY			-		dds.backend.entities.Client@1c0f59f	
+164624	KWAD KELY			-		dds.backend.entities.Client@130f360	
+285	MME LEONIE ANTANAMBAO			-		dds.backend.entities.Client@12d28a8	
+321	PRESTIGE ANDROKAROKA			-		dds.backend.entities.Client@e9d9d7	
+361	MR RAKOTOMANANA			-		dds.backend.entities.Client@1dbed8	
+397	MR FORTUNÉ ANDROKAROKA		0336286592	-		dds.backend.entities.Client@62f3c8	
+445	BONTOUX OCEAN INDIEN EXPORT	MANANJARY	033 04 999 64     034 48 453 60	-		dds.backend.entities.Client@98fc04	
+26	MME JEANINE BAZARY			-		dds.backend.entities.Client@c5a7e1	
+486	MR RINA AMBIHAMAMY			-		dds.backend.entities.Client@16f205f	
+61	VAVIROZY VARARY			-		dds.backend.entities.Client@fc7509	
+711	vanille 2023			-		dds.backend.entities.Client@1a9c60e	
+99	RAZAFINDRAVELO SIDONIE		034 26 817 55	-		dds.backend.entities.Client@ee8135	
+28381	M/S SARAH			-		dds.backend.entities.Client@2b316f	
+139	SOAMAMY BAZARY			-		dds.backend.entities.Client@122489e	
+40785	FEFY AMBITSIKA			-		dds.backend.entities.Client@667c42	
+175	MR RAVONJY MANAMBOLOSY		0344844301	-		dds.backend.entities.Client@dbb292	
+74354	MAGASIN B (GUSTE) 			-		dds.backend.entities.Client@1a4502f	
+215	MME PRESIDENT ANDROKAROKA			-		dds.backend.entities.Client@b9e7d	
+257	MME PISO ANDATSADRANO			-		dds.backend.entities.Client@1ba7f12	
+293	MME THERESIE			-		dds.backend.entities.Client@741d55	
+368	MME RAHAJASOA A/JAHANA			-		dds.backend.entities.Client@1f00f9c	
+455	FIARAM IMORONA	IMORONA	0331490863	-		dds.backend.entities.Client@11e8a69	
+34	SIDO DEPUTE			-		dds.backend.entities.Client@1f02eb7	
+494	SARAH SERVICE			-		dds.backend.entities.Client@13019e9	
+2828	CLEMENTINE ANTADIMITA			-		dds.backend.entities.Client@636dfc	
+146	OSMAN MANAMBOLOSY			-		dds.backend.entities.Client@193eedb	
+43542	4X4 - 0765 AJ [ .... ] 			-		dds.backend.entities.Client@172e6c8	
+186	MR JOSEPH IFASINA			-		dds.backend.entities.Client@b65fde	
+77661	CLOTURE AMBITSIKA			-		dds.backend.entities.Client@1c5ce79	
+141097	ALAIN ANALANJAHANA		038 16 884 44	-		dds.backend.entities.Client@16602ac	
+265	MME HERMINE ANDROKAROKA			-		dds.backend.entities.Client@108f72e	
+301	MR STELIN JIROFO			-		dds.backend.entities.Client@17402fe	
+335	MR EDDY			-		dds.backend.entities.Client@15a6af	
+43	MME DONATIENNE CARBURANT			-		dds.backend.entities.Client@1e9b9a3	
+501	MME JULIA MANANARA CENTRE			-		dds.backend.entities.Client@18a9037	
+78	RVY FRANCK BAZARY		033 76 968 15 	-		dds.backend.entities.Client@e8044a	
+118	MR VICTOR BAZARY		034 02 125 27	-		dds.backend.entities.Client@113ff66	
+32190	ANTHONIO ( JAO )			-		dds.backend.entities.Client@1836446	
+47542	NISSAN			-		dds.backend.entities.Client@f74fe9	
+195	MR CHAN KONG YENG JIMMY			-		dds.backend.entities.Client@57d6a9	
+231	MME SAMIRAH			-		dds.backend.entities.Client@d1fb0a	
+272	MR TINA SANDRAKATSY			-		dds.backend.entities.Client@2e09c2	
+252192	TRANOMBAROTRA JULES AMBANJA			-		dds.backend.entities.Client@268a29	
+308	MME VOLA ANDROKAROKA			-		dds.backend.entities.Client@2aea1a	
+343	MR JEAN ARSON ANTANAMBAO		033 07 293 00	-		dds.backend.entities.Client@192497e	
+384	MME ELIZETTE ANDRAVOLASOA			-		dds.backend.entities.Client@1e22757	
+420	MR RIRY ANDROKAROKA			-		dds.backend.entities.Client@1418740	
+6	MME PERY BAZARY			-		dds.backend.entities.Client@62c808	
+475	MME NOELY ( JOSE AMBODIVONIO)			-		dds.backend.entities.Client@196ac83	
+50	MR NEL SANDRAKATSY			-		dds.backend.entities.Client@1f0eab9	
+508	MR TOTO AMPITARIHANA			-		dds.backend.entities.Client@fc0040	
+126	MME DOCTEUR LUC			-		dds.backend.entities.Client@eab21f	
+35069	ELIAS ANALANAMPONTSY		032 83 636 13	-		dds.backend.entities.Client@a2ea75	
+202	MAMAN I LIVA			-		dds.backend.entities.Client@3164fa	
+96174	ARMAND [ POLICE ] 		034 48 178 44 	-		dds.backend.entities.Client@e9957c	
+244	MR MILY SANDRAKATSY		034 28 891 36	-		dds.backend.entities.Client@134ae34	
+281	MR RAHERY ANDROKAROKA			-		dds.backend.entities.Client@9a02e5	
+316	MME ODILE ANDROKAROKA		0334142830	-		dds.backend.entities.Client@179b4b8	
+352	JAC BLEU CIEL 17575 WWT [ DOUDOU ] 			-		dds.backend.entities.Client@12f891e	
+392	MR FOX AMBODIMANGA			-		dds.backend.entities.Client@130ca01	
+14	ZARA CHARLES	MANAMBOLOSY		-		dds.backend.entities.Client@1cd6ea8	

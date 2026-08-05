@@ -616,7 +616,12 @@ class PageListeMouvement(ctk.CTkFrame):
         try:
             query = self.get_query_for_mouvement(type_mouvement)
             if query:
-                self.data_df = pd.read_sql(query, conn)
+                cur = conn.cursor()
+                cur.execute(query)
+                rows = cur.fetchall()
+                columns = [desc[0] for desc in cur.description] if cur.description else []
+                self.data_df = pd.DataFrame(rows, columns=columns)
+                cur.close()
                 self.display_data_in_tree(self.data_df)
                 self.update_statistics()
             else:

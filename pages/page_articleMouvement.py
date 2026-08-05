@@ -256,11 +256,13 @@ class PageArticleMouvement(ctk.CTkFrame):
         self._after_id            = None
         self._db_conn             = None  # connexion maintenue pendant les batchs
         self._facteur_vers_base_par_unite: dict[int, float] = {}
+        self._is_destroyed = False
+        self.bind("<Destroy>", self._on_destroy)
 
         self._apply_tree_style()
         self._build_ui()
         self._load_magasins()
-        self.load_mouvements()
+        self._after_id = self.after(100, self.load_mouvements)
 
     # ── helpers ──────────────────────────────────────────────────────────────
     def _get_uid(self, parent, iduser, session_data):
@@ -302,12 +304,23 @@ class PageArticleMouvement(ctk.CTkFrame):
             return "0,00"
 
     def _close_db_conn(self):
+        if self._after_id:
+            try:
+                self.after_cancel(self._after_id)
+            except Exception:
+                pass
+            self._after_id = None
+
         if self._db_conn:
             try:
                 self._db_conn.close()
             except Exception:
                 pass
             self._db_conn = None
+
+    def _on_destroy(self, event=None):
+        self._is_destroyed = True
+        self._close_db_conn()
 
     # ── Style treeview ────────────────────────────────────────────────────────
     def _apply_tree_style(self):
@@ -935,9 +948,15 @@ class PageArticleMouvement(ctk.CTkFrame):
 
     # ── Chargement principal ──────────────────────────────────────────────────
     def load_mouvements(self):
+        if self._is_destroyed or not self.winfo_exists():
+            return
+
         # Annuler insertion en cours
         if self._after_id:
-            self.after_cancel(self._after_id)
+            try:
+                self.after_cancel(self._after_id)
+            except Exception:
+                pass
             self._after_id = None
 
         # Fermer connexion batch precedente
@@ -1086,6 +1105,10 @@ class PageArticleMouvement(ctk.CTkFrame):
         Le stock calcule est sauvegarde dans row["display"][7] de _full_rows
         pour que le filtre client le reutilise sans re-requete.
         """
+        if self._is_destroyed or not self.winfo_exists():
+            self._close_db_conn()
+            return
+
         if not self._pending_rows:
             self._lbl_progress.configure(text="")
             self._close_db_conn()
@@ -1141,6 +1164,10 @@ class PageArticleMouvement(ctk.CTkFrame):
         """
         Insere les lignes en treeview sans recalcul stock (stocks deja dans display[7]).
         """
+        if self._is_destroyed or not self.winfo_exists():
+            self._close_db_conn()
+            return
+
         if not self._pending_rows:
             self._lbl_progress.configure(text="")
             return

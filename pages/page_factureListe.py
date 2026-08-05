@@ -350,7 +350,8 @@ class PageFactureListe(ctk.CTkFrame):
         except Exception:
             pass
         pay_win = PagePmtFacture(
-            self.master, paiement_data, iduser=self._connected_user_id
+            self.master, paiement_data, iduser=self._connected_user_id,
+            disable_montant_recu=True
         )
 
         def _after_payment_closed(event=None):

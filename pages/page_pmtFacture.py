@@ -82,8 +82,10 @@ class PagePmtFacture(ctk.CTkToplevel):
     └────────────────────────────────────────────────────────────┘
     """
 
-    def __init__(self, master, paiement_data, iduser=None):
+    def __init__(self, master, paiement_data, iduser=None, disable_montant_recu=False):
         super().__init__(master)
+
+        self.disable_montant_recu = disable_montant_recu
 
         # ── Données ───────────────────────────────────────────────────────────
         self.data               = paiement_data
@@ -212,6 +214,8 @@ class PagePmtFacture(ctk.CTkToplevel):
         self.entry_montant.grid(
             row=0, column=1, columnspan=3, padx=(0, 14), pady=(14, 2), sticky="ew")
         self.entry_montant.insert(0, self.montant_total_str)
+        if self.disable_montant_recu:
+            self.entry_montant.configure(state="readonly")
 
         # Ligne 1 — Mode + Échéance
         ctk.CTkLabel(card_saisie, text="Mode de paiement", **_lbl).grid(

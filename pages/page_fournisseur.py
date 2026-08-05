@@ -89,7 +89,8 @@ class PageFournisseur(ctk.CTkFrame):
                 or getattr(master, "id_user_connecte", None)
             )
 
-        self.conn = self.connect_db()
+        self._db_conn_shared = db_conn
+        self.conn = self.connect_db(self._db_conn_shared)
         if self.conn:
             self.cursor = self.conn.cursor()
             self.create_table()
@@ -109,16 +110,10 @@ class PageFournisseur(ctk.CTkFrame):
     # BASE DE DONNÉES
     # ──────────────────────────────────────────────────────────────────
 
-    def connect_db(self):
+    def connect_db(self, db_conn=None):
         try:
-            if not os.path.exists(get_config_path('config.json')):
-                messagebox.showerror("Erreur de configuration", "Le fichier config.json est manquant.")
-                return None
-            with open(get_config_path('config.json')) as f:
-                config = json.load(f)
-                db_config = config['database']
             from pages.db_helper import connect_page_db
-            return connect_page_db()
+            return connect_page_db(db_conn)
         except psycopg2.Error as err:
             messagebox.showerror("Erreur de connexion", f"Erreur : {err}")
             return None
@@ -287,12 +282,39 @@ class PageFournisseur(ctk.CTkFrame):
             """)
             fournisseurs = self.cursor.fetchall()
 
+            # Garantit que la table de dettes manuelles existe avant les agrégations.
+            self._ensure_autredette_table()
+
+            self.cursor.execute("""
+                SELECT cd.idfrs,
+                       COALESCE(SUM(cd.punitcmd * lf.qtlivrefrs), 0) AS total_livraison
+                FROM tb_livraisonfrs lf
+                JOIN tb_commandedetail cd ON cd.idcom = lf.idcom AND cd.idarticle = lf.idarticle
+                WHERE lf.deleted = 0
+                  AND lf.a_payer = 1
+                GROUP BY cd.idfrs
+            """)
+            total_livraisons = {row[0]: float(row[1] or 0) for row in self.cursor.fetchall()}
+
+            self.cursor.execute("""
+                SELECT idfrs, COALESCE(SUM(montant), 0) AS total_autredette
+                FROM tb_autredette
+                GROUP BY idfrs
+            """)
+            total_autres = {row[0]: float(row[1] or 0) for row in self.cursor.fetchall()}
+
+            self.cursor.execute("""
+                SELECT idfrs, COALESCE(SUM(mtpaye), 0) AS total_paye
+                FROM tb_pmtcom
+                GROUP BY idfrs
+            """)
+            total_payes = {row[0]: float(row[1] or 0) for row in self.cursor.fetchall()}
+
             fournisseurs_avec_dettes = []
             for frs in fournisseurs:
-                try:
-                    _, _, _, dette_restante, _ = self._compute_dette_status_fifo(frs[0])
-                except Exception:
-                    dette_restante = 0
+                idfrs = frs[0]
+                total_initial = total_livraisons.get(idfrs, 0.0) + total_autres.get(idfrs, 0.0)
+                dette_restante = max(total_initial - total_payes.get(idfrs, 0.0), 0.0)
                 fournisseurs_avec_dettes.append((frs, dette_restante))
 
             fournisseurs_avec_dettes.sort(key=lambda x: x[1], reverse=True)

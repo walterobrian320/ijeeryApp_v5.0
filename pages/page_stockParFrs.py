@@ -76,6 +76,7 @@ class PageStockParFrs(ctk.CTkFrame):
         )
 
         self._frs_map = {}   # {nom_frs: idfrs}
+        self._all_frs = []
         self.all_data = []
 
         self.grid_columnconfigure(0, weight=1)
@@ -116,11 +117,23 @@ class PageStockParFrs(ctk.CTkFrame):
             font=self._f(11, "bold"), text_color=C.TEXT_PRIMARY
         ).pack(side="left", padx=(0, 6))
 
+        # Champ de recherche fournisseur
+        self.entry_frs_search = ctk.CTkEntry(
+            inner,
+            placeholder_text="Rechercher fournisseur...",
+            width=260, height=32,
+            fg_color=C.BG_INPUT,
+            border_color=C.BORDER,
+            font=self._f(11)
+        )
+        self.entry_frs_search.pack(side="left", padx=(0, 10))
+        self.entry_frs_search.bind('<KeyRelease>', self._on_frs_search)
+
         # ── ComboBox fournisseurs ─────────────────────────────────────────
         self.combo_frs = ctk.CTkComboBox(
             inner,
             values=["Chargement…"],
-            width=320, height=32,
+            width=240, height=32,
             fg_color=C.BG_INPUT,
             border_color=C.BORDER,
             button_color=C.PRIMARY,
@@ -269,15 +282,11 @@ class PageStockParFrs(ctk.CTkFrame):
             """)
             rows = cur.fetchall()
             self._frs_map = {nom: idfrs for idfrs, nom in rows}
-            noms = list(self._frs_map.keys())
-
-            self.combo_frs.configure(
-                values=noms if noms else ["Aucun fournisseur"],
-                state="readonly"
-            )
-            if noms:
-                self.combo_frs.set(noms[0])
-                self._charger_stock_frs(self._frs_map[noms[0]])
+            self._all_frs = list(self._frs_map.keys())
+            self._refresh_frs_combo(self._all_frs)
+            if self._all_frs:
+                self.combo_frs.set(self._all_frs[0])
+                self._charger_stock_frs(self._frs_map[self._all_frs[0]])
         except Exception as e:
             messagebox.showerror("Erreur fournisseurs", str(e))
         finally:
@@ -291,6 +300,27 @@ class PageStockParFrs(ctk.CTkFrame):
         idfrs = self._frs_map.get(nom_selec)
         if idfrs is not None:
             self._charger_stock_frs(idfrs)
+
+    def _refresh_frs_combo(self, values):
+        if values:
+            self.combo_frs.configure(values=values, state="readonly")
+            current = self.combo_frs.get()
+            if current not in values:
+                self.combo_frs.set(values[0])
+                idfrs = self._frs_map.get(values[0])
+                if idfrs is not None:
+                    self._charger_stock_frs(idfrs)
+        else:
+            self.combo_frs.configure(values=["Aucun fournisseur"], state="readonly")
+            self.combo_frs.set("")
+
+    def _on_frs_search(self, event=None):
+        filtre = self.entry_frs_search.get().strip().lower()
+        if filtre:
+            valeurs = [nom for nom in self._all_frs if filtre in nom.lower()]
+        else:
+            valeurs = list(self._all_frs)
+        self._refresh_frs_combo(valeurs)
 
     def _actualiser(self):
         nom = self.combo_frs.get()

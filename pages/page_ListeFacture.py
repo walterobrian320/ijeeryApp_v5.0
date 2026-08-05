@@ -373,10 +373,17 @@ class _FactureDetailCore:
             self.destroy()
 
     def formater_montant(self, valeur):
-        """Transforme un nombre en format 1.000,00 Ar"""
+        """Transforme un nombre en format 1.000,00 ou 1.000 selon décimal"""
         try:
-            n = f"{float(valeur):,.0f}"
-            return n.replace(",", "X").replace(".", ",").replace("X", ".")
+            v = float(valeur)
+            if v % 1 == 0:
+                # Entier, pas de décimale
+                n = f"{int(v):,}"
+                return n.replace(",", "X").replace(".", ",").replace("X", ".")
+            else:
+                # Décimal, un chiffre après la virgule
+                n = f"{v:,.1f}"
+                return n.replace(",", "X").replace(".", ",").replace("X", ".")
         except:
             return "0,00"
 
@@ -1128,8 +1135,8 @@ class PageListeFacture(ctk.CTkFrame):
                 n = f"{int(v):,}"
                 return n.replace(",", "X").replace(".", ",").replace("X", ".")
             else:
-                # Décimal, deux chiffres après la virgule
-                n = f"{v:,.2f}"
+                # Décimal, un chiffre après la virgule
+                n = f"{v:,.1f}"
                 n = n.replace(",", "X").replace(".", ",").replace("X", ".")
                 return n
         except:

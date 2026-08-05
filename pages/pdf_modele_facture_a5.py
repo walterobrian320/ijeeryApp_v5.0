@@ -28,6 +28,18 @@ def formater_nombre_pdf_defaut(n: Any) -> str:
         return "0"
 
 
+def formater_nombre_qte_pdf(n: Any) -> str:
+    """Format quantité PDF : entier si valeur entière, sinon un chiffre après la virgule."""
+    try:
+        v = float(n)
+        if v % 1 == 0:
+            return "{:,.0f}".format(v).replace(",", ".")
+        s = "{:,.1f}".format(v)
+        return s.replace(",", "X").replace(".", ",").replace("X", ".")
+    except Exception:
+        return "0"
+
+
 def detail_vers_ligne_facture(d: Any) -> Optional[Dict[str, Any]]:
     """
     Normalise une ligne de détail (dict vente ou tuple avoir) vers :
@@ -316,7 +328,7 @@ def generer_pdf_a5_modele_ventedepot(
             prix_remise_str = ""
         all_rows.append(
             [
-                str(int(rowd["qte"])),
+                formater_nombre_qte_pdf(rowd["qte"]),
                 rowd["unite"],
                 rowd["designation"],
                 fmt_pdf(pu),

@@ -243,6 +243,17 @@ class PageVenteParMsin(ctk.CTkFrame):
         """1 234 567  → format entier sans décimales pour les PDF."""
         return _formater_nombre_pdf(n)
 
+    def formater_qte_pdf(self, n) -> str:
+        """Format quantité pour PDF : entier si valeur entière, sinon un chiffre après la virgule."""
+        try:
+            v = float(n)
+            if v % 1 == 0:
+                return "{:,.0f}".format(v).replace(",", ".")
+            s = "{:,.1f}".format(v)
+            return s.replace(",", "X").replace(".", ",").replace("X", ".")
+        except Exception:
+            return "0"
+
     def parser_nombre(self, texte: str) -> float:
         """Inverse de formater_nombre : '1.234,56' → 1234.56."""
         try:
@@ -2415,7 +2426,7 @@ class PageVenteParMsin(ctk.CTkFrame):
                 prix_remise_str = self.formater_nombre_pdf(max(0, float(pu) - float(remise)))
             else:
                 prix_remise_str = ""
-            all_rows.append([str(int(d.get('qte',0))), str(d.get('unite','')),
+            all_rows.append([self.formater_qte_pdf(d.get('qte',0)), str(d.get('unite','')),
                               str(d.get('designation','')),
                               self.formater_nombre_pdf(pu),
                               prix_remise_str,
@@ -2486,7 +2497,7 @@ class PageVenteParMsin(ctk.CTkFrame):
         total_ht = total_rem = total_ttc = 0.0
         for d in dets:
             elems.append(Paragraph(f"<b>{d.get('designation','')}</b>", sn))
-            ld = Table([[f"{int(d.get('qte',0))} {d.get('unite','')} × {self.formater_nombre_pdf(d.get('prixunit',0))}",
+            ld = Table([[f"{self.formater_qte_pdf(d.get('qte',0))} {d.get('unite','')} × {self.formater_nombre_pdf(d.get('prixunit',0))}",
                          f"= {self.formater_nombre_pdf(d.get('montant_ttc',0))}"]],
                         colWidths=[50*mm, 20*mm])
             ld.setStyle(TableStyle([

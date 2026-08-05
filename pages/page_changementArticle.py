@@ -396,6 +396,7 @@ class PageChangementArticle(ctk.CTkFrame):
                     FROM tb_unite AS T1
                     INNER JOIN tb_article AS T2 ON T1.idarticle = T2.idarticle
                     WHERE T2."deleted" = 0
+                      AND COALESCE(T1."deleted", 0) = 0
                 """
                 params = []
                 if filtre:

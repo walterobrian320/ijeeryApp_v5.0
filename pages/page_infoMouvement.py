@@ -13,7 +13,7 @@ from app_theme import Colors, Fonts, styled
 from settings_utils import open_file_if_enabled
 from log_utils import AppLogger
 from db import ensure_connection, get_connection
-from stock_service import get_snapshot_cached, stock_unite
+from stock_service import get_snapshot_cached, invalidate_snapshot, stock_unite
 from stock_snapshot import format_nombre_auto
 from pages.ui_dialogs import PasswordDialog
 
@@ -1138,6 +1138,8 @@ class PageChangementArticle(ctk.CTkFrame):
                 )
 
             conn.commit()
+            for _m in {int(a['idmagasin']) for a in self.articles_sortie + self.articles_entree}:
+                invalidate_snapshot(_m)
             try:
                 self._logger.log(
                     action="Création changement stock",

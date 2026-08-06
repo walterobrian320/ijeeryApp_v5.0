@@ -598,6 +598,23 @@ class EtatPDFMouvements:
                 return False
             
             idcom, datecom, ref, fournisseur = cmd_info
+
+            cur.execute("""
+                SELECT
+                    COALESCE(m.designationmag, 'N/A') AS magasin,
+                    COALESCE(u.username, 'N/A') AS operateur_username,
+                    COALESCE(lf.factfrs, 'N/A') AS facture_fournisseur
+                FROM tb_livraisonfrs lf
+                LEFT JOIN tb_magasin m ON lf.idmag = m.idmag
+                LEFT JOIN tb_users u ON lf.iduser = u.iduser
+                WHERE lf.idcom = %s AND lf.deleted = 0
+                ORDER BY lf.dateregistre DESC, lf.idlivfrs DESC
+                LIMIT 1
+            """, (idcom,))
+            livraison_info = cur.fetchone()
+            magasin = livraison_info[0] if livraison_info and livraison_info[0] else 'N/A'
+            operateur_username = livraison_info[1] if livraison_info and livraison_info[1] else 'N/A'
+            facture_fournisseur = livraison_info[2] if livraison_info and livraison_info[2] else 'N/A'
             
             cur.execute("""
                 SELECT 
@@ -622,10 +639,10 @@ class EtatPDFMouvements:
             table_data = (colonnes, list(details))
             
             return self._build_pdf_a5(
-                output_path, "BON D'ENTRÉE", ref,
+                output_path, "BON DE RÉCEPTION", ref,
                 datecom.strftime("%d/%m/%Y %H:%M") if datecom else "N/A",
-                "Magasin TSARAVATSY", fournisseur or "N/A",
-                table_data, f"Fournisseur: {fournisseur or 'N/A'}",
+                magasin, operateur_username,
+                table_data, f"{facture_fournisseur}",
                 "Réceptionnaire", "Responsable Magasin",
                 duplicata=duplicata,
             )

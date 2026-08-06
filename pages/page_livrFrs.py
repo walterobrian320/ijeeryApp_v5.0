@@ -682,8 +682,12 @@ class PageBonReception(ctk.CTkFrame):
                         rows_pdf.append((detail.get('code',''), detail.get('designation',''),
                                          detail.get('unite',''), detail.get('qtlivre',0),
                                          detail.get('fournisseur','')))
-                    operateur = (data.get('utilisateur',{}).get('prenomuser','') + ' ' +
-                                 data.get('utilisateur',{}).get('nomuser','')).strip() or str(self.iduser)
+                    operateur = (
+                        data.get('utilisateur', {}).get('username')
+                        or (data.get('utilisateur', {}).get('prenomuser','') + ' ' +
+                            data.get('utilisateur', {}).get('nomuser','')).strip()
+                        or str(self.iduser)
+                    )
                     try:
                         from EtatsPDF_Mouvements import EtatPDFMouvements
                         etat = EtatPDFMouvements()
@@ -786,9 +790,36 @@ class PageBonReception(ctk.CTkFrame):
         if not conn: return None
         try:
             cursor = conn.cursor()
-            cursor.execute("SELECT nomuser, prenomuser FROM tb_users WHERE iduser=%s", (self.iduser,))
-            u = cursor.fetchone()
-            if u: data['utilisateur'] = {'nomuser': u[0], 'prenomuser': u[1]}
+            cursor.execute("""
+                SELECT
+                    COALESCE(m.designationmag, ''),
+                    COALESCE(u.username, ''),
+                    COALESCE(u.prenomuser, ''),
+                    COALESCE(u.nomuser, '')
+                FROM tb_livraisonfrs lf
+                LEFT JOIN tb_magasin m ON lf.idmag = m.idmag
+                LEFT JOIN tb_users u ON lf.iduser = u.iduser
+                WHERE lf.reflivfrs = %s AND lf.deleted = 0
+                ORDER BY lf.dateregistre DESC, lf.idlivfrs DESC
+                LIMIT 1
+            """, (self.entry_ref.get(),))
+            livraison_info = cursor.fetchone()
+            if livraison_info:
+                magasin_name = livraison_info[0] or self.combo_magasin.get() or "N/A"
+                data['reception']['magasin'] = magasin_name
+                username = livraison_info[1].strip() if livraison_info[1] else ""
+                prenom = livraison_info[2].strip() if livraison_info[2] else ""
+                nom = livraison_info[3].strip() if livraison_info[3] else ""
+                data['utilisateur'] = {
+                    'username': username or str(self.iduser),
+                    'prenomuser': prenom,
+                    'nomuser': nom,
+                }
+            else:
+                cursor.execute("SELECT nomuser, prenomuser, username FROM tb_users WHERE iduser=%s", (self.iduser,))
+                u = cursor.fetchone()
+                if u:
+                    data['utilisateur'] = {'nomuser': u[0], 'prenomuser': u[1], 'username': u[2] or str(self.iduser)}
             for item in self.items_livraison:
                 cursor.execute("SELECT designation FROM tb_article WHERE idarticle=%s", (item['idarticle'],))
                 desig = cursor.fetchone()

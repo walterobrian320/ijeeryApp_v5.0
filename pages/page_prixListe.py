@@ -69,16 +69,18 @@ C = Colors if _T else _C
 COL_CODE = "Code Article"
 COL_NOM = "Nom d'article"
 COL_UNITE = "Unité"
+COL_QT = "Quantité"
 COL_MINMAX = "Min.Prix - Max.Prix"
 COL_MOY = "Moyenne.Prix"
 COL_PRIX = "Prix"
-ALL_COLS = (COL_CODE, COL_NOM, COL_UNITE, COL_MINMAX, COL_MOY, COL_PRIX)
+ALL_COLS = (COL_CODE, COL_NOM, COL_UNITE, COL_QT, COL_MINMAX, COL_MOY, COL_PRIX)
 
 # Poids relatifs pour la répartition proportionnelle de la largeur utile
 _COL_WEIGHTS = {
     COL_CODE: 14,
     COL_NOM: 32,
     COL_UNITE: 12,
+    COL_QT: 10,
     COL_MINMAX: 20,
     COL_MOY: 14,
     COL_PRIX: 14,
@@ -87,6 +89,7 @@ _COL_MINWIDTH = {
     COL_CODE: 90,
     COL_NOM: 120,
     COL_UNITE: 80,
+    COL_QT: 70,
     COL_MINMAX: 130,
     COL_MOY: 85,
     COL_PRIX: 85,
@@ -209,13 +212,27 @@ class PagePrixListe(ctk.CTkFrame):
         except (ValueError, TypeError):
             return "0,00"
 
+    @staticmethod
+    def _fmt_quantite(qte):
+        """Formate une quantité : entiers sans '.0', décimales avec '.'"""
+        if qte is None:
+            return ""
+        try:
+            value = float(qte)
+        except (TypeError, ValueError):
+            return str(qte)
+
+        if value.is_integer():
+            return str(int(value))
+        return format(value, '.15g')
+
     def _fmt_minmax(self, prix_min, prix_max) -> str:
         return f"{self._fmt_prix(prix_min)} - {self._fmt_prix(prix_max)}"
 
     def _colonnes_affichees(self):
         if self._afficher_variation:
-            return (COL_CODE, COL_NOM, COL_UNITE, COL_MINMAX, COL_MOY, COL_PRIX)
-        return (COL_CODE, COL_NOM, COL_UNITE, COL_PRIX)
+            return (COL_CODE, COL_NOM, COL_UNITE, COL_QT, COL_MINMAX, COL_MOY, COL_PRIX)
+        return (COL_CODE, COL_NOM, COL_UNITE, COL_QT, COL_PRIX)
 
     def _appliquer_colonnes_treeview(self):
         try:
@@ -463,6 +480,7 @@ class PagePrixListe(ctk.CTkFrame):
             COL_CODE: "center",
             COL_NOM: "w",
             COL_UNITE: "center",
+            COL_QT: "center",
             COL_MINMAX: "center",
             COL_MOY: "e",
             COL_PRIX: "e",
@@ -617,6 +635,7 @@ class PagePrixListe(ctk.CTkFrame):
                     u.codearticle::TEXT,
                     a.designation,
                     u.designationunite,
+                    u.qtunite,
                     COALESCE(p.prix, 0) AS prix,
                     u.idunite,
                     st.prix_min,
@@ -704,11 +723,12 @@ class PagePrixListe(ctk.CTkFrame):
                 code_db = row[0] or ""
                 nom     = row[1] or ""
                 unite   = row[2] or ""
-                prix     = row[3] if row[3] is not None else 0
-                idunite  = row[4]
-                prix_min = row[5]
-                prix_max = row[6]
-                prix_moy = row[7]
+                qte     = row[3]
+                prix    = row[4] if row[4] is not None else 0
+                idunite = row[5]
+                prix_min = row[6]
+                prix_max = row[7]
+                prix_moy = row[8]
 
                 prix_fmt = self._fmt_prix(prix)
                 is_zero  = (float(prix) == 0) if prix else True
@@ -718,18 +738,20 @@ class PagePrixListe(ctk.CTkFrame):
                 else:
                     tag = "even" if idx % 2 == 0 else "odd"
 
+                qte_fmt = self._fmt_quantite(qte)
+
                 if self._afficher_variation:
                     min_v = prix_min if prix_min is not None else 0
                     max_v = prix_max if prix_max is not None else 0
                     moy_v = prix_moy if prix_moy is not None else 0
                     values = (
-                        code_db, nom, unite,
+                        code_db, nom, unite, qte_fmt,
                         self._fmt_minmax(min_v, max_v),
                         self._fmt_prix(moy_v),
                         prix_fmt,
                     )
                 else:
-                    values = (code_db, nom, unite, "", "", prix_fmt)
+                    values = (code_db, nom, unite, qte_fmt, "", "", prix_fmt)
 
                 item_id = self.tree.insert("", "end", values=values, tags=(tag,))
                 self.code_mapping[item_id] = (code_db, idunite)

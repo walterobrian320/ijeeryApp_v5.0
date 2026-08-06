@@ -45,7 +45,7 @@ except ImportError:
 # ══════════════════════════════════════════════════════════════════════════════
 
 TYPES_MOUVEMENT = {
-    "entree":      {"label": "📥  Entrées",              "icon": "📥"},
+    "entree":      {"label": "📥  Entrées Réception",    "icon": "📥"},
     "entree_stock":{"label": "📦  Entrées Stock",        "icon": "📦"},
     "sortie":      {"label": "📤  Sorties",              "icon": "📤"},
     "transfert":   {"label": "🔄  Transferts",           "icon": "🔄"},
@@ -54,7 +54,7 @@ TYPES_MOUVEMENT = {
 }
 
 TITRES_MOUVEMENT = {
-    "entree": "Entrées d'Articles",
+    "entree": "Entrées Réception (Commandes Fournisseurs)",
     "entree_stock": "Entrées Stock (BE)",
     "sortie": "Sorties d'Articles",
     "transfert": "Transferts d'Articles",
@@ -1084,6 +1084,7 @@ class PageListeMouvement(ctk.CTkFrame):
                     COALESCE(u.codearticle, '') as "Code Article",
                     a.designation                as "Désignation",
                     u.designationunite           as "Unité",
+                    COALESCE(m.designationmag, 'N/A') as "Magasin",
                     cd.qtcmd                     as "Qté commandée",
                     COALESCE(cd.qtlivre, 0)      as "Qté livrée",
                     CASE
@@ -1096,11 +1097,13 @@ class PageListeMouvement(ctk.CTkFrame):
                 LEFT JOIN tb_unite   u ON cd.idunite   = u.idunite
                 LEFT JOIN tb_fournisseur fr ON cd.idfrs = fr.idfrs
                 LEFT JOIN tb_fournisseur f ON c.idfrs = f.idfrs
+                LEFT JOIN tb_livraisonfrs lf ON lf.idcom = c.idcom AND lf.idarticle = cd.idarticle AND lf.deleted = 0
+                LEFT JOIN tb_magasin m ON m.idmag = lf.idmag AND COALESCE(m.deleted, 0) = 0
                 WHERE cd.idcom = %s
                 ORDER BY a.designation
             """, (idcom,))
             details = cur.fetchall()
-            cols = ("Fournisseur", "Code Article", "Désignation", "Unité",
+            cols = ("Fournisseur", "Code Article", "Désignation", "Unité", "Magasin",
                     "Qté commandée", "Qté livrée", "Montant")
             self._open_details_window(
                 f"Détails Entrée — {refcom}", cols, details, refcom, "entree",

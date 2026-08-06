@@ -642,7 +642,7 @@ class EtatPDFMouvements:
             cur = self.conn.cursor()
             cur.execute("""
                 SELECT e.id, e.dateregistre, e.refentree, e.description,
-                       CONCAT(u.prenomuser, ' ', u.nomuser) as operateur
+                       u.username as operateur
                 FROM tb_entree e
                 LEFT JOIN tb_users u ON e.iduser = u.iduser
                 WHERE e.refentree = %s AND e.deleted = 0 LIMIT 1
@@ -661,27 +661,36 @@ class EtatPDFMouvements:
                     a.designation,
                     u.designationunite,
                     ed.qtentree,
-                    COALESCE(ed.motif, '')
+                    COALESCE(ed.motif, ''),
+                    m.designationmag
                 FROM tb_entreedetail ed
                 LEFT JOIN tb_article a ON ed.idarticle = a.idarticle
                 LEFT JOIN tb_unite u ON ed.idunite = u.idunite
+                LEFT JOIN tb_magasin m ON ed.idmag = m.idmag
                 WHERE ed.identree = %s AND ed.deleted = 0
                 ORDER BY a.designation
             """, (identree,))
 
             details = cur.fetchall()
+            magasin_values = [row[5] for row in details if row[5]]
+            magasin_header = (
+                magasin_values[0]
+                if len(set(magasin_values)) == 1 and magasin_values
+                else "Plusieurs magasins" if magasin_values
+                else "N/A"
+            )
 
             if not output_path:
                 output_path = f"Entree_Stock_{refentree}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
 
             colonnes = ("Code", "Désignation", "Unité", "Qté entrée", "Motif")
-            table_data = (colonnes, list(details))
+            table_data = (colonnes, [row[:5] for row in details])
 
             return self._build_pdf_a5(
                 output_path, "BON D'ENTRÉE STOCK", ref,
                 date_entree.strftime("%d/%m/%Y %H:%M") if date_entree else "N/A",
-                "Magasin TSARAVATSY", operateur or "N/A",
-                table_data, description or "Entrée stock",
+                magasin_header, operateur or "N/A",
+                table_data, "Entrée stock",
                 "Réceptionnaire", "Responsable Magasin",
                 duplicata=duplicata,
             )
@@ -698,7 +707,7 @@ class EtatPDFMouvements:
             cur = self.conn.cursor()
             cur.execute("""
                 SELECT s.id, s.dateregistre, s.refsortie, s.description,
-                       CONCAT(usr.prenomuser, ' ', usr.nomuser) as operateur
+                       username as operateur
                 FROM tb_sortie s
                 LEFT JOIN tb_users usr ON s.iduser = usr.iduser
                 WHERE s.refsortie = %s AND s.deleted = 0 LIMIT 1
@@ -753,7 +762,7 @@ class EtatPDFMouvements:
             cur = self.conn.cursor()
             cur.execute("""
                 SELECT t.idtransfert, t.dateregistre, t.reftransfert, m1.designationmag, m2.designationmag,
-                       CONCAT(usr.prenomuser, ' ', usr.nomuser) as operateur
+                       username as operateur
                 FROM tb_transfert t
                 LEFT JOIN tb_magasin m1 ON t.idmagsortie = m1.idmag
                 LEFT JOIN tb_magasin m2 ON t.idmagentree = m2.idmag
@@ -811,7 +820,7 @@ class EtatPDFMouvements:
             cur = self.conn.cursor()
             cur.execute("""
                 SELECT c.id, c.dateregistre, c.refconsommation, c.observation,
-                       CONCAT(usr.prenomuser, ' ', usr.nomuser) as operateur,
+                       username as operateur,
                        usr.username
                 FROM tb_consommationinterne c
                 LEFT JOIN tb_users usr ON c.iduser = usr.iduser
@@ -883,7 +892,7 @@ class EtatPDFMouvements:
             cur = self.conn.cursor()
             cur.execute("""
                 SELECT c.idchg, c.datechg, c.refchg, c.note,
-                       CONCAT(usr.prenomuser, ' ', usr.nomuser) as operateur
+                       username as operateur
                 FROM tb_changement c
                 LEFT JOIN tb_users usr ON c.iduser = usr.iduser
                 WHERE c.refchg = %s LIMIT 1

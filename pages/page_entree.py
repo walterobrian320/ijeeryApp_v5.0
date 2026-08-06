@@ -1207,43 +1207,18 @@ class PageEntree(ctk.CTkFrame):
                 finally:
                     conn.close()
 
-            columns = ("Code", "Désignation", "Unité", "Quantité", "Magasin", "Motif")
-            rows = [
-                (
-                    str(d.get('code_article', '')),
-                    str(d.get('nom_article', '')),
-                    str(d.get('nom_unite', '')),
-                    d.get('qtentree', 0) or 0,
-                    str(d.get('designationmag', '')),
-                    str(d.get('motif', '')),
-                )
-                for d in self.detail_entree
-            ]
-            table_data = (columns, rows)
-
             from EtatsPDF_Mouvements import EtatPDFMouvements
             etat = EtatPDFMouvements()
             try:
-                etat.connect_db()
-            except Exception:
-                pass
-
-            result = etat._build_pdf_a5(
-                output_path=filename,
-                titre_entete="BON D'ENTRÉE",
-                reference=ref_entree,
-                date_operation=datetime.now().strftime('%d/%m/%Y'),
-                magasin=self.combo_magasin.get() if hasattr(self, 'combo_magasin') else '',
-                operateur=username,
-                table_data=table_data,
-                description="",
-                responsable_1="Le Magasinier",
-                responsable_2="Le Contrôleur",
-            )
-            try:
-                etat.close_db()
-            except Exception:
-                pass
+                result = etat.generer_bon_entree_stock(ref_entree, output_path=filename, duplicata=False)
+            except Exception as e:
+                print(f"❌ Erreur génération PDF entrée stock : {e}")
+                result = False
+            finally:
+                try:
+                    etat.close_db()
+                except Exception:
+                    pass
 
             if result and sys.platform == 'win32':
                 try:

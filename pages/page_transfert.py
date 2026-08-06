@@ -1068,8 +1068,8 @@ class PageTransfert(ctk.CTkFrame):
 
             reftransfert    = transfert[1]
             date_operation  = (
-                transfert[2].strftime('%d/%m/%Y')
-                if transfert[2] else datetime.now().strftime('%d/%m/%Y')
+                transfert[2].strftime('%d/%m/%Y %H:%M')
+                if transfert[2] else datetime.now().strftime('%d/%m/%Y %H:%M')
             )
             description = transfert[3] or ""
             username    = transfert[4] or "Utilisateur"

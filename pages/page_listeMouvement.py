@@ -1377,13 +1377,116 @@ class PageListeMouvement(ctk.CTkFrame):
             )
             if not path:
                 return
+
+            # Cas spécial: transfert -> utiliser la même logique que PageTransfert.imprimer_transfert
+            if type_mouvement == 'transfert':
+                try:
+                    conn = self.connect_db()
+                    if not conn:
+                        messagebox.showerror("Erreur", "Impossible de se connecter à la BDD.")
+                        return
+                    cur = conn.cursor()
+                    cur.execute(
+                        """
+                        SELECT t.idtransfert, t.reftransfert, t.dateregistre, t.description,
+                               COALESCE(u.username,'Utilisateur'),
+                               COALESCE(ms.designationmag,''), COALESCE(me.designationmag,'')
+                        FROM tb_transfert t
+                        LEFT JOIN tb_users   u  ON t.iduser      = u.iduser
+                        LEFT JOIN tb_magasin ms ON t.idmagsortie = ms.idmag
+                        LEFT JOIN tb_magasin me ON t.idmagentree = me.idmag
+                        WHERE t.reftransfert=%s LIMIT 1
+                        """,
+                        (reference,),
+                    )
+                    transfert = cur.fetchone()
+                    if not transfert:
+                        messagebox.showinfo("Attention", "Transfert introuvable.")
+                        cur.close()
+                        conn.close()
+                        return
+
+                    idtransfert = transfert[0]
+                    reftransfert = transfert[1]
+                    date_operation = (
+                        transfert[2].strftime('%d/%m/%Y %H:%M') if transfert[2]
+                        else datetime.now().strftime('%d/%m/%Y %H:%M')
+                    )
+                    description = transfert[3] or ""
+                    username = transfert[4] or "Utilisateur"
+                    mag_sortie = transfert[5] or ""
+                    mag_entree = transfert[6] or ""
+
+                    cur.execute(
+                        """
+                        SELECT u.codearticle, a.designation, u.designationunite,
+                               td.qttransfert, td.description
+                        FROM tb_transfertdetail td
+                        LEFT JOIN tb_article a ON td.idarticle = a.idarticle
+                        LEFT JOIN tb_unite   u ON td.idunite   = u.idunite
+                        WHERE td.idtransfert=%s AND td.deleted=0
+                        ORDER BY a.designation
+                        """,
+                        (idtransfert,),
+                    )
+                    details = cur.fetchall()
+                    cur.close()
+                    conn.close()
+
+                    columns = ("Code", "Désignation", "Unité", "Quantité", "Mouvement", "Description")
+                    mouvement_label = f"{mag_sortie} -> {mag_entree}".strip(" ->")
+                    rows = [
+                        (str(code or ""), str(desig or ""), str(unite or ""),
+                         qte or 0, mouvement_label, str(desc or ""))
+                        for code, desig, unite, qte, desc in details
+                    ]
+                    table_data = (columns, rows)
+
+                    try:
+                        etat = EtatPDFMouvements()
+                        try:
+                            etat.connect_db()
+                        except Exception:
+                            pass
+
+                        ok = etat._build_pdf_a5(
+                            output_path=path,
+                            titre_entete="BON DE TRANSFERT",
+                            reference=reftransfert,
+                            date_operation=date_operation,
+                            magasin=f"{mag_sortie} -> {mag_entree}",
+                            operateur=username,
+                            table_data=table_data,
+                            description=description,
+                            responsable_1="Le Magasinier",
+                            responsable_2="Le Contrôleur",
+                            duplicata=True,
+                            setting_key="Transfert_OpenA5",
+                        )
+                        try:
+                            etat.close_db()
+                        except Exception:
+                            pass
+
+                        if ok:
+                            messagebox.showinfo("PDF", f"PDF généré :\n{path}")
+                        else:
+                            messagebox.showerror("Erreur", f"Échec génération PDF pour {reference}")
+                        return
+                    except Exception as e:
+                        messagebox.showerror("Erreur PDF", f"Erreur génération transfert : {e}")
+                        return
+                except Exception as e:
+                    messagebox.showerror("Erreur", f"Erreur impression transfert : {e}")
+                    return
+
+            # Default flow for other mouvement types
             gen = EtatPDFMouvements()
-            ok  = gen.generer_etat(type_mouvement, reference, path, duplicata=True)
+            ok = gen.generer_etat(type_mouvement, reference, path, duplicata=True)
             gen.close_db()
             if ok:
                 messagebox.showinfo("PDF", f"PDF généré :\n{path}")
             else:
-                messagebox.showerror("Erreur",
-                                     f"Échec génération PDF pour {reference}")
+                messagebox.showerror("Erreur", f"Échec génération PDF pour {reference}")
         except Exception as e:
             messagebox.showerror("Erreur PDF", f"Erreur : {e}")

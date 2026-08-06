@@ -1733,12 +1733,27 @@ class PageSortie(ctk.CTkFrame):
                 try: etat.connect_db()
                 except Exception: pass
 
+                # Déterminer la valeur à afficher pour le champ Magasin :
+                # si les lignes contiennent plusieurs magasins distincts,
+                # on affiche "Plusieurs magasin" comme demandé.
+                magasins_set = {
+                    (d.get('designationmag') or '').strip()
+                    for d in self.detail_sortie
+                } if getattr(self, 'detail_sortie', None) else set()
+                magasins_nonempty = {m for m in magasins_set if m}
+                if len(magasins_nonempty) > 1:
+                    magasin_str = "Plusieurs magasin"
+                elif len(magasins_nonempty) == 1:
+                    magasin_str = next(iter(magasins_nonempty))
+                else:
+                    magasin_str = self.combo_magasin.get() if hasattr(self, 'combo_magasin') else ''
+
                 result = etat._build_pdf_a5(
                     output_path=filename,
                     titre_entete="BON DE SORTIE",
                     reference=ref_sortie,
                     date_operation=datetime.now().strftime('%d/%m/%Y %H:%M'),
-                    magasin=self.combo_magasin.get() if hasattr(self, 'combo_magasin') else '',
+                    magasin=magasin_str,
                     operateur=username,
                     table_data=table_data,
                     description="",
@@ -1809,12 +1824,27 @@ class PageSortie(ctk.CTkFrame):
                 try: etat.connect_db()
                 except Exception: pass
 
+                # Déterminer la valeur à afficher pour le champ Magasin :
+                # si les lignes contiennent plusieurs magasins distincts,
+                # on affiche "Plusieurs magasin" comme demandé.
+                magasins_set = {
+                    (d.get('designationmag') or '').strip()
+                    for d in self.detail_sortie
+                } if getattr(self, 'detail_sortie', None) else set()
+                magasins_nonempty = {m for m in magasins_set if m}
+                if len(magasins_nonempty) > 1:
+                    magasin_str = "Plusieurs magasin"
+                elif len(magasins_nonempty) == 1:
+                    magasin_str = next(iter(magasins_nonempty))
+                else:
+                    magasin_str = self.combo_magasin.get() if hasattr(self, 'combo_magasin') else ''
+
                 result = etat._build_pdf_a5(
                     output_path=filename,
                     titre_entete="CONSOMMATION INTERNE",
                     reference=ref_sortie,
                     date_operation=datetime.now().strftime('%d/%m/%Y'),
-                    magasin=self.combo_magasin.get() if hasattr(self, 'combo_magasin') else '',
+                    magasin=magasin_str,
                     operateur=username,
                     table_data=table_data,
                     description="",

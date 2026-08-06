@@ -692,14 +692,14 @@ class PageListeMouvement(ctk.CTkFrame):
                         ),
                         'N/A'
                     ) as "Description",
-                    CONCAT(COALESCE(u.prenomuser,''), ' ', COALESCE(u.nomuser,'')) as "Utilisateur"
+                    username as "Utilisateur"
                 FROM tb_commande c
                 LEFT JOIN tb_fournisseur f ON c.idfrs = f.idfrs
                 LEFT JOIN tb_commandedetail cd ON c.idcom = cd.idcom
                 LEFT JOIN tb_fournisseur fcd ON cd.idfrs = fcd.idfrs
                 LEFT JOIN tb_users u ON c.iduser = u.iduser
                 WHERE c.deleted = 0
-                GROUP BY c.idcom, c.datecom, c.refcom, f.nomfrs, u.prenomuser, u.nomuser
+                GROUP BY c.idcom, c.datecom, c.refcom, f.nomfrs, u.username
                 ORDER BY c.datecom DESC
             """,
             "entree_stock": """
@@ -713,13 +713,13 @@ class PageListeMouvement(ctk.CTkFrame):
                         e.description,
                         'N/A'
                     ) as "Description",
-                    CONCAT(COALESCE(u.prenomuser,''), ' ', COALESCE(u.nomuser,'')) as "Utilisateur"
+                    username as "Utilisateur"
                 FROM tb_entree e
                 LEFT JOIN tb_entreedetail ed ON e.id = ed.identree
                 LEFT JOIN tb_users u ON e.iduser = u.iduser
                 WHERE e.deleted = 0
                   AND ed.deleted = 0
-                GROUP BY e.id, e.dateregistre, e.refentree, e.description, u.prenomuser, u.nomuser
+                GROUP BY e.id, e.dateregistre, e.refentree, e.description, u.username
                 ORDER BY e.dateregistre DESC
             """,
             "sortie": """
@@ -733,12 +733,12 @@ class PageListeMouvement(ctk.CTkFrame):
                         s.description,
                         'N/A'
                     ) as "Description",
-                    CONCAT(COALESCE(u.prenomuser,''), ' ', COALESCE(u.nomuser,'')) as "Utilisateur"
+                    username as "Utilisateur"
                 FROM tb_sortie s
                 LEFT JOIN tb_sortiedetail sd ON s.id = sd.idsortie
                 LEFT JOIN tb_users u ON s.iduser = u.iduser
                 WHERE s.deleted = 0
-                GROUP BY s.id, s.dateregistre, s.refsortie, s.description, u.prenomuser, u.nomuser
+                GROUP BY s.id, s.dateregistre, s.refsortie, s.description, u.username
                 ORDER BY s.dateregistre DESC
             """,
             "transfert": """
@@ -752,13 +752,13 @@ class PageListeMouvement(ctk.CTkFrame):
                         t.description,
                         'N/A'
                     ) as "Description",
-                    CONCAT(COALESCE(u.prenomuser,''), ' ', COALESCE(u.nomuser,'')) as "Utilisateur"
+                    username as "Utilisateur"
                 FROM tb_transfert t
                 LEFT JOIN tb_transfertdetail td ON t.idtransfert = td.idtransfert
                 LEFT JOIN tb_users u ON t.iduser = u.iduser
                 WHERE t.deleted = 0
                 GROUP BY t.idtransfert, t.dateregistre, t.reftransfert, t.description,
-                         u.prenomuser, u.nomuser
+                         u.username
                 ORDER BY t.dateregistre DESC
             """,
             "consommation": """
@@ -773,12 +773,12 @@ class PageListeMouvement(ctk.CTkFrame):
                         'N/A'
                     ) as "Description",
                     COALESCE(SUM(CAST(cid.montant_total AS NUMERIC)), 0) as "Montant Total",
-                    CONCAT(COALESCE(u.prenomuser,''), ' ', COALESCE(u.nomuser,'')) as "Utilisateur"
+                    username as "Utilisateur"
                 FROM tb_consommationinterne ci
                 LEFT JOIN tb_consommationinterne_details cid ON ci.id = cid.idconsommation
                 LEFT JOIN tb_users u ON ci.iduser = u.iduser
                 GROUP BY ci.id, ci.dateregistre, ci.refconsommation, ci.observation,
-                         u.prenomuser, u.nomuser
+                         u.username
                 ORDER BY ci.dateregistre DESC
             """,
             "changement": """
@@ -786,7 +786,7 @@ class PageListeMouvement(ctk.CTkFrame):
                     ch.datechg as "Date",
                     ch.refchg as "Référence",
                     COALESCE(ch.note, 'N/A') as "Description",
-                    CONCAT(COALESCE(u.prenomuser,''), ' ', COALESCE(u.nomuser,'')) as "Utilisateur"
+                    username as "Utilisateur"
                 FROM tb_changement ch
                 LEFT JOIN tb_users u ON ch.iduser = u.iduser
                 ORDER BY ch.datechg DESC
@@ -1162,19 +1162,21 @@ class PageListeMouvement(ctk.CTkFrame):
             idsortie = row[0]
             cur.execute("""
                 SELECT
-                    COALESCE(u.codearticle, '') as "Code Article",
-                    a.designation              as "Désignation",
-                    u.designationunite         as "Unité",
-                    sd.qtsortie                as "Quantité sortie",
-                    COALESCE(sd.motif, 'N/A')  as "Motif"
+                    COALESCE(u.codearticle, '')     as "Code Article",
+                    a.designation                   as "Désignation",
+                    u.designationunite              as "Unité",
+                    sd.qtsortie                     as "Quantité sortie",
+                    COALESCE(m.designationmag, 'N/A') as "Magasin",
+                    COALESCE(sd.motif, 'N/A')       as "Motif"
                 FROM tb_sortiedetail sd
                 LEFT JOIN tb_article a ON sd.idarticle = a.idarticle
                 LEFT JOIN tb_unite   u ON sd.idunite   = u.idunite
+                LEFT JOIN tb_magasin m ON sd.idmag = m.idmag
                 WHERE sd.idsortie = %s
                 ORDER BY a.designation
             """, (idsortie,))
             details = cur.fetchall()
-            cols = ("Code Article", "Désignation", "Unité", "Quantité sortie", "Motif")
+            cols = ("Code Article", "Désignation", "Unité", "Quantité sortie", "Magasin", "Motif")
             self._open_details_window(
                 f"Détails Sortie — {refsortie}", cols, details, refsortie, "sortie")
         finally:
@@ -1237,11 +1239,13 @@ class PageListeMouvement(ctk.CTkFrame):
                     u.designationunite as "Unité",
                     td.qttransfert     as "Quantité",
                     COALESCE(td.description, 'N/A') as "Description",
-                    td.idmagsortie     as "Magasin Sortie",
-                    td.idmagentree     as "Magasin Entrée"
+                    COALESCE(ms.designationmag, 'N/A') as "Magasin Sortie",
+                    COALESCE(me.designationmag, 'N/A') as "Magasin Entrée"
                 FROM tb_transfertdetail td
                 LEFT JOIN tb_article a ON td.idarticle = a.idarticle
                 LEFT JOIN tb_unite   u ON td.idunite   = u.idunite
+                LEFT JOIN tb_magasin ms ON td.idmagsortie = ms.idmag
+                LEFT JOIN tb_magasin me ON td.idmagentree = me.idmag
                 WHERE td.idtransfert = %s
                 ORDER BY a.designation
             """, (idtr,))
@@ -1275,18 +1279,20 @@ class PageListeMouvement(ctk.CTkFrame):
                     a.designation              as "Désignation",
                     u.designationunite         as "Unité",
                     d.qtconsomme               as "Quantité",
+                    COALESCE(m.designationmag, 'N/A') as "Magasin",
                     d.prixunit                 as "Prix Unitaire",
                     d.montant_total            as "Montant",
                     COALESCE(d.observation, 'N/A') as "Observation"
                 FROM tb_consommationinterne_details d
                 LEFT JOIN tb_article a ON d.idarticle = a.idarticle
                 LEFT JOIN tb_unite   u ON d.idunite   = u.idunite
+                LEFT JOIN tb_magasin m ON d.idmag = m.idmag
                 WHERE d.idconsommation = %s
                 ORDER BY a.designation
             """, (idc,))
             details = cur.fetchall()
-            cols = ("Code Article", "Désignation", "Unité",
-                    "Quantité", "Prix Unitaire", "Montant", "Observation")
+            cols = ("Code Article", "Désignation", "Unité", "Quantité",
+                    "Magasin", "Prix Unitaire", "Montant", "Observation")
             self._open_details_window(
                 f"Détails Consommation — {refcons}", cols, details,
                 refcons, "consommation")
@@ -1318,10 +1324,12 @@ class PageListeMouvement(ctk.CTkFrame):
                     COALESCE(a.designation, '-')  as "Désignation",
                     COALESCE(u.designationunite,'-') as "Unité",
                     ds.quantite_sortie            as "Qté Sortie",
-                    '-'                           as "Qté Entrée"
+                    '-'                           as "Qté Entrée",
+                    COALESCE(m.designationmag, 'N/A') as "Magasin"
                 FROM tb_detailchange_sortie ds
                 LEFT JOIN tb_article a ON ds.idarticle = a.idarticle
                 LEFT JOIN tb_unite   u ON ds.idunite   = u.idunite
+                LEFT JOIN tb_magasin m ON ds.idmagasin = m.idmag
                 WHERE ds.idchg = %s
                 ORDER BY a.designation
             """, (idchg,))
@@ -1334,10 +1342,12 @@ class PageListeMouvement(ctk.CTkFrame):
                     COALESCE(a.designation, '-')  as "Désignation",
                     COALESCE(u.designationunite,'-') as "Unité",
                     '-'                           as "Qté Sortie",
-                    de.quantite_entree            as "Qté Entrée"
+                    de.quantite_entree            as "Qté Entrée",
+                    COALESCE(m.designationmag, 'N/A') as "Magasin"
                 FROM tb_detailchange_entree de
                 LEFT JOIN tb_article a ON de.idarticle = a.idarticle
                 LEFT JOIN tb_unite   u ON de.idunite   = u.idunite
+                LEFT JOIN tb_magasin m ON de.idmagasin = m.idmag
                 WHERE de.idchg = %s
                   AND (de.idarticle, de.idunite) NOT IN (
                       SELECT ds.idarticle, ds.idunite
@@ -1348,7 +1358,7 @@ class PageListeMouvement(ctk.CTkFrame):
             """, (idchg, idchg))
             details.extend(cur.fetchall())
 
-            cols = ("Code Article", "Désignation", "Unité", "Qté Sortie", "Qté Entrée")
+            cols = ("Code Article", "Désignation", "Unité", "Qté Sortie", "Qté Entrée", "Magasin")
             self._open_details_window(
                 f"Détails Changement — {refchg}", cols, details, refchg, "changement")
         finally:
@@ -1481,6 +1491,202 @@ class PageListeMouvement(ctk.CTkFrame):
                     return
 
             # Default flow for other mouvement types
+            # Cas spécial: sortie -> utiliser le même modèle A5 que page_sortie.py,
+            # avec colonne Magasin et en-tête 'Plusieurs magasin' si nécessaire.
+            if type_mouvement == 'sortie':
+                try:
+                    conn = self.connect_db()
+                    if not conn:
+                        messagebox.showerror("Erreur", "Impossible de se connecter à la BDD.")
+                        return
+                    cur = conn.cursor()
+                    cur.execute(
+                        "SELECT s.id, s.dateregistre, s.refsortie, s.description, COALESCE(u.username,'Utilisateur') "
+                        "FROM tb_sortie s "
+                        "LEFT JOIN tb_users u ON s.iduser = u.iduser "
+                        "WHERE s.refsortie = %s AND s.deleted = 0 LIMIT 1",
+                        (reference,),
+                    )
+                    row = cur.fetchone()
+                    if not row:
+                        messagebox.showinfo("Info", "Sortie introuvable.")
+                        cur.close()
+                        conn.close()
+                        return
+
+                    idsortie, date_sortie, ref, description, username = row
+                    cur.execute(
+                        """
+                        SELECT
+                            COALESCE(u.codearticle, '-')          as "Code",
+                            a.designation                        as "Désignation",
+                            u.designationunite                   as "Unité",
+                            sd.qtsortie                          as "Quantité",
+                            COALESCE(m.designationmag, 'N/A')    as "Magasin",
+                            COALESCE(sd.motif, '')               as "Motif"
+                        FROM tb_sortiedetail sd
+                        LEFT JOIN tb_article a ON sd.idarticle = a.idarticle
+                        LEFT JOIN tb_unite   u ON sd.idunite   = u.idunite
+                        LEFT JOIN tb_magasin m ON sd.idmag = m.idmag
+                        WHERE sd.idsortie = %s
+                        ORDER BY a.designation
+                        """,
+                        (idsortie,),
+                    )
+                    details = cur.fetchall()
+                    cur.close()
+                    conn.close()
+
+                    columns = ("Code", "Désignation", "Unité", "Quantité", "Magasin", "Motif")
+                    rows = [
+                        (
+                            str(code or ''), str(desig or ''), str(unite or ''),
+                            qte or 0, str(magasin or ''), str(motif or ''),
+                        )
+                        for code, desig, unite, qte, magasin, motif in details
+                    ]
+                    table_data = (columns, rows)
+                    magasin_values = {m.strip() for _, _, _, _, m, _ in rows if str(m).strip()}
+                    if len(magasin_values) > 1:
+                        magasin_header = 'Plusieurs magasin'
+                    elif len(magasin_values) == 1:
+                        magasin_header = next(iter(magasin_values))
+                    else:
+                        magasin_header = 'N/A'
+
+                    try:
+                        etat = EtatPDFMouvements()
+                        try:
+                            etat.connect_db()
+                        except Exception:
+                            pass
+                        ok = etat._build_pdf_a5(
+                            output_path=path,
+                            titre_entete="BON DE SORTIE",
+                            reference=ref,
+                            date_operation=(date_sortie.strftime('%d/%m/%Y %H:%M') if date_sortie else datetime.now().strftime('%d/%m/%Y %H:%M')),
+                            magasin=magasin_header,
+                            operateur=username,
+                            table_data=table_data,
+                            description=description or "Sortie de stock",
+                            responsable_1="Le Magasinier",
+                            responsable_2="Le Contrôleur",
+                            duplicata=True,
+                            setting_key="Sortie_OpenA5",
+                        )
+                        try:
+                            etat.close_db()
+                        except Exception:
+                            pass
+
+                        if ok:
+                            messagebox.showinfo("PDF", f"PDF généré :\n{path}")
+                        else:
+                            messagebox.showerror("Erreur", f"Échec génération PDF pour {reference}")
+                        return
+                    except Exception as e:
+                        messagebox.showerror("Erreur PDF", f"Erreur génération sortie : {e}")
+                        return
+                except Exception as e:
+                    messagebox.showerror("Erreur", f"Erreur impression sortie : {e}")
+                    return
+
+            # Cas spécial: changement -> reproduire l'état A5 (comme page_infoMouvement)
+            if type_mouvement == 'changement':
+                try:
+                    conn = self.connect_db()
+                    if not conn:
+                        messagebox.showerror("Erreur", "Impossible de se connecter à la BDD.")
+                        return
+                    cur = conn.cursor()
+                    cur.execute(
+                        "SELECT idchg, datechg, refchg, note, COALESCE(u.username,'Utilisateur') "
+                        "FROM tb_changement c LEFT JOIN tb_users u ON c.iduser = u.iduser "
+                        "WHERE c.refchg = %s LIMIT 1",
+                        (reference,)
+                    )
+                    row = cur.fetchone()
+                    if not row:
+                        messagebox.showinfo("Attention", "Changement introuvable.")
+                        cur.close()
+                        conn.close()
+                        return
+                    idchg, date_chg, ref, observation, username = row
+
+                    cur.execute(
+                        """
+                        SELECT COALESCE(u.codearticle,'-'), a.designation, u.designationunite, ds.quantite_sortie, 'SORTIE', COALESCE(ms.designationmag,'')
+                        FROM tb_detailchange_sortie ds
+                        LEFT JOIN tb_article a ON ds.idarticle = a.idarticle
+                        LEFT JOIN tb_unite u ON ds.idunite = u.idunite
+                        LEFT JOIN tb_magasin ms ON ds.idmagasin = ms.idmag
+                        WHERE ds.idchg = %s
+                        UNION ALL
+                        SELECT COALESCE(u.codearticle,'-'), a.designation, u.designationunite, de.quantite_entree, 'ENTREE', COALESCE(me.designationmag,'')
+                        FROM tb_detailchange_entree de
+                        LEFT JOIN tb_article a ON de.idarticle = a.idarticle
+                        LEFT JOIN tb_unite u ON de.idunite = u.idunite
+                        LEFT JOIN tb_magasin me ON de.idmagasin = me.idmag
+                        WHERE de.idchg = %s
+                        ORDER BY 5, 2
+                        """,
+                        (idchg, idchg),
+                    )
+                    details = cur.fetchall()
+                    cur.close()
+                    conn.close()
+
+                    columns = ("Code", "Désignation", "Unité", "Quantité", "Type", "Magasin")
+                    table_data = (columns, [(c, d, u, q, t, m) for c, d, u, q, t, m in details])
+
+                    # Calculer en-tête magasin : si unique -> afficher, si plusieurs -> 'Plusieurs magasins', sinon 'N/A'
+                    magasin_values = [m for (_, _, _, _, _, m) in details if m]
+                    if magasin_values:
+                        magasin_header = (
+                            magasin_values[0]
+                            if len(set(magasin_values)) == 1
+                            else 'Plusieurs magasins'
+                        )
+                    else:
+                        magasin_header = 'N/A'
+
+                    try:
+                        etat = EtatPDFMouvements()
+                        try:
+                            etat.connect_db()
+                        except Exception:
+                            pass
+
+                        ok = etat._build_pdf_a5(
+                            output_path=path,
+                            titre_entete="CHANGEMENT D'ARTICLE",
+                            reference=ref,
+                            date_operation=(date_chg.strftime("%d/%m/%Y %H:%M") if date_chg else "N/A"),
+                            magasin=magasin_header,
+                            operateur=username,
+                            table_data=table_data,
+                            description=(observation or "Changement d'articles"),
+                            responsable_1="Magasinier",
+                            responsable_2="Responsable Magasin",
+                            duplicata=True,
+                        )
+                        try:
+                            etat.close_db()
+                        except Exception:
+                            pass
+
+                        if ok:
+                            messagebox.showinfo("PDF", f"PDF généré :\n{path}")
+                        else:
+                            messagebox.showerror("Erreur", f"Échec génération PDF pour {reference}")
+                        return
+                    except Exception as e:
+                        messagebox.showerror("Erreur PDF", f"Erreur génération changement : {e}")
+                        return
+                except Exception as e:
+                    messagebox.showerror("Erreur", f"Erreur impression changement : {e}")
+                    return
+
             gen = EtatPDFMouvements()
             ok = gen.generer_etat(type_mouvement, reference, path, duplicata=True)
             gen.close_db()

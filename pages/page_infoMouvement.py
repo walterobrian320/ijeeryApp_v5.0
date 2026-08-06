@@ -21,7 +21,7 @@ from pages.ui_dialogs import PasswordDialog
 from reportlab.lib.pagesizes import A5, landscape
 from reportlab.lib import colors
 from reportlab.lib.units import cm, mm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageTemplate, Frame
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageTemplate, Frame, KeepInFrame
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.pdfgen import canvas
@@ -113,6 +113,9 @@ class PageChangementArticle(ctk.CTkFrame):
         self.magasins: Dict[str, int] = {}
         self.idchg_charge              = None
         self.mode_modification         = False
+
+        self.combo_mag_sortie_var = tk.StringVar()
+        self.combo_mag_entree_var = tk.StringVar()
 
         # Listes articles
         self.articles_sortie: list                    = []
@@ -238,8 +241,12 @@ class PageChangementArticle(ctk.CTkFrame):
             font=Fonts.input(11), fg_color=Colors.BG_INPUT,
             border_color=Colors.BORDER, button_color=Colors.MIDNIGHT,
             dropdown_fg_color=Colors.BG_CARD,
+            variable=self.combo_mag_sortie_var,
         )
         self.combo_mag_sortie.pack(side="left")
+        self.combo_mag_sortie_var.trace_add(
+            "write", lambda *_: self._sync_magasin_entree()
+        )
 
         # ── Saisie article sortie ─────────────────────────────────────────────
         saisie = ctk.CTkFrame(panel, fg_color=Colors.BG_PAGE, corner_radius=0)
@@ -372,6 +379,8 @@ class PageChangementArticle(ctk.CTkFrame):
             font=Fonts.input(11), fg_color=Colors.BG_INPUT,
             border_color=Colors.BORDER, button_color=Colors.MIDNIGHT,
             dropdown_fg_color=Colors.BG_CARD,
+            variable=self.combo_mag_entree_var,
+            state="disabled",
         )
         self.combo_mag_entree.pack(side="left")
 
@@ -632,14 +641,19 @@ class PageChangementArticle(ctk.CTkFrame):
                     (nom for id_, nom in magasins_rows if id_ == idmag_defaut), None
                 )
                 defaut = nom_defaut if nom_defaut else noms[0]
-                self.combo_mag_sortie.set(defaut)
-                self.combo_mag_entree.set(defaut)
+                self.combo_mag_sortie_var.set(defaut)
 
         except Exception as e:
             messagebox.showerror("Erreur", f"Chargement magasins : {e}")
         finally:
             if 'cursor' in locals() and cursor: cursor.close()
             if conn: conn.close()
+
+    def _sync_magasin_entree(self):
+        """Synchronise automatiquement le magasin d'entrée avec le magasin de sortie."""
+        valeur = self.combo_mag_sortie_var.get()
+        if valeur != self.combo_mag_entree_var.get():
+            self.combo_mag_entree_var.set(valeur)
 
     # ══════════════════════════════════════════════════════════════════════════
     # SECTION 5 — INFOS SOCIÉTÉ (pour PDF)
@@ -1324,9 +1338,17 @@ class PageChangementArticle(ctk.CTkFrame):
             ParagraphStyle('CompanyDetails', parent=styles['Normal'],
                            fontSize=9, alignment=TA_LEFT, leading=12),
         )
-        company_table = Table([[company_details]],
-                               colWidths=[company_width - 2*mm],
-                               rowHeights=[header_height])
+        # Use KeepInFrame to automatically shrink company details if they overflow
+        company_block = KeepInFrame(
+            company_width - 2*mm,
+            header_height - 2*mm,
+            content=[company_details],
+            mode='shrink',
+            hAlign='LEFT',
+        )
+
+        company_data = [[company_block]]
+        company_table = Table(company_data, colWidths=[company_width - 2*mm], rowHeights=[header_height])
         company_table.setStyle(TableStyle([
             ('BOX',           (0, 0), (-1, -1), 1, self.COLOR_BORDER),
             ('ALIGN',         (0, 0), (0, 0), 'LEFT'),

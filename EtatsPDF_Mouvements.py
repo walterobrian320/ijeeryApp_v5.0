@@ -21,7 +21,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, 
-    PageBreak, Frame, PageTemplate
+    PageBreak, Frame, PageTemplate, KeepInFrame
 )
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
@@ -246,7 +246,15 @@ class EtatPDFMouvements:
             )
         )
         
-        company_data = [[company_details]]
+        company_block = KeepInFrame(
+            company_width - 2*mm,
+            header_height - 2*mm,
+            content=[company_details],
+            mode='shrink',
+            hAlign='LEFT'
+        )
+
+        company_data = [[company_block]]
         company_table = Table(company_data, colWidths=[company_width - 2*mm], rowHeights=[header_height])
         company_table.setStyle(TableStyle([
             ('BOX', (0, 0), (-1, -1), 1, self.COLOR_BORDER),

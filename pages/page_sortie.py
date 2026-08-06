@@ -1737,7 +1737,7 @@ class PageSortie(ctk.CTkFrame):
                     output_path=filename,
                     titre_entete="BON DE SORTIE",
                     reference=ref_sortie,
-                    date_operation=datetime.now().strftime('%d/%m/%Y'),
+                    date_operation=datetime.now().strftime('%d/%m/%Y %H:%M'),
                     magasin=self.combo_magasin.get() if hasattr(self, 'combo_magasin') else '',
                     operateur=username,
                     table_data=table_data,

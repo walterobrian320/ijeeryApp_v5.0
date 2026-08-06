@@ -27,6 +27,12 @@ from datetime import datetime
 from typing import List, Optional, Tuple
 from resource_utils import get_config_path, safe_file_read
 from app_theme import Colors, Fonts, Layout, styled
+from reportlab.lib.pagesizes import landscape, A5
+from reportlab.lib import colors
+from reportlab.lib.units import mm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
 try:
     from EtatsPDF_Mouvements import EtatPDFMouvements
@@ -1359,15 +1365,20 @@ class PageListeMouvement(ctk.CTkFrame):
                                  "Module EtatsPDF_Mouvements introuvable.")
             return
         try:
+            default_filename = (
+                f"ConsommationInterne_{reference}.pdf"
+                if type_mouvement == 'consommation'
+                else f"Bon_{type_mouvement}_{reference}.pdf"
+            )
             path = filedialog.asksaveasfilename(
                 defaultextension=".pdf",
                 filetypes=[("PDF", "*.pdf"), ("Tous", "*.*")],
-                initialfile=f"Bon_{type_mouvement}_{reference}.pdf",
+                initialfile=default_filename,
             )
             if not path:
                 return
             gen = EtatPDFMouvements()
-            ok  = gen.generer_etat(type_mouvement, reference, path)
+            ok  = gen.generer_etat(type_mouvement, reference, path, duplicata=True)
             gen.close_db()
             if ok:
                 messagebox.showinfo("PDF", f"PDF généré :\n{path}")

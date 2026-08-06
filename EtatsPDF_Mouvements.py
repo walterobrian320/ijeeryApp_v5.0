@@ -578,7 +578,7 @@ class EtatPDFMouvements:
     # MÉTHODES POUR CHAQUE TYPE DE MOUVEMENT
     # ========================================================
     
-    def generer_bon_entree(self, refcom, output_path=None):
+    def generer_bon_entree(self, refcom, output_path=None, duplicata=False):
         """Génère un PDF pour un Bon d'Entrée au format A5 Landscape."""
         if not self.conn:
             self.connect_db()
@@ -623,16 +623,73 @@ class EtatPDFMouvements:
             
             return self._build_pdf_a5(
                 output_path, "BON D'ENTRÉE", ref,
-                datecom.strftime("%d/%m/%Y") if datecom else "N/A",
+                datecom.strftime("%d/%m/%Y %H:%M") if datecom else "N/A",
                 "Magasin TSARAVATSY", fournisseur or "N/A",
                 table_data, f"Fournisseur: {fournisseur or 'N/A'}",
-                "Réceptionnaire", "Responsable Magasin"
+                "Réceptionnaire", "Responsable Magasin",
+                duplicata=duplicata,
             )
         except Exception as e:
             print(f"❌ Erreur bon d'entrée: {e}")
             return False
     
-    def generer_bon_sortie(self, refsortie, output_path=None):
+    def generer_bon_entree_stock(self, refentree, output_path=None, duplicata=False):
+        """Génère un PDF pour une Entrée Stock au format A5 Landscape."""
+        if not self.conn:
+            self.connect_db()
+
+        try:
+            cur = self.conn.cursor()
+            cur.execute("""
+                SELECT e.id, e.dateregistre, e.refentree, e.description,
+                       CONCAT(u.prenomuser, ' ', u.nomuser) as operateur
+                FROM tb_entree e
+                LEFT JOIN tb_users u ON e.iduser = u.iduser
+                WHERE e.refentree = %s AND e.deleted = 0 LIMIT 1
+            """, (refentree,))
+
+            entree_info = cur.fetchone()
+            if not entree_info:
+                print(f"❌ Entrée stock {refentree} non trouvée")
+                return False
+
+            identree, date_entree, ref, description, operateur = entree_info
+
+            cur.execute("""
+                SELECT 
+                    COALESCE(u.codearticle, '-'),
+                    a.designation,
+                    u.designationunite,
+                    ed.qtentree,
+                    COALESCE(ed.motif, '')
+                FROM tb_entreedetail ed
+                LEFT JOIN tb_article a ON ed.idarticle = a.idarticle
+                LEFT JOIN tb_unite u ON ed.idunite = u.idunite
+                WHERE ed.identree = %s AND ed.deleted = 0
+                ORDER BY a.designation
+            """, (identree,))
+
+            details = cur.fetchall()
+
+            if not output_path:
+                output_path = f"Entree_Stock_{refentree}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+
+            colonnes = ("Code", "Désignation", "Unité", "Qté entrée", "Motif")
+            table_data = (colonnes, list(details))
+
+            return self._build_pdf_a5(
+                output_path, "BON D'ENTRÉE STOCK", ref,
+                date_entree.strftime("%d/%m/%Y %H:%M") if date_entree else "N/A",
+                "Magasin TSARAVATSY", operateur or "N/A",
+                table_data, description or "Entrée stock",
+                "Réceptionnaire", "Responsable Magasin",
+                duplicata=duplicata,
+            )
+        except Exception as e:
+            print(f"❌ Erreur entrée stock: {e}")
+            return False
+    
+    def generer_bon_sortie(self, refsortie, output_path=None, duplicata=False):
         """Génère un PDF pour un Bon de Sortie au format A5 Landscape."""
         if not self.conn:
             self.connect_db()
@@ -677,16 +734,17 @@ class EtatPDFMouvements:
             
             return self._build_pdf_a5(
                 output_path, "BON DE SORTIE", ref,
-                date_sortie.strftime("%d/%m/%Y") if date_sortie else "N/A",
+                date_sortie.strftime("%d/%m/%Y %H:%M") if date_sortie else "N/A",
                 "Magasin TSARAVATSY", operateur or "N/A",
                 table_data, description or "Sortie de stock",
-                "Magasinier", "Responsable Magasin"
+                "Magasinier", "Responsable Magasin",
+                duplicata=duplicata,
             )
         except Exception as e:
             print(f"❌ Erreur bon de sortie: {e}")
             return False
     
-    def generer_bon_transfert(self, reftransfert, output_path=None):
+    def generer_bon_transfert(self, reftransfert, output_path=None, duplicata=False):
         """Génère un PDF pour un Bon de Transfert au format A5 Landscape."""
         if not self.conn:
             self.connect_db()
@@ -737,13 +795,14 @@ class EtatPDFMouvements:
                 date_transfert.strftime("%d/%m/%Y %H:%M") if date_transfert else "N/A",
                 magasins, operateur or "N/A",
                 table_data, f"Transfert: {magasins}",
-                "Magasinier Source", "Magasinier Destination"
+                "Magasinier Source", "Magasinier Destination",
+                duplicata=duplicata,
             )
         except Exception as e:
             print(f"❌ Erreur bon de transfert: {e}")
             return False
     
-    def generer_bon_consommation(self, refconso, output_path=None):
+    def generer_bon_consommation(self, refconso, output_path=None, duplicata=False):
         """Génère un PDF pour une Consommation Interne au format A5 Landscape."""
         if not self.conn:
             self.connect_db()
@@ -752,7 +811,8 @@ class EtatPDFMouvements:
             cur = self.conn.cursor()
             cur.execute("""
                 SELECT c.id, c.dateregistre, c.refconsommation, c.observation,
-                       CONCAT(usr.prenomuser, ' ', usr.nomuser) as operateur
+                       CONCAT(usr.prenomuser, ' ', usr.nomuser) as operateur,
+                       usr.username
                 FROM tb_consommationinterne c
                 LEFT JOIN tb_users usr ON c.iduser = usr.iduser
                 WHERE c.refconsommation = %s LIMIT 1
@@ -763,41 +823,58 @@ class EtatPDFMouvements:
                 print(f"❌ Consommation {refconso} non trouvée")
                 return False
             
-            idconso, date_conso, ref, observation, operateur = conso_info
+            idconso, date_conso, ref, observation, operateur, username = conso_info
+            if username:
+                operateur = f"{username}"
             
             cur.execute("""
                 SELECT 
                     COALESCE(u.codearticle, '-'),
                     a.designation,
                     u.designationunite,
-                    cd.qtconsomme
+                    COALESCE(m.designationmag, 'N/A'),
+                    COALESCE(cd.qtconsomme, 0),
+                    COALESCE(cd.prixunit, 0),
+                    COALESCE(cd.montant_total, 0),
+                    COALESCE(cd.observation, '')
                 FROM tb_consommationinterne_details cd
                 LEFT JOIN tb_article a ON cd.idarticle = a.idarticle
                 LEFT JOIN tb_unite u ON cd.idunite = u.idunite
+                LEFT JOIN tb_magasin m ON cd.idmag = m.idmag
                 WHERE cd.idconsommation = %s
-                ORDER BY a.designation
+                ORDER BY cd.id ASC
             """, (idconso,))
             
             details = cur.fetchall()
             
             if not output_path:
-                output_path = f"Bon_Consommation_{refconso}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                output_path = f"ConsommationInterne_{refconso}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
             
-            colonnes = ("Code", "Désignation", "Unité", "Quantité")
+            colonnes = ("Code", "Désignation", "Unité", "Magasin",
+                        "Quantité", "P.U.", "Montant", "Observation")
             table_data = (colonnes, list(details))
+            
+            magasin_values = [row[3] for row in details if row[3]]
+            magasin_header = (
+                magasin_values[0]
+                if len(set(magasin_values)) == 1 and magasin_values
+                else "Plusieurs magasins" if magasin_values
+                else "N/A"
+            )
             
             return self._build_pdf_a5(
                 output_path, "CONSOMMATION INTERNE", ref,
-                date_conso.strftime("%d/%m/%Y") if date_conso else "N/A",
-                "Magasin TSARAVATSY", operateur or "N/A",
-                table_data, observation or "Consommation interne",
-                "Responsable Magasin", "Gestionnaire Stock"
+                date_conso.strftime("%d/%m/%Y %H:%M") if date_conso else "N/A",
+                magasin_header, operateur or "N/A",
+                table_data, "",
+                "Le Magasinier", "Le Contrôleur",
+                duplicata=duplicata,
             )
         except Exception as e:
             print(f"❌ Erreur consommation: {e}")
             return False
     
-    def generer_bon_changement(self, refchg, output_path=None):
+    def generer_bon_changement(self, refchg, output_path=None, duplicata=False):
         """Génère un PDF pour un Changement d'Article au format A5 Landscape."""
         if not self.conn:
             self.connect_db()
@@ -854,29 +931,32 @@ class EtatPDFMouvements:
             
             return self._build_pdf_a5(
                 output_path, "CHANGEMENT D'ARTICLE", ref,
-                date_chg.strftime("%d/%m/%Y") if date_chg else "N/A",
+                date_chg.strftime("%d/%m/%Y %H:%M") if date_chg else "N/A",
                 "Magasin TSARAVATSY", operateur or "N/A",
                 table_data, observation or "Changement effectué",
-                "Magasinier", "Responsable Magasin"
+                "Magasinier", "Responsable Magasin",
+                duplicata=duplicata,
             )
         except Exception as e:
             print(f"❌ Erreur changement: {e}")
             return False
     
-    def generer_etat(self, type_mouvement, reference, output_path=None):
+    def generer_etat(self, type_mouvement, reference, output_path=None, duplicata=False):
         """Génère un état PDF selon le type de mouvement."""
         type_mouvement = type_mouvement.lower()
         
         if type_mouvement == 'entree':
-            return self.generer_bon_entree(reference, output_path)
+            return self.generer_bon_entree(reference, output_path, duplicata=duplicata)
+        elif type_mouvement == 'entree_stock':
+            return self.generer_bon_entree_stock(reference, output_path, duplicata=duplicata)
         elif type_mouvement == 'sortie':
-            return self.generer_bon_sortie(reference, output_path)
+            return self.generer_bon_sortie(reference, output_path, duplicata=duplicata)
         elif type_mouvement == 'transfert':
-            return self.generer_bon_transfert(reference, output_path)
+            return self.generer_bon_transfert(reference, output_path, duplicata=duplicata)
         elif type_mouvement == 'consommation':
-            return self.generer_bon_consommation(reference, output_path)
+            return self.generer_bon_consommation(reference, output_path, duplicata=duplicata)
         elif type_mouvement == 'changement':
-            return self.generer_bon_changement(reference, output_path)
+            return self.generer_bon_changement(reference, output_path, duplicata=duplicata)
         else:
             print(f"❌ Type inconnu: {type_mouvement}")
             return False

@@ -9,6 +9,7 @@ import json
 import os
 from resource_utils import get_config_path, safe_file_read
 from settings_utils import open_file_if_enabled
+from log_utils import resolve_connected_user_id
 
 # Imports ReportLab pour le PDF
 from reportlab.lib import colors
@@ -86,6 +87,22 @@ class PageCaisse(ctk.CTkFrame):
 
         # ── Utilisateur connecté (transmis depuis le login) ───────────────────
         self.current_username = username or "Système"
+        self.current_user_id = resolve_connected_user_id(
+            master=self.master,
+            session_data=getattr(self.master, "session_data", None),
+            default=None,
+        )
+        if self.current_user_id is None:
+            try:
+                self.cursor.execute(
+                    "SELECT iduser FROM tb_users WHERE LOWER(TRIM(username)) = LOWER(TRIM(%s)) LIMIT 1",
+                    (self.current_username,),
+                )
+                row = self.cursor.fetchone()
+                if row and row[0] is not None:
+                    self.current_user_id = row[0]
+            except Exception:
+                self.current_user_id = None
 
         # ── État interne (identique à l'original) ─────────────────────────────
         self.modes_paiement_dict = {"Tous": None}
@@ -113,6 +130,8 @@ class PageCaisse(ctk.CTkFrame):
         }
         self.mode_bd_to_id   = {}
         self.donnees_tableau = []
+        self._display_row_metadata = []
+        self._tree_row_metadata = {}
 
         self.conn = self.connect_db()
         if self.conn:
@@ -299,6 +318,8 @@ class PageCaisse(ctk.CTkFrame):
         self.tree.grid(row=0, column=0, sticky="nsew", padx=(6, 0), pady=(6, 0))
         sy.grid(row=0, column=1, sticky="ns",  pady=(6, 0))
         sx.grid(row=1, column=0, sticky="ew",  padx=(6, 0))
+
+        self.tree.bind("<Button-3>", self._on_tree_right_click)
 
     def _build_table_actions(self):
         panel = ctk.CTkFrame(self, fg_color="transparent")
@@ -495,24 +516,35 @@ class PageCaisse(ctk.CTkFrame):
         recherche = self.entry_recherche.get().strip().lower()
         for item in self.tree.get_children():
             self.tree.delete(item)
+        self._tree_row_metadata = {}
         if not recherche:
             for i, row in enumerate(self.donnees_tableau):
                 tag = 'even' if (i % 2) else 'odd'
                 try:
-                    self.tree.insert("", "end", values=row, tags=(tag,))
+                    iid = self.tree.insert("", "end", values=row, tags=(tag,))
                 except TypeError:
-                    self.tree.insert("", "end", values=row)
+                    iid = self.tree.insert("", "end", values=row)
+                meta = self._display_row_metadata[i] if i < len(self._display_row_metadata) else None
+                if meta:
+                    self._tree_row_metadata[iid] = meta
             return
-        lignes_filtrees = [
-            row for row in self.donnees_tableau
-            if any(recherche in str(cell).lower() for cell in row)
-        ]
+
+        lignes_filtrees = []
+        metas_filtrees = []
+        for row, meta in zip(self.donnees_tableau, self._display_row_metadata):
+            if any(recherche in str(cell).lower() for cell in row):
+                lignes_filtrees.append(row)
+                metas_filtrees.append(meta)
+
         for i, row in enumerate(lignes_filtrees):
             tag = 'even' if (i % 2) else 'odd'
             try:
-                self.tree.insert("", "end", values=row, tags=(tag,))
+                iid = self.tree.insert("", "end", values=row, tags=(tag,))
             except TypeError:
-                self.tree.insert("", "end", values=row)
+                iid = self.tree.insert("", "end", values=row)
+            meta = metas_filtrees[i]
+            if meta:
+                self._tree_row_metadata[iid] = meta
 
     def toggle_cumul(self):
         self.show_cumul = self.check_cumul.get() == 1
@@ -687,39 +719,50 @@ class PageCaisse(ctk.CTkFrame):
             sql_mode    = " AND t1.idmode = %s"
             mode_params = [mode_id]
 
-        def exec_query(query, params):
+        def exec_query(query, params, source_table=None, modifiable=False):
             try:
                 self.cursor.execute(query, params)
-                all_ops.extend(self.cursor.fetchall())
+                rows = self.cursor.fetchall()
+                for row in rows:
+                    record_id = row[0]
+                    data = row[1:]
+                    all_ops.append({
+                        "data": data,
+                        "source_table": source_table,
+                        "record_id": record_id,
+                        "modifiable": modifiable,
+                    })
             except psycopg2.Error as e:
                 print(f"Erreur query: {e}")
                 self.conn.rollback()
 
         if type_doc in ["Tous", "Client"]:
-            exec_query(f"SELECT t1.datepmt, t1.refpmt, t1.observation, t1.mtpaye, t1.idtypeoperation, COALESCE(t2.modedepaiement,'Inconnu'), COALESCE(t3.username,'Système') FROM tb_pmtfacture t1 LEFT JOIN tb_modepaiement t2 ON t1.idmode=t2.idmode LEFT JOIN tb_users t3 ON t1.iduser=t3.iduser WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL{sql_mode}", [d_str, f_str]+mode_params)
+            exec_query(f"SELECT t1.id, t1.datepmt, t1.refpmt, t1.observation, t1.mtpaye, t1.idtypeoperation, COALESCE(t2.modedepaiement,'Inconnu'), COALESCE(t3.username,'Système') FROM tb_pmtfacture t1 LEFT JOIN tb_modepaiement t2 ON t1.idmode=t2.idmode LEFT JOIN tb_users t3 ON t1.iduser=t3.iduser WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL{sql_mode}", [d_str, f_str]+mode_params, source_table="tb_pmtfacture", modifiable=False)
         if type_doc in ["Tous", "Paiement Crédit"]:
-            exec_query(f"SELECT t1.datepmt, t1.refpmt, t1.observation, t1.mtpaye, t1.idtypeoperation, COALESCE(t2.modedepaiement,'Inconnu'), COALESCE(t3.username,'Système') FROM tb_pmtcredit t1 LEFT JOIN tb_modepaiement t2 ON t1.idmode=t2.idmode LEFT JOIN tb_users t3 ON t1.iduser=t3.iduser WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL{sql_mode}", [d_str, f_str]+mode_params)
+            exec_query(f"SELECT t1.id, t1.datepmt, t1.refpmt, t1.observation, t1.mtpaye, t1.idtypeoperation, COALESCE(t2.modedepaiement,'Inconnu'), COALESCE(t3.username,'Système') FROM tb_pmtcredit t1 LEFT JOIN tb_modepaiement t2 ON t1.idmode=t2.idmode LEFT JOIN tb_users t3 ON t1.iduser=t3.iduser WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL{sql_mode}", [d_str, f_str]+mode_params, source_table="tb_pmtcredit", modifiable=False)
         if type_doc in ["Tous", "Avoir"]:
-            exec_query(f"SELECT t1.datepmt, t1.refavoir, t1.observation, t1.mtpaye, t1.idtypeoperation, COALESCE(t2.modedepaiement,'Inconnu'), COALESCE(t3.username,'Système') FROM tb_pmtavoir t1 LEFT JOIN tb_modepaiement t2 ON t1.idmode=t2.idmode LEFT JOIN tb_users t3 ON t1.iduser=t3.iduser WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL{sql_mode}", [d_str, f_str]+mode_params)
+            exec_query(f"SELECT t1.id, t1.datepmt, t1.refavoir, t1.observation, t1.mtpaye, t1.idtypeoperation, COALESCE(t2.modedepaiement,'Inconnu'), COALESCE(t3.username,'Système') FROM tb_pmtavoir t1 LEFT JOIN tb_modepaiement t2 ON t1.idmode=t2.idmode LEFT JOIN tb_users t3 ON t1.iduser=t3.iduser WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL{sql_mode}", [d_str, f_str]+mode_params, source_table="tb_pmtavoir", modifiable=False)
         if type_doc in ["Tous", "Fournisseur"]:
-            exec_query(f"SELECT t1.datepmt, t1.refpmt, t1.observation, t1.mtpaye, t1.idtypeoperation, COALESCE(t2.modedepaiement,'Inconnu'), COALESCE(t3.username,'Système') FROM tb_pmtcom t1 LEFT JOIN tb_modepaiement t2 ON t1.idmode=t2.idmode LEFT JOIN tb_users t3 ON t1.iduser=t3.iduser WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL{sql_mode}", [d_str, f_str]+mode_params)
+            exec_query(f"SELECT t1.id, t1.datepmt, t1.refpmt, t1.observation, t1.mtpaye, t1.idtypeoperation, COALESCE(t2.modedepaiement,'Inconnu'), COALESCE(t3.username,'Système') FROM tb_pmtcom t1 LEFT JOIN tb_modepaiement t2 ON t1.idmode=t2.idmode LEFT JOIN tb_users t3 ON t1.iduser=t3.iduser WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL{sql_mode}", [d_str, f_str]+mode_params, source_table="tb_pmtcom", modifiable=False)
         if type_doc in ["Tous", "Encaissement"]:
-            exec_query(f"SELECT t1.datepmt, t1.refpmt, t1.observation, t1.mtpaye, t1.idtypeoperation, COALESCE(t2.modedepaiement,'Inconnu'), COALESCE(t3.username,'Système') FROM tb_encaissement t1 LEFT JOIN tb_modepaiement t2 ON t1.idmode=t2.idmode LEFT JOIN tb_users t3 ON t1.iduser=t3.iduser WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL{sql_mode}", [d_str, f_str]+mode_params)
+            exec_query(f"SELECT t1.id, t1.datepmt, t1.refpmt, t1.observation, t1.mtpaye, t1.idtypeoperation, COALESCE(t2.modedepaiement,'Inconnu'), COALESCE(t3.username,'Système') FROM tb_encaissement t1 LEFT JOIN tb_modepaiement t2 ON t1.idmode=t2.idmode LEFT JOIN tb_users t3 ON t1.iduser=t3.iduser WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL{sql_mode}", [d_str, f_str]+mode_params, source_table="tb_encaissement", modifiable=True)
         if type_doc in ["Tous", "Dépenses"]:
-            exec_query(f"SELECT t1.datepmt, t1.refpmt, t1.observation, t1.mtpaye, t1.idtypeoperation, COALESCE(t2.modedepaiement,'Inconnu'), COALESCE(t3.username,'Système') FROM tb_decaissement t1 LEFT JOIN tb_modepaiement t2 ON t1.idmode=t2.idmode LEFT JOIN tb_users t3 ON t1.iduser=t3.iduser WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL{sql_mode}", [d_str, f_str]+mode_params)
+            exec_query(f"SELECT t1.id, t1.datepmt, t1.refpmt, t1.observation, t1.mtpaye, t1.idtypeoperation, COALESCE(t2.modedepaiement,'Inconnu'), COALESCE(t3.username,'Système') FROM tb_decaissement t1 LEFT JOIN tb_modepaiement t2 ON t1.idmode=t2.idmode LEFT JOIN tb_users t3 ON t1.iduser=t3.iduser WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL{sql_mode}", [d_str, f_str]+mode_params, source_table="tb_decaissement", modifiable=True)
         if type_doc in ["Tous", "Personnel"]:
             for tbl in ("tb_avancepers", "tb_avancespecpers", "tb_pmtsalaire"):
-                exec_query(f"SELECT t1.datepmt, t1.refpmt, t1.observation, t1.mtpaye, t1.idtypeoperation, COALESCE(t2.modedepaiement,'Inconnu'), COALESCE(t3.username,'Système') FROM {tbl} t1 LEFT JOIN tb_modepaiement t2 ON t1.idmode=t2.idmode LEFT JOIN tb_users t3 ON t1.iduser=t3.iduser WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL{sql_mode}", [d_str, f_str]+mode_params)
+                exec_query(f"SELECT t1.id, t1.datepmt, t1.refpmt, t1.observation, t1.mtpaye, t1.idtypeoperation, COALESCE(t2.modedepaiement,'Inconnu'), COALESCE(t3.username,'Système') FROM {tbl} t1 LEFT JOIN tb_modepaiement t2 ON t1.idmode=t2.idmode LEFT JOIN tb_users t3 ON t1.iduser=t3.iduser WHERE t1.datepmt::date BETWEEN %s AND %s AND t1.id_banque IS NULL{sql_mode}", [d_str, f_str]+mode_params, source_table=tbl, modifiable=False)
         if (not mode_id or mode_id == 1) and type_doc == "Tous":
-            exec_query("SELECT t1.datepmt, t1.refpmt, t1.observation, t1.mtpaye, t1.idtypeoperation, COALESCE(t2.modedepaiement,'Espèces'), COALESCE(t3.username,'admin') FROM tb_transfertcaisse t1 LEFT JOIN tb_modepaiement t2 ON t1.idmode=t2.idmode LEFT JOIN tb_users t3 ON t1.iduser=t3.iduser WHERE t1.datepmt::date BETWEEN %s AND %s", [d_str, f_str])
+            exec_query("SELECT t1.id, t1.datepmt, t1.refpmt, t1.observation, t1.mtpaye, t1.idtypeoperation, COALESCE(t2.modedepaiement,'Espèces'), COALESCE(t3.username,'admin') FROM tb_transfertcaisse t1 LEFT JOIN tb_modepaiement t2 ON t1.idmode=t2.idmode LEFT JOIN tb_users t3 ON t1.iduser=t3.iduser WHERE t1.datepmt::date BETWEEN %s AND %s", [d_str, f_str], source_table="tb_transfertcaisse", modifiable=False)
 
         def get_datetime(op):
-            dt = op[0]
+            dt = op["data"][0]
             return dt if isinstance(dt, datetime) else datetime.combine(dt, datetime.min.time())
 
         all_ops.sort(key=get_datetime, reverse=True)
         self.donnees_pour_pdf    = []
         self.donnees_tableau     = []
+        self._display_row_metadata = []
+        self._tree_row_metadata  = {}
         self.total_enc_periode   = 0
         self.total_dec_periode   = 0
 
@@ -727,14 +770,16 @@ class PageCaisse(ctk.CTkFrame):
         cumuls_dict  = {}
         cumul_courant = 0
         for idx, r in enumerate(all_ops_asc):
-            enc = float(r[3]) if r[4] == 1 else 0
-            dec = float(r[3]) if r[4] == 2 else 0
+            data = r["data"]
+            enc = float(data[3]) if data[4] == 1 else 0
+            dec = float(data[3]) if data[4] == 2 else 0
             cumul_courant += enc - dec
             cumuls_dict[idx] = cumul_courant
 
         try:
-            for i, r in enumerate(all_ops):
-                dt, ref, obs, mt, typ, mod, usr = r
+            for i, op in enumerate(all_ops):
+                data = op["data"]
+                dt, ref, obs, mt, typ, mod, usr = data
                 enc = float(mt) if typ == 1 else 0
                 dec = float(mt) if typ == 2 else 0
                 self.total_enc_periode += enc
@@ -749,15 +794,169 @@ class PageCaisse(ctk.CTkFrame):
                         cumul_str, mod, usr)
                 tag = 'even' if (i % 2) else 'odd'
                 try:
-                    self.tree.insert("", "end", values=vals, tags=(tag,))
+                    iid = self.tree.insert("", "end", values=vals, tags=(tag,))
                 except TypeError:
-                    self.tree.insert("", "end", values=vals)
+                    iid = self.tree.insert("", "end", values=vals)
+                meta = {
+                    "source_table": op.get("source_table"),
+                    "record_id": op.get("record_id"),
+                    "modifiable": bool(op.get("modifiable")),
+                    "description": str(obs),
+                    "reference": str(ref),
+                }
+                self._tree_row_metadata[iid] = meta
+                self._display_row_metadata.append(meta)
                 self.donnees_pour_pdf.append(list(vals))
                 self.donnees_tableau.append(vals)
 
             self.update_solde_global()
         except Exception as e:
             print(f"Erreur lors du chargement des données: {e}")
+
+    def _on_tree_right_click(self, event):
+        item = self.tree.identify_row(event.y)
+        if not item:
+            return
+        self.tree.selection_set(item)
+        meta = self._tree_row_metadata.get(item)
+        if not meta or not meta.get("modifiable"):
+            return
+
+        menu = tk.Menu(self, tearoff=0)
+        menu.add_command(
+            label="Modifier la description",
+            command=lambda iid=item: self._ouvrir_dialogue_modification(iid)
+        )
+        menu.post(event.x_root, event.y_root)
+
+    def _ouvrir_dialogue_modification(self, iid):
+        meta = self._tree_row_metadata.get(iid)
+        if not meta or not meta.get("modifiable"):
+            return
+
+        values = list(self.tree.item(iid, "values") or [])
+        if len(values) < 3:
+            return
+
+        dialog = ctk.CTkToplevel(self.winfo_toplevel())
+        dialog.title("Modifier la description")
+        dialog.transient(self.winfo_toplevel())
+        dialog.grab_set()
+        dialog.geometry("420x260")
+        dialog.resizable(False, False)
+
+        parent = self.winfo_toplevel()
+        parent.update_idletasks()
+        x = max(0, parent.winfo_rootx() + (parent.winfo_width() // 2) - 210)
+        y = max(0, parent.winfo_rooty() + (parent.winfo_height() // 2) - 130)
+        dialog.geometry(f"420x260+{x}+{y}")
+
+        ctk.CTkLabel(dialog, text="Modification de description", font=_f(14, "bold"),
+                     text_color=C.TEXT_PRIMARY).pack(padx=16, pady=(16, 6))
+        ctk.CTkLabel(dialog, text="Type : " + ("Encaissement" if meta.get("source_table") == "tb_encaissement" else "Décaissement"),
+                     font=_f(10), text_color=C.TEXT_SECONDARY).pack(anchor="w", padx=20, pady=(4, 2))
+        ctk.CTkLabel(dialog, text="Référence : " + str(values[1]), font=_f(10),
+                     text_color=C.TEXT_SECONDARY).pack(anchor="w", padx=20, pady=(0, 8))
+
+        ctk.CTkLabel(dialog, text="Nouvelle description", font=_f(10),
+                     text_color=C.TEXT_PRIMARY).pack(anchor="w", padx=20, pady=(0, 2))
+        desc_var = tk.StringVar(value=meta.get("description") or "")
+        desc_entry = ctk.CTkEntry(dialog, textvariable=desc_var, width=360)
+        desc_entry.pack(padx=20, pady=(0, 8))
+
+        ctk.CTkLabel(dialog, text=f"Mot de passe de {self.current_username}", font=_f(10),
+                     text_color=C.TEXT_PRIMARY).pack(anchor="w", padx=20, pady=(0, 2))
+        pwd_var = tk.StringVar(value="")
+        pwd_entry = ctk.CTkEntry(dialog, textvariable=pwd_var, width=360, show="*")
+        pwd_entry.pack(padx=20, pady=(0, 12))
+
+        def save_action(event=None):
+            self._enregistrer_description(dialog, iid, desc_var.get(), pwd_var.get())
+
+        ctk.CTkButton(dialog, text="Enregistrer", command=save_action,
+                      fg_color=C.SUCCESS_DARK, hover_color=C.SUCCESS,
+                      text_color="#FFFFFF", width=140, height=32).pack(side="left", padx=(20, 8), pady=(0, 16))
+        ctk.CTkButton(dialog, text="Annuler", command=dialog.destroy,
+                      fg_color=C.BORDER, hover_color=C.TEXT_MUTED,
+                      text_color=C.TEXT_PRIMARY, width=140, height=32).pack(side="left", padx=(0, 20), pady=(0, 16))
+
+        desc_entry.bind("<Return>", save_action)
+        pwd_entry.bind("<Return>", save_action)
+
+    def _enregistrer_description(self, dialog, iid, description, password):
+        meta = self._tree_row_metadata.get(iid)
+        if not meta or not meta.get("modifiable"):
+            return
+        if not description or not description.strip():
+            messagebox.showerror("Erreur", "La description ne peut pas être vide.")
+            return
+        if not password:
+            messagebox.showerror("Erreur", "Le mot de passe est obligatoire.")
+            return
+
+        source_table = meta.get("source_table")
+        record_id = meta.get("record_id")
+        if source_table not in ("tb_encaissement", "tb_decaissement") or record_id is None:
+            messagebox.showerror("Erreur", "Cette ligne ne peut pas être modifiée.")
+            return
+
+        timestamp = datetime.now().strftime("%d/%m/%Y à %H:%M")
+        suffix = f" [modifié par {self.current_username} le {timestamp}]"
+        max_len = 150 - len(suffix)
+        if len(description.strip()) > max_len:
+            messagebox.showerror("Erreur", f"La description ne doit pas dépasser {max_len} caractères avant le suffixe d'audit.")
+            return
+
+        final_description = f"{description.strip()}{suffix}"
+
+        try:
+            if self.current_user_id is not None:
+                self.cursor.execute("""
+                    SELECT iduser, password
+                    FROM tb_users
+                    WHERE iduser = %s
+                      AND active = 1
+                      AND COALESCE(deleted, 0) = 0
+                    LIMIT 1
+                """, (self.current_user_id,))
+            else:
+                self.cursor.execute("""
+                    SELECT iduser, password
+                    FROM tb_users
+                    WHERE LOWER(TRIM(username)) = LOWER(TRIM(%s))
+                      AND active = 1
+                      AND COALESCE(deleted, 0) = 0
+                    LIMIT 1
+                """, (self.current_username,))
+            user_row = self.cursor.fetchone()
+        except psycopg2.Error as e:
+            self.conn.rollback()
+            messagebox.showerror("Erreur", f"Impossible de vérifier le mot de passe : {e}")
+            return
+
+        stored_password = user_row[1] if user_row else None
+        if stored_password is None or stored_password != password:
+            messagebox.showerror("Erreur", "Mot de passe incorrect.")
+            return
+
+        try:
+            if source_table == "tb_encaissement":
+                self.cursor.execute("UPDATE tb_encaissement SET observation = %s WHERE id = %s", (final_description, record_id))
+            else:
+                self.cursor.execute("UPDATE tb_decaissement SET observation = %s WHERE id = %s", (final_description, record_id))
+            self.conn.commit()
+        except psycopg2.Error as e:
+            self.conn.rollback()
+            messagebox.showerror("Erreur", f"Impossible d'enregistrer la description : {e}")
+            return
+        except Exception as e:
+            self.conn.rollback()
+            messagebox.showerror("Erreur", f"Impossible d'enregistrer la description : {e}")
+            return
+
+        dialog.destroy()
+        messagebox.showinfo("Succès", "Description mise à jour.")
+        self.appliquer_filtres()
 
     def update_solde_global(self):
         try:

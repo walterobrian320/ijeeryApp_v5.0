@@ -675,15 +675,17 @@ class PageArticleMouvement(ctk.CTkFrame):
                     COALESCE(m.designationmag,'N/A'), COALESCE(usr.username,'N/A'),
                     u.idunite, u.codearticle, a.idarticle,
                     u.idunite, COALESCE(lf.idmag,-1),
-                    COALESCE('[FRS: '||frs.nomfrs||
-                             ' , ref. Commande: '||c.refcom||'] '
-                             ||COALESCE('Desc : '||lf.factfrs,''), '')
+                    COALESCE('[FRS: '||frs.nomfrs||']'
+                             ||COALESCE(', TRANS : '||tr.nom,'')
+                             ||COALESCE(', COMMANDE : '||c.refcom,'')
+                             ||COALESCE(', FACT : '||lf.factfrs,''), '')
                 FROM tb_livraisonfrs lf
                 INNER JOIN tb_unite u ON lf.idunite = u.idunite
                 INNER JOIN tb_article a ON u.idarticle = a.idarticle
                 LEFT JOIN tb_magasin m ON lf.idmag = m.idmag
                 LEFT JOIN tb_users usr ON lf.iduser = usr.iduser
                 LEFT JOIN tb_commande c ON lf.idcom = c.idcom
+                LEFT JOIN tb_transporteur tr ON c.idtransportuer = tr.idtransporteur
                 LEFT JOIN tb_commandedetail cd
                     ON c.idcom = cd.idcom AND cd.idarticle = a.idarticle
                 LEFT JOIN tb_fournisseur frs ON cd.idfrs = frs.idfrs

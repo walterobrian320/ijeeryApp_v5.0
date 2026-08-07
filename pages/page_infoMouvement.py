@@ -175,7 +175,7 @@ class PageChangementArticle(ctk.CTkFrame):
         )
 
         # — Référence —
-        ctk.CTkLabel(card, text="Référence", **lbl_kw).grid(
+        ctk.CTkLabel(card, text="Référence 2.1", **lbl_kw).grid(
             row=0, column=0, padx=(10, 2), pady=(8, 0), sticky="w")
         self.entry_ref = ctk.CTkEntry(
             card, **entry_kw, font=Fonts.bold(12), state="readonly",
@@ -790,7 +790,7 @@ class PageChangementArticle(ctk.CTkFrame):
 
         self._apply_treeview_style("ArtChg")
 
-        colonnes = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité", "Stock", "Prix U.")
+        colonnes = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité", "Stock")
         tree = ttk.Treeview(
             tree_frame, columns=colonnes, show='headings',
             height=15, style="ArtChg.Treeview",
@@ -810,7 +810,6 @@ class PageChangementArticle(ctk.CTkFrame):
             "Désignation": (320, True,  "w"),
             "Unité":       (90,  True,  "w"),
             "Stock":       (120, True,  "e"),
-            "Prix U.":     (110, True,  "e"),
         }
         for col, (w, stretch, anchor) in col_cfg.items():
             lbl = (f"Magasin {nom_mag}" if col == "Stock" and nom_mag else col)
@@ -832,23 +831,9 @@ class PageChangementArticle(ctk.CTkFrame):
                 u.idunite,
                 u.codearticle,
                 a.designation,
-                u.designationunite,
-                COALESCE(p.prix, 0) AS prix_unitaire
+                u.designationunite
             FROM tb_unite u
             INNER JOIN tb_article a ON a.idarticle = u.idarticle
-            LEFT JOIN (
-                SELECT idarticle, idunite, prix
-                FROM (
-                    SELECT idarticle, idunite, prix,
-                           ROW_NUMBER() OVER (
-                               PARTITION BY idarticle, idunite
-                               ORDER BY id DESC
-                           ) AS rn
-                    FROM tb_prix
-                    WHERE deleted = 0
-                ) x
-                WHERE x.rn = 1
-            ) p ON p.idarticle = u.idarticle AND p.idunite = u.idunite
             WHERE a.deleted = 0
               AND COALESCE(u.deleted, 0) = 0
               AND (u.codearticle ILIKE %s OR a.designation ILIKE %s)
@@ -876,7 +861,7 @@ class PageChangementArticle(ctk.CTkFrame):
                     return
 
                 idmag_int = int(idmag_actif)
-                snapshot = get_snapshot_cached(idmag_int, conn=self.connect_db())
+                snapshot = get_snapshot_cached(idmag_int, conn=conn)
 
                 cur.execute(QUERY_ARTICLES, (filtre_like, filtre_like))
                 rows = cur.fetchall()
@@ -886,7 +871,6 @@ class PageChangementArticle(ctk.CTkFrame):
                         row[0], row[1],
                         row[2] or "", row[3] or "", row[4] or "",
                         format_nombre_auto(stock_total),
-                        format_nombre_auto(row[5]),
                     ), tags=("even" if idx % 2 == 0 else "odd",))
                 label_count.configure(text=f"{len(rows)} article(s)")
 
@@ -902,7 +886,7 @@ class PageChangementArticle(ctk.CTkFrame):
                 messagebox.showwarning("Attention", "Sélectionnez un article.")
                 return
             values = tree.item(sel[0]).get('values', [])
-            if len(values) < 7:
+            if len(values) < 6:
                 messagebox.showerror("Erreur", "Données incomplètes.")
                 return
 

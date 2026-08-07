@@ -83,7 +83,7 @@ class PageSortie(ctk.CTkFrame):
         self.derniere_idsortie_enregistree: Optional[int] = None
 
         # Type de sortie : "BS" ou "CI"
-        self.type_sortie          = "BS"
+        self.type_sortie          = "CI"
         self.show_price_columns   = False
 
         # Mode modification / consultation
@@ -101,6 +101,8 @@ class PageSortie(ctk.CTkFrame):
 
         # ── Construction de l'interface ───────────────────────────────────────
         self._setup_ui()
+        self.combo_type_sortie.set("Consommation interne (CI)")
+        self._apply_type_selection("Consommation interne (CI)", refresh_reference=False)
 
         # ── Chargements initiaux ──────────────────────────────────────────────
         self.generer_reference()
@@ -503,15 +505,10 @@ class PageSortie(ctk.CTkFrame):
     # SECTION 3 — GESTION DU TYPE DE SORTIE (BS / CI)
     # ══════════════════════════════════════════════════════════════════════════
 
-    def _on_type_sortie_changed(self, new_type_str):
-        """
-        Gère le changement de type BS ↔ CI.
-        Régénère la référence, recrée le Treeview, réinitialise le formulaire.
-        *** LOGIQUE MÉTIER — NE PAS MODIFIER ***
-        """
+    def _apply_type_selection(self, new_type_str, refresh_reference=True):
+        """Applique l’état UI correspondant au type de sortie BS/CI."""
         self.type_sortie = "BS" if "BS" in new_type_str else "CI"
 
-        # Mettre à jour le label d'info
         if self.type_sortie == "CI":
             self.label_type_info.configure(
                 text="  Consommation Interne — sortie valorisée (PU × Qté)"
@@ -525,9 +522,18 @@ class PageSortie(ctk.CTkFrame):
             self.label_prix_unit.grid_remove()
             self.entry_prix_unit.grid_remove()
 
-        self.generer_reference()
+        if refresh_reference:
+            self.generer_reference()
         self.reset_form()
         self._create_treeview()
+
+    def _on_type_sortie_changed(self, new_type_str):
+        """
+        Gère le changement de type BS ↔ CI.
+        Régénère la référence, recrée le Treeview, réinitialise le formulaire.
+        *** LOGIQUE MÉTIER — NE PAS MODIFIER ***
+        """
+        self._apply_type_selection(new_type_str, refresh_reference=True)
 
     def _toggle_price_columns(self):
         """
@@ -803,6 +809,42 @@ class PageSortie(ctk.CTkFrame):
     # SECTION 6 — RECHERCHE D'ARTICLE
     # ══════════════════════════════════════════════════════════════════════════
 
+    def _charger_prix_unitaire(self, idarticle: Optional[int], idunite: Optional[int]) -> float:
+        """Récupère le dernier prix actif associé à un article et une unité."""
+        if not idarticle or not idunite:
+            return 0.0
+
+        conn = self.conn or self.connect_db()
+        if not conn:
+            return 0.0
+
+        cur = None
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT prix
+                FROM tb_prix
+                WHERE idarticle = %s
+                  AND idunite = %s
+                  AND COALESCE(deleted, 0) = 0
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (idarticle, idunite),
+            )
+            row = cur.fetchone()
+            if row and row[0] is not None:
+                return float(row[0])
+            return 0.0
+        except Exception:
+            return 0.0
+        finally:
+            if cur is not None:
+                cur.close()
+            if conn is not None and conn is not self.conn:
+                conn.close()
+
     def open_recherche_article(self):
         """
         Ouvre la fenêtre de recherche d'article avec la requête consolidée
@@ -848,7 +890,7 @@ class PageSortie(ctk.CTkFrame):
             font=('Segoe UI', 8, 'bold'), relief="flat",
         )
 
-        colonnes = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité", "Stock", "Prix U.")
+        colonnes = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité", "Stock")
         tree = ttk.Treeview(
             tree_frame, columns=colonnes, show='headings',
             height=15, style="ArtSearch.Treeview",
@@ -864,7 +906,6 @@ class PageSortie(ctk.CTkFrame):
             "Désignation": (300, True,  "w"),
             "Unité":       (80,  True,  "w"),
             "Stock":       (100, True,  "e"),
-            "Prix U.":     (100, True,  "e"),
         }
         for col, (w, stretch, anchor) in col_cfg.items():
             lbl = (f"Magasin {nom_mag}" if col == "Stock" and nom_mag else col)
@@ -883,23 +924,9 @@ class PageSortie(ctk.CTkFrame):
                 u.idunite,
                 u.codearticle,
                 a.designation,
-                u.designationunite,
-                COALESCE(p.prix, 0) AS prix_unitaire
+                u.designationunite
             FROM tb_unite u
             INNER JOIN tb_article a ON a.idarticle = u.idarticle
-            LEFT JOIN (
-                SELECT idarticle, idunite, prix
-                FROM (
-                    SELECT idarticle, idunite, prix,
-                           ROW_NUMBER() OVER (
-                               PARTITION BY idarticle, idunite
-                               ORDER BY id DESC
-                           ) AS rn
-                    FROM tb_prix
-                    WHERE deleted = 0
-                ) x
-                WHERE x.rn = 1
-            ) p ON p.idarticle = u.idarticle AND p.idunite = u.idunite
             WHERE a.deleted = 0
               AND COALESCE(u.deleted, 0) = 0
               AND (u.codearticle ILIKE %s OR a.designation ILIKE %s)
@@ -910,7 +937,7 @@ class PageSortie(ctk.CTkFrame):
             for item in tree.get_children():
                 tree.delete(item)
 
-            conn = self.connect_db()
+            conn = self.conn or self.connect_db()
             if not conn:
                 return
             try:
@@ -923,7 +950,7 @@ class PageSortie(ctk.CTkFrame):
                 if idmag_actif is None:
                     return
 
-                snapshot = get_snapshot_cached(int(idmag_actif), conn=self.conn)
+                snapshot = get_snapshot_cached(int(idmag_actif), conn=conn)
                 cur.execute(QUERY_ARTICLES, (filtre_like, filtre_like))
                 for idx, row in enumerate(cur.fetchall()):
                     stock_total = snapshot.stock_unite(row[0], row[1])
@@ -934,7 +961,6 @@ class PageSortie(ctk.CTkFrame):
                             row[0], row[1],
                             row[2] or "", row[3] or "", row[4] or "",
                             format_nombre_auto(stock_total),
-                            format_nombre_auto(row[5]),
                         ),
                         tags=("even" if idx % 2 == 0 else "odd",),
                     )
@@ -943,7 +969,8 @@ class PageSortie(ctk.CTkFrame):
                 messagebox.showerror("Erreur", f"Chargement articles : {e}")
             finally:
                 if 'cur' in locals() and cur: cur.close()
-                if conn: conn.close()
+                if conn is not None and conn is not self.conn:
+                    conn.close()
 
         def valider_selection():
             sel = tree.selection()
@@ -951,7 +978,7 @@ class PageSortie(ctk.CTkFrame):
                 messagebox.showwarning("Attention", "Sélectionnez un article.")
                 return
             values = tree.item(sel[0]).get('values', [])
-            if len(values) < 7:
+            if len(values) < 6:
                 messagebox.showerror("Erreur", "Données incomplètes.")
                 return
 
@@ -962,7 +989,7 @@ class PageSortie(ctk.CTkFrame):
                 'nom_article':     values[3],
                 'nom_unite':       values[4],
                 'stock_disponible': self.parser_nombre(str(values[5])),
-                'prix_unitaire':   self.parser_nombre(str(values[6])),
+                'prix_unitaire':   None,
             }
             fen.destroy()
             self.on_article_selected(article)
@@ -1002,9 +1029,17 @@ class PageSortie(ctk.CTkFrame):
         self.entry_unite.insert(0, article_data['nom_unite'])
         self.entry_unite.configure(state="readonly")
 
+        prix_unitaire = article_data.get('prix_unitaire')
+        if prix_unitaire in (None, ""):
+            prix_unitaire = self._charger_prix_unitaire(
+                article_data.get('idarticle'),
+                article_data.get('idunite'),
+            )
+            article_data['prix_unitaire'] = prix_unitaire
+
         self.entry_prix_unit.configure(state="normal")
         self.entry_prix_unit.delete(0, "end")
-        self.entry_prix_unit.insert(0, self.formater_nombre(article_data.get('prix_unitaire', 0)))
+        self.entry_prix_unit.insert(0, self.formater_nombre(prix_unitaire))
         self.entry_prix_unit.configure(state="readonly")
 
         self.entry_qtsortie.delete(0, "end")

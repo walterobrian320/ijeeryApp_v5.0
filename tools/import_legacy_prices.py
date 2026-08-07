@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 ROOT = Path(__file__).resolve().parent.parent
-PRICE_SOURCE = ROOT / "data-process" / "Prix_20260804090257.xls"
-ARTICLE_SQL = ROOT / "sql" / "legacy_articles_import.sql"
-OUTPUT = ROOT / "sql" / "legacy_prices_import.sql"
+PRICE_SOURCE = ROOT / "data-process" / "data-mahambolo" / "Prix_20260807155443.csv"
+ARTICLE_SQL = ROOT / "sql" / "legacy_articles_import_mahambolo.sql"
+OUTPUT = ROOT / "sql" / "legacy_prices_import_mahambolo.sql"
 
 
 def normalize_text(value: str) -> str:
@@ -21,12 +21,12 @@ def normalize_text(value: str) -> str:
     return text.lower()
 
 
-def parse_price_value(value: str) -> int:
+def parse_price_value(value: str) -> int | None:
     if value is None:
-        return 0
+        return None
     text = str(value).strip()
     digits = re.sub(r"\D", "", text)
-    return int(digits) if digits else 0
+    return int(digits) if digits else None
 
 
 def parse_date(value: str):
@@ -43,7 +43,10 @@ def parse_date(value: str):
 def parse_article_mapping(sql_path: Path) -> Tuple[Dict[str, int], Dict[Tuple[int, str], int]]:
     text = sql_path.read_text(encoding="utf-8", errors="replace")
     article_pattern = re.compile(r"INSERT INTO tb_article \(idarticle, designation, .*?\) VALUES \((\d+),\s*'((?:''|[^'])*)'", re.IGNORECASE)
-    unit_pattern = re.compile(r"INSERT INTO tb_unite \(idunite, idarticle, designationunite, .*?\) VALUES \((\d+),\s*(\d+),\s*'((?:''|[^'])*)'", re.IGNORECASE)
+    unit_pattern = re.compile(
+        r"INSERT INTO tb_unite \(idunite, codearticle, idarticle, designationunite, .*?\) VALUES \((\d+),\s*'[^']*',\s*(\d+),\s*'((?:''|[^'])*)'",
+        re.IGNORECASE,
+    )
 
     article_map: Dict[str, int] = {}
     for match in article_pattern.finditer(text):
@@ -61,26 +64,25 @@ def parse_article_mapping(sql_path: Path) -> Tuple[Dict[str, int], Dict[Tuple[in
     return article_map, unit_map
 
 
-def parse_price_rows(path: Path) -> List[Tuple[str, str, int, str]]:
-    rows: List[Tuple[str, str, int, str]] = []
+def parse_price_rows(path: Path) -> List[Tuple[str, str, int | None, str]]:
+    rows: List[Tuple[str, str, int | None, str]] = []
     text = path.read_text(encoding="utf-8", errors="replace")
     lines = [line for line in text.splitlines() if line.strip()]
     if not lines:
         return rows
-    header = lines[0].split("\t")
     for line in lines[1:]:
-        cells = line.split("\t")
+        cells = [cell.strip() for cell in line.split(";")]
         if len(cells) < 5:
             continue
-        designation = cells[2].strip() if len(cells) > 2 else ""
-        unite = cells[3].strip() if len(cells) > 3 else ""
-        prix = parse_price_value(cells[4].strip() if len(cells) > 4 else "")
-        date = cells[5].strip() if len(cells) > 5 else ""
+        designation = cells[1] if len(cells) > 1 else ""
+        unite = cells[2] if len(cells) > 2 else ""
+        prix = parse_price_value(cells[3] if len(cells) > 3 else "")
+        date = cells[4] if len(cells) > 4 else ""
         rows.append((designation, unite, prix, date))
     return rows
 
 
-def build_sql(rows: List[Tuple[str, str, int, str]], article_map: Dict[str, int], unit_map: Dict[Tuple[int, str], int]) -> str:
+def build_sql(rows: List[Tuple[str, str, int | None, str]], article_map: Dict[str, int], unit_map: Dict[Tuple[int, str], int]) -> str:
     lines: List[str] = []
     lines.append("-- Migration des prix legacy vers tb_prix")
     lines.append("BEGIN;")
@@ -89,16 +91,23 @@ def build_sql(rows: List[Tuple[str, str, int, str]], article_map: Dict[str, int]
     lines.append("")
 
     inserted = 0
-    skipped = 0
+    skipped_price = 0
+    skipped_article = 0
+    skipped_unit = 0
 
     for designation, unite, prix, date_value in rows:
+        if prix is None:
+            skipped_price += 1
+            continue
+
         article_id = article_map.get(normalize_text(designation))
         if article_id is None:
-            skipped += 1
+            skipped_article += 1
             continue
+
         unit_id = unit_map.get((article_id, normalize_text(unite)))
         if unit_id is None:
-            skipped += 1
+            skipped_unit += 1
             continue
 
         date_sql = parse_date(date_value)
@@ -115,7 +124,9 @@ def build_sql(rows: List[Tuple[str, str, int, str]], article_map: Dict[str, int]
 
     header = [
         f"-- Inserted rows: {inserted}",
-        f"-- Skipped rows (no matching article/unit): {skipped}",
+        f"-- Skipped rows (invalid price): {skipped_price}",
+        f"-- Skipped rows (missing article): {skipped_article}",
+        f"-- Skipped rows (missing unit): {skipped_unit}",
     ]
     return "\n".join(header + [""] + lines) + "\n"
 

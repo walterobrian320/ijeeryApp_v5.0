@@ -2,7 +2,7 @@
 
 ## Objectif
 
-Traiter un nouveau fichier de stock exporté depuis l’ancienne application, au même format que le fichier Stock_20260804090245.xls, pour générer un nouveau script SQL d’insertion des stocks initiaux dans la nouvelle base.
+Traiter un nouveau fichier de stock exporté depuis l’ancienne application, au même format que le fichier Stock_20260807173615.csv, pour générer un nouveau script SQL d’insertion des stocks initiaux dans la nouvelle base.
 
 Le traitement doit être identique à celui déjà appliqué pour les stocks du fichier actuel, avec pour seul changement les quantités de stock.
 
@@ -41,7 +41,7 @@ Les colonnes suivantes ne doivent pas être utilisées pour l’insertion :
 
 ### 1. Article
 - La colonne `DESIGNATION` correspond au nom de l’article.
-- Il faut récupérer l’`idarticle` correspondant dans la table `tb_article` à partir du script d’import des articles legacy : [sql/legacy_articles_import.sql](sql/legacy_articles_import.sql).
+- Il faut récupérer l’`idarticle` correspondant dans la table `tb_article` à partir du script d’import des articles legacy : [sql/legacy_articles_import_mahambolo.sql](sql/legacy_articles_import_mahambolo.sql).
 
 ### 2. Unité
 - La colonne `UNITE` correspond à l’unité de l’article.
@@ -49,10 +49,8 @@ Les colonnes suivantes ne doivent pas être utilisées pour l’insertion :
 - Il faut récupérer aussi le `codearticle` correspondant à cette unité.
 
 ### 3. Magasins
-Les quantités de stock doivent être réparties selon les colonnes suivantes :
-- `DEPOT VENTE A` -> magasin `idmag = 1`
-- `DEPOT ANTANANKORO` -> magasin `idmag = 2`
-- `DEPOT STOCK C` -> magasin `idmag = 3`
+Il y a un seul magasin de stock dans ce fichier.
+- `BOUTIQUE MAHAMBOLONA` correspond au stock enregistré pour ce magasin unique.
 
 ---
 
@@ -148,7 +146,7 @@ Si les magasins n’existent pas, les insérer avec des libellés cohérents.
 ## Format du script SQL à produire
 
 Le résultat attendu est un fichier SQL nommé :
-- [sql/legacy_stock_import.sql](sql/legacy_stock_import.sql)
+- [sql/legacy_stock_import.sql](sql/legacy_stock_import_mahambolo.sql)
 
 Le script doit :
 - commencer par `BEGIN;`
@@ -175,10 +173,10 @@ Le script devra être cohérent, reproductible et adapté au nouveau fichier de 
 Créer un script Python qui :
 1. lit le nouveau fichier de stock
 2. parse les colonnes utiles
-3. récupère les mappings article/unité/codearticle depuis [sql/legacy_articles_import.sql](sql/legacy_articles_import.sql)
+3. récupère les mappings article/unité/codearticle depuis [sql/legacy_articles_import.sql](sql/legacy_articles_import_mahambolo.sql)
 4. applique la règle “première unité seulement par article”
 5. convertit les quantités en nombres décimaux
-6. génère le nouveau script [sql/legacy_stock_import.sql](sql/legacy_stock_import.sql)
+6. génère le nouveau script [sql/legacy_stock_import.sql](sql/legacy_stock_import_mahambolo.sql)
 
 ---
 

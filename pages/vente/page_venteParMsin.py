@@ -737,39 +737,11 @@ class PageVenteParMsin(ctk.CTkFrame):
         Pour le dépôt B : seule l'unité de niveau MAX est autorisée.
         Retourne (autorise: bool, message: str).
         """
-        mag_nom = self.combo_magasin.get()
-        if "B" not in mag_nom.upper():
-            return (True, "")
-        conn = self._get_conn()
-        if not conn: return (False, "Erreur de connexion")
-        try:
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT niveau, designationunite FROM tb_unite
-                WHERE idarticle=%s AND idunite=%s
-            """, (idarticle, idunite))
-            row = cur.fetchone()
-            if not row: return (False, "Unité introuvable")
-            niv_sel, des_sel = row
-            cur.execute("""
-                SELECT MAX(niveau), designationunite FROM tb_unite
-                WHERE idarticle=%s GROUP BY designationunite
-                ORDER BY MAX(niveau) DESC LIMIT 1
-            """, (idarticle,))
-            row2 = cur.fetchone()
-            if not row2: return (False, "Impossible de déterminer le niveau max")
-            niv_max, des_max = row2
-            if niv_sel < niv_max:
-                return (False,
-                    f"⚠ DÉPÔT B : Seule l'unité de niveau {niv_max} ({des_max}) est autorisée.\n"
-                    f"Vous avez sélectionné : {des_sel} (niveau {niv_sel}).\n\n"
-                    f"Veuillez choisir {des_max}.")
-            return (True, "")
-        except Exception as e:
-            return (False, str(e))
-        finally:
-            if 'cur' in locals(): cur.close()
-            self._put_conn(conn)
+        # Règle supprimée : ne pas restreindre les unités pour un magasin "B".
+        # Cette fonction autorise désormais toujours la sélection d'unité.
+        # Elle est conservée pour compatibilité des appels depuis le reste
+        # du code mais n'effectue plus de contrôle en base.
+        return (True, "")
 
     def calculer_stock_article(self, idarticle: int, idunite_cible: int,
                                 idmag: Optional[int] = None) -> float:

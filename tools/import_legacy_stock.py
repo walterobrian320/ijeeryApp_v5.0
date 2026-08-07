@@ -4,9 +4,9 @@ import re
 import unicodedata
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_STOCK_FILE = ROOT / 'data-process' / 'Stock_20260804211147_update.xls'
-ARTICLES_SQL = ROOT / 'sql' / 'legacy_articles_import.sql'
-OUTPUT_SQL = ROOT / 'sql' / 'legacy_stock_import.sql'
+DEFAULT_STOCK_FILE = ROOT / 'data-process' / 'data-mahambolo' / 'Stock_20260807173615.csv'
+ARTICLES_SQL = ROOT / 'sql' / 'legacy_articles_import_mahambolo.sql'
+OUTPUT_SQL = ROOT / 'sql' / 'legacy_stock_import_mahambolo.sql'
 
 
 def resolve_stock_file(path_arg: str | None = None) -> Path:
@@ -16,8 +16,8 @@ def resolve_stock_file(path_arg: str | None = None) -> Path:
             path = ROOT / path
         return path
 
-    data_dir = ROOT / 'data-process'
-    candidates = sorted(data_dir.glob('Stock_*.xls'), key=lambda p: p.stat().st_mtime, reverse=True)
+    data_dir = ROOT / 'data-process' / 'data-mahambolo'
+    candidates = sorted(data_dir.glob('Stock_*.csv'), key=lambda p: p.stat().st_mtime, reverse=True)
     if candidates:
         return candidates[0]
     return DEFAULT_STOCK_FILE
@@ -62,14 +62,14 @@ for match in re.finditer(
 
 unit_data = {}
 for match in re.finditer(
-    r"INSERT INTO tb_unite\s*\(idunite, idarticle, designationunite, niveau, qtunite, poids, codearticle, deleted\)\s*VALUES\s*\((\d+),\s*(\d+),\s*'((?:''|[^'])*)',\s*(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?),\s*'((?:''|[^'])*)',\s*(\d+)\)",
+    r"INSERT INTO tb_unite\s*\(idunite, codearticle, idarticle, designationunite, niveau, qtunite, poids, deleted\)\s*VALUES\s*\((\d+),\s*'((?:''|[^'])*)',\s*(\d+),\s*'((?:''|[^'])*)',\s*(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?),\s*(\d+)\)",
     article_sql,
     re.IGNORECASE,
 ):
     unit_id = int(match.group(1))
-    article_id = int(match.group(2))
-    designation = match.group(3).replace("''", "'")
-    codearticle = match.group(7).replace("''", "'")
+    codearticle = match.group(2).replace("''", "'")
+    article_id = int(match.group(3))
+    designation = match.group(4).replace("''", "'")
     unit_data[(article_id, norm(designation))] = {
         'idunite': unit_id,
         'codearticle': codearticle,
@@ -84,7 +84,7 @@ def main() -> None:
     if not stock_file.exists():
         raise SystemExit(f'Fichier introuvable: {stock_file}')
 
-    # Read stock file as tab-delimited text (legacy .xls export)
+    # Read stock file as semicolon-delimited text
     lines = [line.rstrip('\n') for line in stock_file.read_text(encoding='utf-8', errors='replace').splitlines() if line.strip()]
     if not lines:
         raise SystemExit('Fichier de stock vide')
@@ -92,25 +92,23 @@ def main() -> None:
     # Skip header row
     rows = []
     for line in lines[1:]:
-        cols = line.split('\t')
-        if len(cols) < 8:
+        cols = [cell.strip() for cell in line.split(';')]
+        if len(cols) < 5:
             continue
-        designation = cols[2].strip()
-        unite = cols[3].strip()
-        depot_a = cols[5].strip()
-        depot_ant = cols[6].strip()
-        depot_c = cols[7].strip()
-        rows.append((designation, unite, depot_a, depot_ant, depot_c))
+        designation = cols[1]
+        unite = cols[2]
+        boutique_qty = cols[4]
+        rows.append((designation, unite, boutique_qty))
 
-    # Keep only first occurrence per designation (to honor the rule "première unité / première ligne")
+    # Keep only first occurrence per designation (première unité / première ligne)
     selected = []
     seen_designations = set()
-    for designation, unite, depot_a, depot_ant, depot_c in rows:
+    for designation, unite, boutique_qty in rows:
         key = norm(designation)
         if key in seen_designations:
             continue
         seen_designations.add(key)
-        selected.append((designation, unite, depot_a, depot_ant, depot_c))
+        selected.append((designation, unite, boutique_qty))
 
     lines_sql = []
     lines_sql.append(f"-- Script d’insertion des stocks initiaux depuis {stock_file.name}")
@@ -132,7 +130,7 @@ def main() -> None:
     inserted_stock = 0
     inserted_log = 0
 
-    for designation, unite, depot_a, depot_ant, depot_c in selected:
+    for designation, unite, boutique_qty in selected:
         article_id = article_ids.get(norm(designation))
         if article_id is None:
             skipped += 1
@@ -147,29 +145,29 @@ def main() -> None:
         processed += 1
         observation = "Inventaire - report ancien version Ijeery"
         now = "CURRENT_TIMESTAMP"
+        mag_id = 1
 
-        for mag_id, qty_txt in [(1, depot_a), (2, depot_ant), (3, depot_c)]:
-            qty = parse_decimal(qty_txt)
-            if qty is None:
-                continue
+        qty = parse_decimal(boutique_qty)
+        if qty is None:
+            continue
 
-            lines_sql.append(
-                f"INSERT INTO tb_inventaire (qtinventaire, observation, date, iduser, idmag, codearticle) "
-                f"VALUES ({qty:.15g}, '{observation}', {now}, 1, {mag_id}, '{codearticle}');"
-            )
-            inserted_inventaire += 1
+        lines_sql.append(
+            f"INSERT INTO tb_inventaire (qtinventaire, observation, date, iduser, idmag, codearticle) "
+            f"VALUES ({qty:.15g}, '{observation}', {now}, 1, {mag_id}, '{codearticle}');"
+        )
+        inserted_inventaire += 1
 
-            lines_sql.append(
-                f"INSERT INTO tb_stock (idmag, qtstock, qtalert, deleted, codearticle) "
-                f"VALUES ({mag_id}, {qty:.15g}, 0, 0, '{codearticle}');"
-            )
-            inserted_stock += 1
+        lines_sql.append(
+            f"INSERT INTO tb_stock (idmag, qtstock, qtalert, deleted, codearticle) "
+            f"VALUES ({mag_id}, {qty:.15g}, 0, 0, '{codearticle}');"
+        )
+        inserted_stock += 1
 
-            lines_sql.append(
-                f"INSERT INTO tb_log_stock (idmag, ancien_stock, nouveau_stock, date_action, iduser, type_action, codearticle) "
-                f"VALUES ({mag_id}, 0, {qty:.15g}, {now}, 1, 'Entrée en stock par inventaire de départ', '{codearticle}');"
-            )
-            inserted_log += 1
+        lines_sql.append(
+            f"INSERT INTO tb_log_stock (idmag, ancien_stock, nouveau_stock, date_action, iduser, type_action, codearticle) "
+            f"VALUES ({mag_id}, 0, {qty:.15g}, {now}, 1, 'Entrée en stock par inventaire de départ', '{codearticle}');"
+        )
+        inserted_log += 1
 
     lines_sql.append('')
     lines_sql.append('-- Fin du script')

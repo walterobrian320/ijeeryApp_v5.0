@@ -92,17 +92,6 @@ class PageCaisse(ctk.CTkFrame):
             session_data=getattr(self.master, "session_data", None),
             default=None,
         )
-        if self.current_user_id is None:
-            try:
-                self.cursor.execute(
-                    "SELECT iduser FROM tb_users WHERE LOWER(TRIM(username)) = LOWER(TRIM(%s)) LIMIT 1",
-                    (self.current_username,),
-                )
-                row = self.cursor.fetchone()
-                if row and row[0] is not None:
-                    self.current_user_id = row[0]
-            except Exception:
-                self.current_user_id = None
 
         # ── État interne (identique à l'original) ─────────────────────────────
         self.modes_paiement_dict = {"Tous": None}
@@ -139,6 +128,30 @@ class PageCaisse(ctk.CTkFrame):
         else:
             messagebox.showerror("Erreur", "Connexion impossible.")
             return
+
+        # L'identifiant de session est la source de vérité.  Le nom affiché dans
+        # l'audit doit donc être celui de cet utilisateur, et non celui transmis
+        # éventuellement par une page parente.
+        try:
+            if self.current_user_id is not None:
+                self.cursor.execute(
+                    "SELECT username FROM tb_users WHERE iduser = %s LIMIT 1",
+                    (self.current_user_id,),
+                )
+            else:
+                self.cursor.execute(
+                    "SELECT iduser, username FROM tb_users "
+                    "WHERE LOWER(TRIM(username)) = LOWER(TRIM(%s)) LIMIT 1",
+                    (self.current_username,),
+                )
+            row = self.cursor.fetchone()
+            if row:
+                if self.current_user_id is None:
+                    self.current_user_id, self.current_username = row
+                elif row[0]:
+                    self.current_username = row[0]
+        except psycopg2.Error:
+            self.conn.rollback()
 
         _apply_tree_style()
 

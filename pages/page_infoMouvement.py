@@ -282,6 +282,7 @@ class PageChangementArticle(ctk.CTkFrame):
             row=0, column=2, padx=3, pady=(4, 0), sticky="w")
         self.entry_qty_sortie = ctk.CTkEntry(saisie, **entry_kw, placeholder_text="0")
         self.entry_qty_sortie.grid(row=1, column=2, padx=3, pady=(0, 6), sticky="ew")
+        self.entry_qty_sortie.bind("<Return>", lambda _e: self.btn_ajouter_sortie.invoke())
 
         # Unité (readonly)
         ctk.CTkLabel(saisie, text="Unité", **lbl_kw).grid(
@@ -415,6 +416,7 @@ class PageChangementArticle(ctk.CTkFrame):
             row=0, column=2, padx=3, pady=(4, 0), sticky="w")
         self.entry_qty_entree = ctk.CTkEntry(saisie, **entry_kw, placeholder_text="0")
         self.entry_qty_entree.grid(row=1, column=2, padx=3, pady=(0, 6), sticky="ew")
+        self.entry_qty_entree.bind("<Return>", lambda _e: self.btn_ajouter_entree.invoke())
 
         ctk.CTkLabel(saisie, text="Unité", **lbl_kw).grid(
             row=0, column=3, padx=3, pady=(4, 0), sticky="w")
@@ -784,6 +786,7 @@ class PageChangementArticle(ctk.CTkFrame):
             search_frame, placeholder_text="Code ou désignation…", width=300,
         )
         entry_search.pack(side="left", padx=5, fill="x", expand=True)
+        fen.after(100, lambda: entry_search.focus_set())
 
         tree_frame = ctk.CTkFrame(main_frame)
         tree_frame.pack(fill="both", expand=True, pady=(0, 10))
@@ -909,6 +912,7 @@ class PageChangementArticle(ctk.CTkFrame):
                 self.entry_unite_sortie.delete(0, "end")
                 self.entry_unite_sortie.insert(0, unite)
                 self.entry_unite_sortie.configure(state="readonly")
+                self.after(50, lambda: self.entry_qty_sortie.focus_set())
             else:
                 self.article_entree_selectionne = {
                     'idarticle': idarticle, 'idunite': idunite,
@@ -921,6 +925,7 @@ class PageChangementArticle(ctk.CTkFrame):
                 self.entry_unite_entree.delete(0, "end")
                 self.entry_unite_entree.insert(0, unite)
                 self.entry_unite_entree.configure(state="readonly")
+                self.after(50, lambda: self.entry_qty_entree.focus_set())
 
             fen.destroy()
 

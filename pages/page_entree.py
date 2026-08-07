@@ -215,6 +215,7 @@ class PageEntree(ctk.CTkFrame):
         ctk.CTkLabel(card, text="Quantité", **lbl_kw).grid(row=0, column=2, padx=4, pady=(8, 0), sticky="w")
         self.entry_qtentree = ctk.CTkEntry(card, **entry_kw, width=100)
         self.entry_qtentree.grid(row=1, column=2, padx=4, pady=(0, 8), sticky="ew")
+        self.entry_qtentree.bind("<Return>", lambda _e: self.btn_ajouter.invoke())
 
         ctk.CTkLabel(card, text="Unité", **lbl_kw).grid(row=0, column=3, padx=4, pady=(8, 0), sticky="w")
         self.entry_unite = ctk.CTkEntry(card, **entry_kw, width=100, state="readonly")
@@ -518,6 +519,7 @@ class PageEntree(ctk.CTkFrame):
         ctk.CTkLabel(search_frame, text="🔍 Rechercher :").pack(side="left", padx=5)
         entry_search = ctk.CTkEntry(search_frame, placeholder_text="Code ou désignation…", width=300)
         entry_search.pack(side="left", padx=5, fill="x", expand=True)
+        fen.after(100, lambda: entry_search.focus_set())
 
         tree_frame = ctk.CTkFrame(main_frame)
         tree_frame.pack(fill="both", expand=True, pady=(0, 10))

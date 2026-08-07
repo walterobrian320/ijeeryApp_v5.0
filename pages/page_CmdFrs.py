@@ -395,6 +395,7 @@ class PageCommandeFrs(ctk.CTkFrame):
             return e
 
         self.entry_qtcmd    = _field(r2, "Qté cmd",       95)
+        self.entry_qtcmd.bind("<Return>", lambda _e: self.btn_ajouter.invoke())
         self.entry_qtlivre  = _field(r2, "Qté livrée",    85)
         self.entry_qtlivre.insert(0, "0")
         self.entry_unite    = _field(r2, "Unité",          85, readonly=True)
@@ -1378,6 +1379,7 @@ class PageCommandeFrs(ctk.CTkFrame):
         entry_s = ctk.CTkEntry(sf, placeholder_text="Code ou désignation...", height=34,
                                fg_color=Colors.BG_INPUT, border_color=Colors.BORDER, font=Fonts.body(11))
         entry_s.pack(side="left", fill="x", expand=True, padx=4)
+        fen.after(100, lambda: entry_s.focus_set())
 
         tf = ctk.CTkFrame(main, fg_color=Colors.BORDER, corner_radius=8)
         tf.pack(fill="both", expand=True, pady=(0, 8))
@@ -1440,6 +1442,7 @@ class PageCommandeFrs(ctk.CTkFrame):
             self.entry_punitcmd.delete(0, "end")
             self.calculer_total_ligne_preview()
             fen.destroy()
+            self.after(50, lambda: self.entry_qtcmd.focus_set())
 
         tree.bind('<Double-Button-1>', lambda e: valider())
         bf = ctk.CTkFrame(main, fg_color="transparent")

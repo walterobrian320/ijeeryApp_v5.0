@@ -261,6 +261,7 @@ class PageTransfert(ctk.CTkFrame):
             card, **entry_kw, width=110,
         )
         self.entry_quantite.grid(row=1, column=4, padx=4, pady=(0, 8), sticky="ew")
+        self.entry_quantite.bind("<Return>", lambda _e: self.btn_ajouter.invoke())
 
         # — Bouton Ajouter —
         ctk.CTkLabel(card, text=" ", **lbl_kw).grid(
@@ -522,6 +523,7 @@ class PageTransfert(ctk.CTkFrame):
             search_frame, placeholder_text="Code ou désignation…", width=300,
         )
         entry_search.pack(side="left", padx=5, fill="x", expand=True)
+        fen.after(100, lambda: entry_search.focus_set())
 
         # Treeview
         tree_frame = ctk.CTkFrame(main_frame)
@@ -669,6 +671,7 @@ class PageTransfert(ctk.CTkFrame):
                 entry.configure(state="readonly")
 
             fen.destroy()
+            self.after(50, lambda: self.entry_quantite.focus_set())
 
         entry_search.bind('<KeyRelease>', lambda e: charger_articles(entry_search.get()))
         tree.bind('<Double-Button-1>', lambda e: valider_selection())

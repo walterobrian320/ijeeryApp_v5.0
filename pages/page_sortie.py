@@ -293,6 +293,7 @@ class PageSortie(ctk.CTkFrame):
             row=0, column=2, padx=4, pady=(8, 0), sticky="w")
         self.entry_qtsortie = ctk.CTkEntry(card, **entry_kw, width=100)
         self.entry_qtsortie.grid(row=1, column=2, padx=4, pady=(0, 8), sticky="ew")
+        self.entry_qtsortie.bind("<Return>", lambda _e: self.btn_ajouter.invoke())
 
         # — Unité (readonly) —
         ctk.CTkLabel(card, text="Unité", **lbl_kw).grid(
@@ -872,6 +873,7 @@ class PageSortie(ctk.CTkFrame):
             search_frame, placeholder_text="Code ou désignation…", width=300,
         )
         entry_search.pack(side="left", padx=5, fill="x", expand=True)
+        fen.after(100, lambda: entry_search.focus_set())
 
         # Treeview
         tree_frame = ctk.CTkFrame(main_frame)

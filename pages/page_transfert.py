@@ -56,9 +56,11 @@ class PageTransfert(ctk.CTkFrame):
     └─────────────────────────────────────────────────────────────┘
     """
 
-    def __init__(self, parent, user_id):
+    def __init__(self, parent, user_id, db_conn=None):
         super().__init__(parent, fg_color=Colors.BG_PAGE)
         self.user_id = user_id
+        self._db_conn_initial = db_conn
+        self.conn: Optional[psycopg2.extensions.connection] = None
         self.articles_transfert: list = []
         self.magasins_data:      dict = {}
 
@@ -74,6 +76,7 @@ class PageTransfert(ctk.CTkFrame):
         self._setup_ui()
 
         # ── Chargements initiaux ──────────────────────────────────────────────
+        self.conn = self.connect_db()
         self.charger_magasins()
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -83,7 +86,9 @@ class PageTransfert(ctk.CTkFrame):
     def connect_db(self):
         """Connexion PostgreSQL via module db."""
         try:
-            return ensure_connection(get_connection())
+            conn = self._db_conn_initial or self.conn or get_connection()
+            self.conn = ensure_connection(conn)
+            return self.conn
         except (psycopg2.Error, UnicodeDecodeError) as err:
             MessageDialog("Erreur connexion", str(err), type_='error')
             return None
@@ -536,7 +541,7 @@ class PageTransfert(ctk.CTkFrame):
             font=('Segoe UI', 8, 'bold'), relief="flat",
         )
 
-        colonnes = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité", "Stock", "Prix U.")
+        colonnes = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité", "Stock")
         tree = ttk.Treeview(
             tree_frame, columns=colonnes, show='headings',
             height=15, style="Search.Treeview",
@@ -552,7 +557,6 @@ class PageTransfert(ctk.CTkFrame):
             "Désignation":(300, True, "w"),
             "Unité":      (80,  True, "w"),
             "Stock":      (100, True, "e"),
-            "Prix U.":    (100, True, "e"),
         }
         for col, (w, stretch, anchor) in col_cfg.items():
             lbl = (f"Magasin {nom_magasin_courant}" if col == "Stock" and nom_magasin_courant else col)
@@ -578,7 +582,7 @@ class PageTransfert(ctk.CTkFrame):
             for item in tree.get_children():
                 tree.delete(item)
 
-            conn = self.get_connection()
+            conn = self.connect_db()
             if not conn:
                 return
 
@@ -593,7 +597,6 @@ class PageTransfert(ctk.CTkFrame):
                 if idmag_actif is None:
                     return
 
-                conn = self.get_connection()
                 snapshot = get_snapshot_cached(int(idmag_actif), conn=conn)
 
                 cur.execute(
@@ -603,23 +606,9 @@ class PageTransfert(ctk.CTkFrame):
                         u.idunite,
                         u.codearticle,
                         a.designation,
-                        u.designationunite,
-                        COALESCE(p.prix, 0) AS prix_unitaire
+                        u.designationunite
                     FROM tb_unite u
                     INNER JOIN tb_article a ON a.idarticle = u.idarticle
-                    LEFT JOIN (
-                        SELECT idarticle, idunite, prix
-                        FROM (
-                            SELECT idarticle, idunite, prix,
-                                   ROW_NUMBER() OVER (
-                                       PARTITION BY idarticle, idunite
-                                       ORDER BY id DESC
-                                   ) AS rn
-                            FROM tb_prix
-                            WHERE deleted = 0
-                        ) x
-                        WHERE x.rn = 1
-                    ) p ON p.idarticle = u.idarticle AND p.idunite = u.idunite
                     WHERE a.deleted = 0
                       AND COALESCE(u.deleted, 0) = 0
                       AND (u.codearticle ILIKE %s OR a.designation ILIKE %s)
@@ -637,7 +626,6 @@ class PageTransfert(ctk.CTkFrame):
                             row[0], row[1],
                             row[2] or "", row[3] or "", row[4] or "",
                             format_nombre_auto(stock_total),
-                            format_nombre_auto(row[5]),
                         ),
                         tags=("even" if idx % 2 == 0 else "odd",),
                     )
@@ -657,7 +645,7 @@ class PageTransfert(ctk.CTkFrame):
                 return
 
             values = tree.item(selection[0]).get('values', [])
-            if len(values) < 7:
+            if len(values) < 6:
                 MessageDialog("Erreur", "Données incomplètes.", type_='error')
                 return
 
@@ -668,7 +656,6 @@ class PageTransfert(ctk.CTkFrame):
                 'nom':               values[3] or "N/A",
                 'unite':             values[4] or "N/A",
                 'stock_disponible':  parser_nombre(values[5]),
-                'prix_unitaire':     parser_nombre(values[6]),
             }
 
             for entry, key in [

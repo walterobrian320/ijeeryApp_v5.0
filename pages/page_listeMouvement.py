@@ -510,7 +510,7 @@ class PageListeMouvement(ctk.CTkFrame):
 
         # Treeview
         cols_default = ("Date", "Référence", "Fournisseur", "Articles",
-                        "Montant Total", "Statut", "Description", "Utilisateur")
+                        "Montant Total", "Statut", "Description [Transporteur]", "Utilisateur")
         self.tree = ttk.Treeview(
             tree_card,
             columns=cols_default,
@@ -680,26 +680,36 @@ class PageListeMouvement(ctk.CTkFrame):
                         ELSE '⏳ En Attente'
                     END as "Statut",
                     COALESCE(
-                        (
-                            SELECT lf.factfrs
-                            FROM tb_livraisonfrs lf
-                            WHERE lf.idcom = c.idcom
-                              AND lf.deleted = 0
-                              AND lf.factfrs IS NOT NULL
-                              AND lf.factfrs <> ''
-                            ORDER BY lf.idcom
-                            LIMIT 1
+                        NULLIF(
+                            COALESCE(
+                                (
+                                    SELECT lf.factfrs
+                                    FROM tb_livraisonfrs lf
+                                    WHERE lf.idcom = c.idcom
+                                      AND lf.deleted = 0
+                                      AND lf.factfrs IS NOT NULL
+                                      AND lf.factfrs <> ''
+                                    ORDER BY lf.reflivfrs
+                                    LIMIT 1
+                                ),
+                                ''
+                            ) || CASE
+                                    WHEN COALESCE(tr.nom, '') = '' THEN ''
+                                    ELSE ' [' || tr.nom || ']'
+                                END,
+                            ''
                         ),
-                        'N/A'
-                    ) as "Description",
+                        COALESCE(NULLIF(tr.nom, ''), 'N/A')
+                    ) as "Description [Transporteur]",
                     username as "Utilisateur"
                 FROM tb_commande c
                 LEFT JOIN tb_fournisseur f ON c.idfrs = f.idfrs
                 LEFT JOIN tb_commandedetail cd ON c.idcom = cd.idcom
                 LEFT JOIN tb_fournisseur fcd ON cd.idfrs = fcd.idfrs
                 LEFT JOIN tb_users u ON c.iduser = u.iduser
+                LEFT JOIN tb_transporteur tr ON c.idtransportuer = tr.idtransporteur
                 WHERE c.deleted = 0
-                GROUP BY c.idcom, c.datecom, c.refcom, f.nomfrs, u.username
+                GROUP BY c.idcom, c.datecom, c.refcom, f.nomfrs, u.username, tr.nom
                 ORDER BY c.datecom DESC
             """,
             "entree_stock": """

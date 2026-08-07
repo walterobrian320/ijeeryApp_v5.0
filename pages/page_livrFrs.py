@@ -693,12 +693,17 @@ class PageBonReception(ctk.CTkFrame):
                         etat = EtatPDFMouvements()
                         try: etat.connect_db()
                         except: pass
+                        description = numero_facture
+                        transporteur = data['reception'].get('transporteur', '')
+                        if transporteur:
+                            description = f"{description} [Transporteur : {transporteur}]"
+
                         success = etat._build_pdf_a5(
                             output_path=filename, titre_entete="BON DE RÉCEPTION",
                             reference=self.entry_ref.get(),
                             date_operation=data['reception'].get('dateregistre', datetime.now().strftime('%d/%m/%Y')),
                             magasin=data['reception'].get('magasin',''), operateur=operateur,
-                            table_data=(cols, rows_pdf), description=numero_facture,
+                            table_data=(cols, rows_pdf), description=description,
                             responsable_1="Le Responsable",
                             responsable_2=data['reception'].get('fournisseur','Fournisseur'))
                         try: etat.close_db()
@@ -782,7 +787,8 @@ class PageBonReception(ctk.CTkFrame):
                 'dateregistre': datetime.now().strftime("%d/%m/%Y %H:%M"),
                 'fournisseur': self.entry_fournisseur.get(),
                 'magasin': self.combo_magasin.get(),
-                'factfrs': self.entry_factfrs.get()
+                'factfrs': self.entry_factfrs.get(),
+                'transporteur': ''
             },
             'utilisateur': {}, 'details': []
         }
@@ -791,18 +797,47 @@ class PageBonReception(ctk.CTkFrame):
         try:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT
-                    COALESCE(m.designationmag, ''),
-                    COALESCE(u.username, ''),
-                    COALESCE(u.prenomuser, ''),
-                    COALESCE(u.nomuser, '')
-                FROM tb_livraisonfrs lf
-                LEFT JOIN tb_magasin m ON lf.idmag = m.idmag
-                LEFT JOIN tb_users u ON lf.iduser = u.iduser
-                WHERE lf.reflivfrs = %s AND lf.deleted = 0
-                ORDER BY lf.dateregistre DESC, lf.idlivfrs DESC
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_name = 'tb_commande'
+                  AND column_name = 'idtransportuer'
+                  AND table_schema = 'public'
                 LIMIT 1
-            """, (self.entry_ref.get(),))
+            """)
+            has_transporteur = cursor.fetchone() is not None
+
+            if has_transporteur:
+                cursor.execute("""
+                    SELECT
+                        COALESCE(m.designationmag, ''),
+                        COALESCE(u.username, ''),
+                        COALESCE(u.prenomuser, ''),
+                        COALESCE(u.nomuser, ''),
+                        COALESCE(tr.nom, '')
+                    FROM tb_livraisonfrs lf
+                    LEFT JOIN tb_magasin m ON lf.idmag = m.idmag
+                    LEFT JOIN tb_users u ON lf.iduser = u.iduser
+                    LEFT JOIN tb_commande c ON lf.idcom = c.idcom
+                    LEFT JOIN tb_transporteur tr ON c.idtransportuer = tr.idtransporteur
+                    WHERE lf.reflivfrs = %s AND lf.deleted = 0
+                    ORDER BY lf.dateregistre DESC, lf.idlivfrs DESC
+                    LIMIT 1
+                """, (self.entry_ref.get(),))
+            else:
+                cursor.execute("""
+                    SELECT
+                        COALESCE(m.designationmag, ''),
+                        COALESCE(u.username, ''),
+                        COALESCE(u.prenomuser, ''),
+                        COALESCE(u.nomuser, '')
+                    FROM tb_livraisonfrs lf
+                    LEFT JOIN tb_magasin m ON lf.idmag = m.idmag
+                    LEFT JOIN tb_users u ON lf.iduser = u.iduser
+                    WHERE lf.reflivfrs = %s AND lf.deleted = 0
+                    ORDER BY lf.dateregistre DESC, lf.idlivfrs DESC
+                    LIMIT 1
+                """, (self.entry_ref.get(),))
+
             livraison_info = cursor.fetchone()
             if livraison_info:
                 magasin_name = livraison_info[0] or self.combo_magasin.get() or "N/A"
@@ -815,6 +850,9 @@ class PageBonReception(ctk.CTkFrame):
                     'prenomuser': prenom,
                     'nomuser': nom,
                 }
+                if has_transporteur:
+                    transporteur = livraison_info[4].strip() if livraison_info[4] else ''
+                    data['reception']['transporteur'] = transporteur
             else:
                 cursor.execute("SELECT nomuser, prenomuser, username FROM tb_users WHERE iduser=%s", (self.iduser,))
                 u = cursor.fetchone()

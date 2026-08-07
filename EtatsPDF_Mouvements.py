@@ -599,23 +599,57 @@ class EtatPDFMouvements:
             
             idcom, datecom, ref, fournisseur = cmd_info
 
+            transporteur = ''
             cur.execute("""
-                SELECT
-                    COALESCE(m.designationmag, 'N/A') AS magasin,
-                    COALESCE(u.username, 'N/A') AS operateur_username,
-                    COALESCE(lf.factfrs, 'N/A') AS facture_fournisseur
-                FROM tb_livraisonfrs lf
-                LEFT JOIN tb_magasin m ON lf.idmag = m.idmag
-                LEFT JOIN tb_users u ON lf.iduser = u.iduser
-                WHERE lf.idcom = %s AND lf.deleted = 0
-                ORDER BY lf.dateregistre DESC, lf.idlivfrs DESC
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_name = 'tb_commande'
+                  AND column_name = 'idtransportuer'
+                  AND table_schema = 'public'
                 LIMIT 1
-            """, (idcom,))
+            """)
+            has_transporteur = cur.fetchone() is not None
+
+            if has_transporteur:
+                cur.execute("""
+                    SELECT
+                        COALESCE(m.designationmag, 'N/A') AS magasin,
+                        COALESCE(u.username, 'N/A') AS operateur_username,
+                        COALESCE(lf.factfrs, 'N/A') AS facture_fournisseur,
+                        COALESCE(tr.nom, '') AS transporteur
+                    FROM tb_livraisonfrs lf
+                    LEFT JOIN tb_magasin m ON lf.idmag = m.idmag
+                    LEFT JOIN tb_users u ON lf.iduser = u.iduser
+                    LEFT JOIN tb_commande c ON lf.idcom = c.idcom
+                    LEFT JOIN tb_transporteur tr ON c.idtransportuer = tr.idtransporteur
+                    WHERE lf.idcom = %s AND lf.deleted = 0
+                    ORDER BY lf.dateregistre DESC, lf.idlivfrs DESC
+                    LIMIT 1
+                """, (idcom,))
+            else:
+                cur.execute("""
+                    SELECT
+                        COALESCE(m.designationmag, 'N/A') AS magasin,
+                        COALESCE(u.username, 'N/A') AS operateur_username,
+                        COALESCE(lf.factfrs, 'N/A') AS facture_fournisseur
+                    FROM tb_livraisonfrs lf
+                    LEFT JOIN tb_magasin m ON lf.idmag = m.idmag
+                    LEFT JOIN tb_users u ON lf.iduser = u.iduser
+                    WHERE lf.idcom = %s AND lf.deleted = 0
+                    ORDER BY lf.dateregistre DESC, lf.idlivfrs DESC
+                    LIMIT 1
+                """, (idcom,))
+
             livraison_info = cur.fetchone()
-            magasin = livraison_info[0] if livraison_info and livraison_info[0] else 'N/A'
-            operateur_username = livraison_info[1] if livraison_info and livraison_info[1] else 'N/A'
-            facture_fournisseur = livraison_info[2] if livraison_info and livraison_info[2] else 'N/A'
-            
+            if not livraison_info:
+                print(f"❌ Commande {refcom} non trouvée")
+                return False
+
+            if has_transporteur:
+                magasin, operateur_username, facture_fournisseur, transporteur = livraison_info
+            else:
+                magasin, operateur_username, facture_fournisseur = livraison_info
+
             cur.execute("""
                 SELECT 
                     COALESCE(u.codearticle, '-'),
@@ -629,20 +663,24 @@ class EtatPDFMouvements:
                 WHERE cd.idcom = %s
                 ORDER BY a.designation
             """, (idcom,))
-            
+
             details = cur.fetchall()
-            
+
             if not output_path:
                 output_path = f"Bon_Entree_{refcom}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-            
+
             colonnes = ("Code", "Désignation", "Unité", "Cmde", "Livré")
             table_data = (colonnes, list(details))
-            
+
+            description = f"{facture_fournisseur}"
+            if transporteur:
+                description += f" [Transporteur : {transporteur}]"
+
             return self._build_pdf_a5(
                 output_path, "BON DE RÉCEPTION", ref,
                 datecom.strftime("%d/%m/%Y %H:%M") if datecom else "N/A",
                 magasin, operateur_username,
-                table_data, f"{facture_fournisseur}",
+                table_data, description,
                 "Réceptionnaire", "Responsable Magasin",
                 duplicata=duplicata,
             )

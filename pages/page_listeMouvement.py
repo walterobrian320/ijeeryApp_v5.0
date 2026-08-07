@@ -63,6 +63,109 @@ TITRES_MOUVEMENT = {
 }
 
 
+class PanelDetailMouvement(ctk.CTkFrame):
+    """Panneau bas affichant les articles du mouvement sélectionné."""
+
+    def __init__(self, master, parent_page):
+        super().__init__(master, fg_color=Colors.BG_CARD, corner_radius=8,
+                         border_width=1, border_color=Colors.BORDER)
+        self.parent_page = parent_page
+        self._visible = False
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+
+        header = ctk.CTkFrame(self, fg_color=Colors.MIDNIGHT, corner_radius=6)
+        header.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 4))
+        header.grid_columnconfigure(0, weight=1)
+        self.title_label = ctk.CTkLabel(
+            header, text="Détails du mouvement", font=Fonts.bold(12),
+            text_color=Colors.TEXT_ON_DARK, anchor="w",
+        )
+        self.title_label.grid(row=0, column=0, sticky="w", padx=12, pady=8)
+        ctk.CTkButton(
+            header, text="✕", width=28, height=28, command=self.masquer,
+            fg_color=Colors.DANGER, hover_color=Colors.DANGER_DARK,
+            text_color=Colors.TEXT_ON_DARK, font=Fonts.bold(12),
+        ).grid(row=0, column=1, padx=6, pady=4)
+
+        card = ctk.CTkFrame(self, fg_color=Colors.BG_CARD, corner_radius=6)
+        card.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 4))
+        card.grid_rowconfigure(0, weight=1)
+        card.grid_columnconfigure(0, weight=1)
+        self.tree = ttk.Treeview(card, show="headings", style="Mouvement.Treeview")
+        self.tree.tag_configure("row_white", background=Colors.BG_CARD,
+                                foreground=Colors.TEXT_PRIMARY)
+        self.tree.tag_configure("row_alt", background=Colors.BG_ROW_ALT,
+                                foreground=Colors.TEXT_PRIMARY)
+        sb_y = ctk.CTkScrollbar(card, command=self.tree.yview)
+        sb_x = ctk.CTkScrollbar(card, orientation="horizontal", command=self.tree.xview)
+        self.tree.configure(yscrollcommand=sb_y.set, xscrollcommand=sb_x.set)
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        sb_y.grid(row=0, column=1, sticky="ns")
+        sb_x.grid(row=1, column=0, sticky="ew")
+        self.tree.bind("<Configure>", self._ajuster_largeur_colonnes)
+
+        self.actions = ctk.CTkFrame(self, fg_color=Colors.BG_INPUT, corner_radius=6)
+        self.actions.grid(row=2, column=0, sticky="ew", padx=8, pady=(0, 8))
+
+    def afficher(self, title, columns, rows, reference, type_mouvement,
+                 show_print_button=True):
+        self.title_label.configure(text=f"Détails — {title}")
+        self.tree.configure(columns=columns)
+        for col in columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=100, minwidth=30, anchor="w", stretch=True)
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        for idx, row in enumerate(rows):
+            values = list(row)
+            for pos, col in enumerate(columns):
+                if pos < len(values) and ("date" in col.lower() or col == "Date"):
+                    values[pos] = self.parent_page._fmt_datetime_mouvement(values[pos])
+            self.tree.insert("", "end", values=tuple(values),
+                             tags=("row_white" if idx % 2 == 0 else "row_alt",))
+
+        for widget in self.actions.winfo_children():
+            widget.destroy()
+        if reference and type_mouvement and EtatPDFMouvements and show_print_button:
+            ctk.CTkButton(
+                self.actions, text="🖨  Imprimer Duplicata", font=Fonts.button(10),
+                fg_color=Colors.DANGER, hover_color=Colors.DANGER_DARK,
+                height=30, width=150,
+                command=lambda: self.parent_page._imprimer_pdf(reference, type_mouvement),
+            ).pack(side="right", padx=10, pady=7)
+        self._visible = True
+        self.grid()
+        self.parent_page._detail_row_weight(show=True)
+        self.after_idle(self._repartir_largeur_colonnes)
+
+    def _ajuster_largeur_colonnes(self, _event=None):
+        """Conserve une répartition pleine largeur après chaque redimensionnement."""
+        self.after_idle(self._repartir_largeur_colonnes)
+
+    def _repartir_largeur_colonnes(self):
+        columns = self.tree.cget("columns")
+        if not columns:
+            return
+        largeur = self.tree.winfo_width()
+        if largeur <= 1:
+            return
+        largeur_colonne, reste = divmod(largeur, len(columns))
+        for index, col in enumerate(columns):
+            self.tree.column(
+                col,
+                width=largeur_colonne + (1 if index < reste else 0),
+                minwidth=0,
+                stretch=True,
+            )
+
+    def masquer(self):
+        self._visible = False
+        self.grid_remove()
+        self.parent_page._detail_row_weight(show=False)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE PRINCIPALE
 # ══════════════════════════════════════════════════════════════════════════════
@@ -88,6 +191,8 @@ class PageListeMouvement(ctk.CTkFrame):
         self.type_mouvement_actif = "entree"
         self.data_df = pd.DataFrame()
         self._nav_buttons: dict = {}
+        self._detail_selection = None
+        self._details_target = None
         self._sidebar_collapsed = self._lire_sidebar_hamburger_defaut()
 
         self.grid_rowconfigure(0, weight=1)
@@ -248,6 +353,7 @@ class PageListeMouvement(ctk.CTkFrame):
         )
         self.content_host.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 12))
         self.content_host.grid_rowconfigure(1, weight=1)
+        self.content_host.grid_rowconfigure(2, weight=0, minsize=0)
         self.content_host.grid_columnconfigure(0, weight=1)
         self._build_content(self.content_host)
 
@@ -390,10 +496,14 @@ class PageListeMouvement(ctk.CTkFrame):
     def _build_content(self, parent):
         """Zone de contenu : barre de recherche + treeview + footer (pleine largeur)."""
         parent.grid_rowconfigure(1, weight=1)
+        parent.grid_rowconfigure(2, weight=0, minsize=0)
         parent.grid_columnconfigure(0, weight=1)
 
         self._build_search_bar(parent)
         self._build_treeview(parent)
+        self.panel_detail = PanelDetailMouvement(parent, self)
+        self.panel_detail.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
+        self.panel_detail.grid_remove()
         self._build_footer(parent)
 
     def _build_search_bar(self, parent):
@@ -537,11 +647,14 @@ class PageListeMouvement(ctk.CTkFrame):
         sb_y.grid(row=0, column=1, sticky="ns")
         sb_x.grid(row=1, column=0, sticky="ew")
 
-        # Double-clic → détails
+        # Simple clic → panneau de détails ; double-clic conserve la fenêtre dédiée.
+        self.tree.bind("<ButtonRelease-1>", self.on_row_click)
         self.tree.bind("<Double-1>", lambda e: self.on_row_double_click())
+        self.tree.bind("<KeyRelease-Up>", self.on_tree_key_nav)
+        self.tree.bind("<KeyRelease-Down>", self.on_tree_key_nav)
 
     def _build_footer(self, parent):
-        """Footer statistiques (row 2)."""
+        """Footer statistiques."""
         footer = ctk.CTkFrame(
             parent,
             fg_color=Colors.BG_CARD,
@@ -550,7 +663,7 @@ class PageListeMouvement(ctk.CTkFrame):
             border_color=Colors.BORDER,
             height=38,
         )
-        footer.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        footer.grid(row=3, column=0, sticky="ew", pady=(8, 0))
         footer.grid_propagate(False)
         footer.grid_columnconfigure(1, weight=1)
 
@@ -810,6 +923,8 @@ class PageListeMouvement(ctk.CTkFrame):
 
     def display_data_in_tree(self, df: pd.DataFrame):
         """Reconfigure les colonnes et remplit le treeview depuis un DataFrame."""
+        if getattr(self, "panel_detail", None) and self.panel_detail._visible:
+            self.panel_detail.masquer()
         self.clear_tree()
 
         if df is None or df.empty:
@@ -939,8 +1054,58 @@ class PageListeMouvement(ctk.CTkFrame):
             messagebox.showerror("Erreur Export", f"Erreur lors de l'export : {e}")
 
     # ══════════════════════════════════════════════════════════════════════════
-    # SECTION 7 — DOUBLE-CLIC ET FENÊTRE DÉTAILS
+    # SECTION 7 — DÉTAILS AU CLIC, DOUBLE-CLIC ET FENÊTRE DÉDIÉE
     # ══════════════════════════════════════════════════════════════════════════
+
+    def _detail_row_weight(self, show=True):
+        """Répartit la hauteur entre la liste et le panneau de détail."""
+        if show:
+            self.content_host.grid_rowconfigure(1, weight=2)
+            self.content_host.grid_rowconfigure(2, weight=1, minsize=230)
+        else:
+            self.content_host.grid_rowconfigure(1, weight=1)
+            self.content_host.grid_rowconfigure(2, weight=0, minsize=0)
+            self._detail_selection = None
+
+    def on_row_click(self, event):
+        """Charge les articles de la ligne sélectionnée dans le panneau inférieur."""
+        iid = self.tree.identify_row(event.y)
+        if not iid:
+            return
+        self.tree.selection_set(iid)
+        self._afficher_detail_ligne(iid)
+
+    def on_tree_key_nav(self, _event=None):
+        """Synchronise le panneau de détails après une navigation ↑ / ↓."""
+        self.after_idle(self._sync_detail_keyboard)
+
+    def _sync_detail_keyboard(self):
+        selection = self.tree.selection()
+        if selection:
+            self._afficher_detail_ligne(selection[0])
+
+    def _afficher_detail_ligne(self, iid):
+        """Affiche le détail d'une ligne, quelle que soit l'origine de la sélection."""
+        values = self.tree.item(iid).get("values", [])
+        reference = self._extract_ref(values)
+        if not reference:
+            return
+        dispatch = {
+            "entree": self.show_commande_details_by_ref,
+            "entree_stock": self.show_entree_details_by_ref,
+            "sortie": self.show_sortie_details_by_ref,
+            "transfert": self.show_transfert_details_by_ref,
+            "consommation": self.show_consommation_details_by_ref,
+            "changement": self.show_changement_details_by_ref,
+        }
+        try:
+            self._detail_selection = iid
+            self._details_target = "panel"
+            dispatch[self.type_mouvement_actif](reference)
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible de charger les détails : {e}")
+        finally:
+            self._details_target = None
 
     def on_row_double_click(self):
         """Ouvre la fenêtre de détails pour la ligne sélectionnée."""
@@ -984,6 +1149,11 @@ class PageListeMouvement(ctk.CTkFrame):
         Ouvre une fenêtre modale avec un treeview des détails.
         Boutons : Imprimer PDF (si disponible) + Fermer.
         """
+        if self._details_target == "panel":
+            self.panel_detail.afficher(
+                title, columns, rows, reference, type_mouvement, show_print_button,
+            )
+            return
         win = ctk.CTkToplevel(self)
         win.title(title)
         win.geometry("960x520")
@@ -1061,10 +1231,10 @@ class PageListeMouvement(ctk.CTkFrame):
         if reference and type_mouvement and EtatPDFMouvements and show_print_button:
             ctk.CTkButton(
                 actions,
-                text="🖨  Imprimer PDF",
+                text="🖨  Imprimer Duplicata",
                 font=Fonts.button(11),
-                fg_color=Colors.PREMIUM,
-                hover_color=Colors.PREMIUM_DARK,
+                fg_color=Colors.DANGER,
+                hover_color=Colors.DANGER_DARK,
                 height=32, corner_radius=8, width=130,
                 command=lambda: self._imprimer_pdf(reference, type_mouvement),
             ).pack(side="right", padx=6, pady=10)

@@ -725,3 +725,85 @@ _tkinter.TclError: invalid command name ".!ctkframe.!pagegestionperemption.!ctkf
 2026-08-07 08:22:00 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
 2026-08-07 08:22:02 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
 2026-08-07 08:22:02 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-07 08:28:29 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:28:34 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:28:34 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:28:36 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:28:37 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-07 08:28:47 | ERROR    | ijeery | navigate pages.page_listeMouvement.PageListeMouvement: 'PageListeMouvement' object has no attribute 'on_row_click'
+Traceback (most recent call last):
+  File "d:\Projets 2026\ijeeryApp_v5.0\app_main.py", line 1106, in navigate
+    instance = self._instantiate(cls, kwargs_key)
+  File "d:\Projets 2026\ijeeryApp_v5.0\app_main.py", line 1170, in _instantiate
+    return cls(*args, **kw)
+  File "d:\Projets 2026\ijeeryApp_v5.0\pages\page_listeMouvement.py", line 98, in __init__
+    self._build_main_column()
+    ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "d:\Projets 2026\ijeeryApp_v5.0\pages\page_listeMouvement.py", line 256, in _build_main_column
+    self._build_content(self.content_host)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "d:\Projets 2026\ijeeryApp_v5.0\pages\page_listeMouvement.py", line 400, in _build_content
+    self._build_treeview(parent)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "d:\Projets 2026\ijeeryApp_v5.0\pages\page_listeMouvement.py", line 546, in _build_treeview
+    self.tree.bind("<ButtonRelease-1>", self.on_row_click)
+                                        ^^^^^^^^^^^^^^^^^
+AttributeError: 'PageListeMouvement' object has no attribute 'on_row_click'
+
+2026-08-07 08:36:10 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:36:13 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:36:13 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:36:15 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:36:16 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-07 08:36:24 | ERROR    | ijeery | navigate pages.page_listeMouvement.PageListeMouvement: 'PageListeMouvement' object has no attribute '_build_footer'
+Traceback (most recent call last):
+  File "d:\Projets 2026\ijeeryApp_v5.0\app_main.py", line 1106, in navigate
+    instance = self._instantiate(cls, kwargs_key)
+  File "d:\Projets 2026\ijeeryApp_v5.0\app_main.py", line 1170, in _instantiate
+    return cls(*args, **kw)
+  File "d:\Projets 2026\ijeeryApp_v5.0\pages\page_listeMouvement.py", line 98, in __init__
+    self._build_main_column()
+    ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "d:\Projets 2026\ijeeryApp_v5.0\pages\page_listeMouvement.py", line 256, in _build_main_column
+    self._build_content(self.content_host)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "d:\Projets 2026\ijeeryApp_v5.0\pages\page_listeMouvement.py", line 405, in _build_content
+    self._build_footer(parent)
+    ^^^^^^^^^^^^^^^^^^
+AttributeError: 'PageListeMouvement' object has no attribute '_build_footer'. Did you mean: '_build_content'?
+
+2026-08-07 08:38:16 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:38:19 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:38:19 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:38:21 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:38:22 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-07 08:41:30 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:41:33 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:41:33 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:41:35 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:41:35 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-07 08:43:08 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:43:11 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:43:11 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:43:13 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:43:13 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-07 08:44:17 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:44:19 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:44:19 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:44:22 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:44:22 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-07 08:48:36 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:48:38 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:48:38 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:48:40 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:48:41 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-07 08:51:35 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:51:42 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:51:42 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:51:44 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:51:44 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-07 08:53:30 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:53:32 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:53:32 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-07 08:53:34 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-07 08:53:35 | INFO     | ijeery | [DB] Connexion établie.

@@ -1547,7 +1547,52 @@ class PageVenteParMsin(ctk.CTkFrame):
         tree.pack(side="left", fill="both", expand=True)
         sb.pack(side="right", fill="y")
 
+        def _clear_tree_selection():
+            for item in tree.selection():
+                tree.selection_remove(item)
+            tree.focus("")
+
+        def _select_tree_item(item_id: str):
+            if not item_id:
+                return
+            _clear_tree_selection()
+            tree.selection_set(item_id)
+            tree.focus(item_id)
+            tree.see(item_id)
+            entry_search.focus_set()
+
+        def _navigate_tree(direction: int):
+            items = tree.get_children()
+            if not items:
+                return
+            current = tree.selection()
+            if current:
+                try:
+                    idx = items.index(current[0])
+                except ValueError:
+                    idx = 0 if direction > 0 else len(items) - 1
+            else:
+                idx = 0 if direction > 0 else len(items) - 1
+            target = max(0, min(len(items) - 1, idx + direction))
+            _select_tree_item(items[target])
+
+        def _on_search_key(event):
+            if event.keysym == "Down":
+                _navigate_tree(1)
+                return "break"
+            if event.keysym == "Up":
+                _navigate_tree(-1)
+                return "break"
+            if event.keysym == "Return":
+                if not tree.selection():
+                    children = tree.get_children()
+                    if children:
+                        _select_tree_item(children[0])
+                valider()
+                return "break"
+
         def charger(filtre=""):
+            _clear_tree_selection()
             for i in tree.get_children(): tree.delete(i)
             mag_nom = self.combo_magasin.get()
             idmag   = self.magasin_map.get(mag_nom)
@@ -1733,11 +1778,16 @@ class PageVenteParMsin(ctk.CTkFrame):
         
         def debounced_charger_article(_e=None):
             nonlocal debounce_id
+            if _e and _e.keysym in ("Up", "Down", "Return"):
+                return
             if debounce_id:
                 fen.after_cancel(debounce_id)
             debounce_id = fen.after(300, lambda: charger(entry_search.get()))
         
         entry_search.bind("<KeyRelease>", debounced_charger_article)
+        entry_search.bind("<Up>", _on_search_key)
+        entry_search.bind("<Down>", _on_search_key)
+        entry_search.bind("<Return>", _on_search_key)
 
         def valider():
             sel = tree.selection()

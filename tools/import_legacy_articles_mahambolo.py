@@ -82,8 +82,7 @@ def build_sql(rows: list[dict[str, str]]) -> str:
             poids = parse_number(row.get('POIDS', '0'))
             units.append({'name': unit_name or 'UNITE', 'qt': qt, 'poids': poids})
 
-        units.sort(key=lambda item: item['qt'])
-
+        # Preserve the original CSV unit order instead of sorting by quantity.
         for niveau, unit in enumerate(units):
             codearticle = f"{category_id:03d}{article_id:05d}{niveau:02d}"
             lines.append(

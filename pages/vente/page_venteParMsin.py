@@ -2425,7 +2425,7 @@ class PageVenteParMsin(ctk.CTkFrame):
             cmds = [
                 ('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),('FONTSIZE',(0,0),(-1,0),9),
                 ('LINEBELOW',(0,0),(-1,0),1,rl_colors.black),('FONTSIZE',(0,1),(-1,-1),8),
-                ('ALIGN',(3,0),(-1,-1),'RIGHT'),('ALIGN',(0,0),(2,0),'LEFT'),
+                ('ALIGN',(0,0),(0,-1),'CENTER'),('ALIGN',(3,0),(-1,-1),'RIGHT'),('ALIGN',(0,0),(2,0),'LEFT'),
                 ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
                 ('LEFTPADDING',(0,0),(-1,-1),2),('RIGHTPADDING',(3,0),(-1,-1),2),
                 ('TOPPADDING',(0,0),(-1,-1),1),('BOTTOMPADDING',(0,0),(-1,-1),1),

@@ -2285,7 +2285,7 @@ class PageVenteParMsin(ctk.CTkFrame):
         from reportlab.pdfgen import canvas as rl_canvas
         from reportlab.platypus import Table as RLTable, TableStyle as RLTableStyle, Paragraph
 
-        MAX_P1 = 25; MAX_PN = 30; MARGIN = 10 * mm
+        MAX_P1 = 22; MAX_PN = 22; MARGIN = 10 * mm
         HEADER_ANCHOR = 42 * mm
         OP_GAP = 5 * mm
         c = rl_canvas.Canvas(filename, pagesize=A5)
@@ -2395,8 +2395,8 @@ class PageVenteParMsin(ctk.CTkFrame):
             from reportlab.platypus import Paragraph as _Para
             fh = t_top - t_bot
             cws = [12*mm, 15*mm, 50*mm, 17*mm, 17*mm, 17*mm]
-            rhe = 5.5*mm; max_r = int(fh/rhe)
-            slots = max_r - 1
+            target_rows = 20
+            rhe = max(3.4*mm, fh / (target_rows + 1))
 
             # Style pour la désignation avec wrapping
             ps_desig = _PS('desig', fontName='Helvetica', fontSize=8,
@@ -2409,13 +2409,17 @@ class PageVenteParMsin(ctk.CTkFrame):
                     row[2] = _Para(row[2], ps_desig)
                 return row
 
-            body = [make_row(r) for r in rows]
-            for _ in range(max(0, slots-len(body))): body.append(['']*6)
+            body = [make_row(r) for r in rows[:target_rows]]
+            if len(body) < target_rows:
+                body.extend([[''] * 6] * (target_rows - len(body)))
+            elif len(body) > target_rows:
+                body = body[:target_rows]
 
             hdr = [['QTE','UNITE','DESIGNATION','PU TTC','P.REMISE','MONTANT']]
             td = hdr + body
 
-            # Hauteur fixe pour l'entête, None (auto) pour les lignes de données
+            # Hauteur auto pour les lignes de données afin que le wrapping
+            # s'adapte correctement sur les pages suivantes sans modifier la mise en page de la première page.
             row_heights = [rhe] + [None] * len(body)
 
             cmds = [

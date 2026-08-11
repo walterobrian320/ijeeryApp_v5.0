@@ -1,0 +1,34 @@
+-- Corrections de stock cumulés basées sur Stock_20260807173615.csv
+-- 30 codes articles concernés, 54 lignes CSV impliquées.
+BEGIN;
+UPDATE tb_stock SET qtstock = 0 WHERE idmag = 1 AND codearticle = '0010000900';
+UPDATE tb_stock SET qtstock = 21.7 WHERE idmag = 1 AND codearticle = '0010001100';
+UPDATE tb_stock SET qtstock = 41.3 WHERE idmag = 1 AND codearticle = '0010006300';
+UPDATE tb_stock SET qtstock = 0 WHERE idmag = 1 AND codearticle = '0010006500';
+UPDATE tb_stock SET qtstock = 0 WHERE idmag = 1 AND codearticle = '0010006900';
+UPDATE tb_stock SET qtstock = 0 WHERE idmag = 1 AND codearticle = '0010007000';
+UPDATE tb_stock SET qtstock = 0 WHERE idmag = 1 AND codearticle = '0010007300';
+UPDATE tb_stock SET qtstock = 0 WHERE idmag = 1 AND codearticle = '0010007400';
+UPDATE tb_stock SET qtstock = 0 WHERE idmag = 1 AND codearticle = '0010007500';
+UPDATE tb_stock SET qtstock = 4 WHERE idmag = 1 AND codearticle = '0010007700';
+UPDATE tb_stock SET qtstock = 22 WHERE idmag = 1 AND codearticle = '0010007900';
+UPDATE tb_stock SET qtstock = 6 WHERE idmag = 1 AND codearticle = '0010008000';
+UPDATE tb_stock SET qtstock = 0 WHERE idmag = 1 AND codearticle = '0010008600';
+UPDATE tb_stock SET qtstock = 0 WHERE idmag = 1 AND codearticle = '0010008800';
+UPDATE tb_stock SET qtstock = 0 WHERE idmag = 1 AND codearticle = '0010009000';
+UPDATE tb_stock SET qtstock = 5 WHERE idmag = 1 AND codearticle = '0010009300';
+UPDATE tb_stock SET qtstock = 0 WHERE idmag = 1 AND codearticle = '0010009500';
+UPDATE tb_stock SET qtstock = 9 WHERE idmag = 1 AND codearticle = '0010009600';
+UPDATE tb_stock SET qtstock = 123.6 WHERE idmag = 1 AND codearticle = '0010011700';
+UPDATE tb_stock SET qtstock = 2706.9 WHERE idmag = 1 AND codearticle = '0010012200';
+UPDATE tb_stock SET qtstock = 0 WHERE idmag = 1 AND codearticle = '0010012800';
+UPDATE tb_stock SET qtstock = 0 WHERE idmag = 1 AND codearticle = '0010013300';
+UPDATE tb_stock SET qtstock = 0 WHERE idmag = 1 AND codearticle = '0010013500';
+UPDATE tb_stock SET qtstock = 37.6 WHERE idmag = 1 AND codearticle = '0010014800';
+UPDATE tb_stock SET qtstock = 153 WHERE idmag = 1 AND codearticle = '0010015100';
+UPDATE tb_stock SET qtstock = 150.4 WHERE idmag = 1 AND codearticle = '0010017800';
+UPDATE tb_stock SET qtstock = 70.4 WHERE idmag = 1 AND codearticle = '0010017900';
+UPDATE tb_stock SET qtstock = 2.2 WHERE idmag = 1 AND codearticle = '0010018000';
+UPDATE tb_stock SET qtstock = 4 WHERE idmag = 1 AND codearticle = '0010019800';
+UPDATE tb_stock SET qtstock = 2 WHERE idmag = 1 AND codearticle = '0110017300';
+COMMIT;

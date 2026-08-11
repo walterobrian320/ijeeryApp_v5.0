@@ -98,8 +98,11 @@ class MessageDialog(ctk.CTkToplevel):
                      text_color=Colors.TEXT_PRIMARY, wraplength=350,
                      justify="center").pack(pady=(0, 20), padx=20)
 
-        styled.button_success(self, text="OK", command=self.destroy,
-                              width=100, height=36).pack(pady=(0, 14))
+        self.btn_ok = styled.button_success(self, text="OK", command=self.destroy,
+                                             width=100, height=36)
+        self.btn_ok.pack(pady=(0, 14))
+        self.btn_ok.focus_set()
+        self.bind("<Return>", lambda event: self.destroy())
 
         self.grab_set()
         self.lift()

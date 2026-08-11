@@ -505,155 +505,367 @@ class PageEntree(ctk.CTkFrame):
 
     def open_recherche_article(self):
         fen = ctk.CTkToplevel(self)
-        fen.title("Rechercher un article pour l'entrée")
-        fen.geometry("1000x600")
+        fen.title("Rechercher un article")
+        fen.geometry("1020x620")
+        fen.configure(fg_color=Colors.BG_PAGE)
         fen.grab_set()
+        fen.lift()
+        fen.focus_force()
+        fen.attributes('-topmost', True)
 
-        main_frame = ctk.CTkFrame(fen)
-        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        mf = ctk.CTkFrame(fen, fg_color=Colors.BG_CARD, corner_radius=12)
+        mf.pack(fill="both", expand=True, padx=12, pady=12)
 
-        ctk.CTkLabel(main_frame, text="Sélectionner un article", font=Fonts.heading(16)).pack(pady=(0, 10))
+        ctk.CTkLabel(mf, text="📦 Sélectionner un article",
+                     font=Fonts.heading(14), text_color=Colors.TEXT_PRIMARY).pack(pady=(12, 8))
 
-        search_frame = ctk.CTkFrame(main_frame)
-        search_frame.pack(fill="x", pady=(0, 10))
-        ctk.CTkLabel(search_frame, text="🔍 Rechercher :").pack(side="left", padx=5)
-        entry_search = ctk.CTkEntry(search_frame, placeholder_text="Code ou désignation…", width=300)
-        entry_search.pack(side="left", padx=5, fill="x", expand=True)
-        fen.after(100, lambda: entry_search.focus_set())
+        sf = ctk.CTkFrame(mf, fg_color="transparent")
+        sf.pack(fill="x", padx=12, pady=(0, 8))
+        ctk.CTkLabel(sf, text="🔍", font=Fonts.body(14),
+                     text_color=Colors.TEXT_MUTED).pack(side="left", padx=(0, 6))
+        entry_search = ctk.CTkEntry(sf, placeholder_text="Code ou désignation…",
+                                     font=Fonts.input(12), fg_color=Colors.BG_INPUT,
+                                     border_color=Colors.BORDER, height=32)
+        entry_search.pack(side="left", fill="x", expand=True)
+        fen.after(100, entry_search.focus_set)
 
-        tree_frame = ctk.CTkFrame(main_frame)
-        tree_frame.pack(fill="both", expand=True, pady=(0, 10))
+        tf = ctk.CTkFrame(mf, fg_color="transparent")
+        tf.pack(fill="both", expand=True, padx=12, pady=(0, 8))
 
+        cols = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité", "Quantité", "Prix Unitaire", "Stock")
         style = ttk.Style()
-        style.configure(
-            "ArtSearchEntree.Treeview",
-            rowheight=22,
-            font=('Segoe UI', 8),
-            background=Colors.BG_CARD,
-            foreground=Colors.TEXT_PRIMARY,
-            fieldbackground=Colors.BG_CARD,
-            borderwidth=0,
-        )
-        style.configure(
-            "ArtSearchEntree.Treeview.Heading",
-            background=Colors.BG_HEADER,
-            foreground=Colors.TEXT_ON_DARK,
-            font=('Segoe UI', 8, 'bold'),
-            relief="flat",
-        )
+        style.theme_use("clam")
+        style.configure("Vente.Treeview",
+                        rowheight=22,
+                        font=("Segoe UI", 9),
+                        background=Colors.BG_CARD,
+                        foreground=Colors.TEXT_PRIMARY,
+                        fieldbackground=Colors.BG_CARD,
+                        borderwidth=0,
+                        relief="flat")
+        style.configure("Vente.Treeview.Heading",
+                        background=Colors.BG_HEADER,
+                        foreground=Colors.TEXT_ON_DARK,
+                        font=("Segoe UI", 9, "bold"),
+                        relief="flat",
+                        padding=4)
+        style.map("Vente.Treeview",
+                  background=[("selected", Colors.PRIMARY_LIGHT)],
+                  foreground=[("selected", Colors.TEXT_PRIMARY)])
 
-        colonnes = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité", "Stock")
-        tree = ttk.Treeview(tree_frame, columns=colonnes, show='headings', height=15, style="ArtSearchEntree.Treeview")
+        tree = ttk.Treeview(tf, columns=cols, show="headings",
+                             height=18, style="Vente.Treeview")
         tree.tag_configure("even", background=Colors.BG_CARD)
         tree.tag_configure("odd", background=Colors.BG_ROW_ALT)
+        tree.tag_configure("stock_nul", foreground=Colors.DANGER)
 
-        nom_mag = (self.combo_magasin.get() or "").strip()
-        col_cfg = {
-            "ID_Article": (0, False, "center"),
-            "ID_Unite": (0, False, "center"),
-            "Code": (120, True, "w"),
-            "Désignation": (330, True, "w"),
-            "Unité": (90, True, "w"),
-            "Stock": (120, True, "e"),
-        }
-        for col, (w, stretch, anchor) in col_cfg.items():
-            lbl = (f"Magasin {nom_mag}" if col == "Stock" and nom_mag else col)
-            tree.heading(col, text=lbl)
-            tree.column(col, width=w, stretch=stretch, anchor=anchor)
-        tree["displaycolumns"] = ("Code", "Désignation", "Unité", "Stock")
+        tree.heading("ID_Article", text="ID")
+        tree.heading("ID_Unite", text="IDU")
+        tree.heading("Code", text="Code")
+        tree.heading("Désignation", text="Désignation")
+        tree.heading("Unité", text="Unité")
+        tree.heading("Quantité", text="Quantité")
+        tree.heading("Prix Unitaire", text="Prix Unitaire")
+        tree.heading("Stock", text="Stock Magasin")
 
-        scrollbar = ctk.CTkScrollbar(tree_frame, command=tree.yview)
-        tree.configure(yscrollcommand=scrollbar.set)
+        tree.column("ID_Article", width=0, stretch=False)
+        tree.column("ID_Unite", width=0, stretch=False)
+        tree.column("Code", width=150, anchor="w")
+        tree.column("Désignation", width=350, anchor="w")
+        tree.column("Unité", width=100, anchor="w")
+        tree.column("Quantité", width=100, anchor="e")
+        tree.column("Prix Unitaire", width=110, anchor="e")
+        tree.column("Stock", width=130, anchor="e")
+
+        sb = ctk.CTkScrollbar(tf, command=tree.yview)
+        tree.configure(yscrollcommand=sb.set)
         tree.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        sb.pack(side="right", fill="y")
+
+        def _clear_tree_selection():
+            for item in tree.selection():
+                tree.selection_remove(item)
+            tree.focus("")
+
+        def _select_tree_item(item_id: str):
+            if not item_id:
+                return
+            _clear_tree_selection()
+            tree.selection_set(item_id)
+            tree.focus(item_id)
+            tree.see(item_id)
+            entry_search.focus_set()
+
+        def _navigate_tree(direction: int):
+            items = tree.get_children()
+            if not items:
+                return
+            current = tree.selection()
+            if current:
+                try:
+                    idx = items.index(current[0])
+                except ValueError:
+                    idx = 0 if direction > 0 else len(items) - 1
+            else:
+                idx = 0 if direction > 0 else len(items) - 1
+            target = max(0, min(len(items) - 1, idx + direction))
+            _select_tree_item(items[target])
+
+        def _on_search_key(event):
+            if event.keysym == "Down":
+                _navigate_tree(1)
+                return "break"
+            if event.keysym == "Up":
+                _navigate_tree(-1)
+                return "break"
+            if event.keysym == "Return":
+                if not tree.selection():
+                    children = tree.get_children()
+                    if children:
+                        _select_tree_item(children[0])
+                valider()
+                return "break"
 
         QUERY_ARTICLES = """
-            SELECT
-                u.idarticle,
-                u.idunite,
-                u.codearticle,
-                a.designation,
-                u.designationunite
-            FROM tb_unite u
-            INNER JOIN tb_article a ON a.idarticle = u.idarticle
-            WHERE a.deleted = 0
-              AND COALESCE(u.deleted, 0) = 0
-              AND (u.codearticle ILIKE %s OR a.designation ILIKE %s)
-            ORDER BY a.designation ASC, u.codearticle ASC, u.idunite ASC
-        """
+                WITH uc AS (
+                    SELECT idarticle, idunite, niveau, qtunite, designationunite
+                    FROM tb_unite
+                    WHERE deleted = 0
+                ),
+                uc_coeff AS (
+                    SELECT
+                        idarticle,
+                        idunite,
+                        niveau,
+                        qtunite,
+                        designationunite,
+                        exp(sum(ln(NULLIF(CASE WHEN qtunite > 0 THEN qtunite ELSE 1 END, 0)))
+                            OVER (PARTITION BY idarticle ORDER BY niveau ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+                        ) AS coeff_hierarchique
+                    FROM uc
+                ),
+                bu AS (
+                    SELECT DISTINCT ON (idarticle) idarticle, idunite
+                    FROM tb_unite
+                    WHERE deleted = 0
+                    ORDER BY idarticle, qtunite ASC, idunite ASC
+                ),
+                ent AS (
+                    SELECT ed.idarticle, ed.idunite, ed.idmag, SUM(ed.qtentree) AS quantite
+                    FROM tb_entreedetail ed
+                    WHERE ed.deleted = 0
+                    GROUP BY ed.idarticle, ed.idunite, ed.idmag
+                ),
+                rec AS (
+                    SELECT lf.idarticle, lf.idunite, lf.idmag, SUM(lf.qtlivrefrs) AS quantite
+                    FROM tb_livraisonfrs lf
+                    WHERE lf.deleted = 0
+                    GROUP BY lf.idarticle, lf.idunite, lf.idmag
+                ),
+                ven AS (
+                    SELECT vd.idarticle, vd.idunite, v.idmag, SUM(vd.qtvente) AS quantite
+                    FROM tb_ventedetail vd
+                    INNER JOIN tb_vente v ON vd.idvente = v.id AND v.deleted = 0 AND v.statut = 'VALIDEE'
+                    WHERE vd.deleted = 0
+                    GROUP BY vd.idarticle, vd.idunite, v.idmag
+                ),
+                tin AS (
+                    SELECT t.idarticle, t.idunite, t.idmagentree AS idmag, SUM(t.qttransfert) AS quantite
+                    FROM tb_transfertdetail t
+                    WHERE t.deleted = 0
+                    GROUP BY t.idarticle, t.idunite, t.idmagentree
+                ),
+                tout AS (
+                    SELECT t.idarticle, t.idunite, t.idmagsortie AS idmag, SUM(t.qttransfert) AS quantite
+                    FROM tb_transfertdetail t
+                    WHERE t.deleted = 0
+                    GROUP BY t.idarticle, t.idunite, t.idmagsortie
+                ),
+                sor AS (
+                    SELECT sd.idarticle, sd.idunite, sd.idmag, SUM(sd.qtsortie) AS quantite
+                    FROM tb_sortiedetail sd
+                    WHERE sd.deleted = 0
+                    GROUP BY sd.idarticle, sd.idunite, sd.idmag
+                ),
+                inv AS (
+                    SELECT bu.idarticle, bu.idunite, i.idmag, SUM(i.qtinventaire) AS quantite
+                    FROM tb_inventaire i
+                    INNER JOIN tb_unite u ON i.codearticle = u.codearticle
+                    INNER JOIN bu ON bu.idarticle = u.idarticle AND bu.idunite = u.idunite
+                    GROUP BY bu.idarticle, bu.idunite, i.idmag
+                ),
+                avo AS (
+                    SELECT ad.idarticle, ad.idunite, ad.idmag, SUM(ad.qtavoir) AS quantite
+                    FROM tb_avoir a
+                    INNER JOIN tb_avoirdetail ad ON a.id = ad.idavoir
+                    WHERE a.deleted = 0 AND ad.deleted = 0
+                    GROUP BY ad.idarticle, ad.idunite, ad.idmag
+                ),
+                conso AS (
+                    SELECT cd.idarticle, cd.idunite, cd.idmag, SUM(cd.qtconsomme) AS quantite
+                    FROM tb_consommationinterne_details cd
+                    GROUP BY cd.idarticle, cd.idunite, cd.idmag
+                ),
+                ech_in AS (
+                    SELECT dce.idarticle, dce.idunite, dce.idmagasin AS idmag, SUM(dce.quantite_entree) AS quantite
+                    FROM tb_detailchange_entree dce
+                    GROUP BY dce.idarticle, dce.idunite, dce.idmagasin
+                ),
+                ech_out AS (
+                    SELECT dcs.idarticle, dcs.idunite, dcs.idmagasin AS idmag, SUM(dcs.quantite_sortie) AS quantite
+                    FROM tb_detailchange_sortie dcs
+                    GROUP BY dcs.idarticle, dcs.idunite, dcs.idmagasin
+                ),
+                mouvements_agreges AS (
+                    SELECT idarticle, idunite, idmag, quantite, 'entree' AS type_mouvement FROM ent
+                    UNION ALL
+                    SELECT idarticle, idunite, idmag, quantite, 'reception' AS type_mouvement FROM rec
+                    UNION ALL
+                    SELECT idarticle, idunite, idmag, quantite, 'vente' AS type_mouvement FROM ven
+                    UNION ALL
+                    SELECT idarticle, idunite, idmag, quantite, 'transfert_in' AS type_mouvement FROM tin
+                    UNION ALL
+                    SELECT idarticle, idunite, idmag, quantite, 'transfert_out' AS type_mouvement FROM tout
+                    UNION ALL
+                    SELECT idarticle, idunite, idmag, quantite, 'sortie' AS type_mouvement FROM sor
+                    UNION ALL
+                    SELECT idarticle, idunite, idmag, quantite, 'inventaire' AS type_mouvement FROM inv
+                    UNION ALL
+                    SELECT idarticle, idunite, idmag, quantite, 'avoir' AS type_mouvement FROM avo
+                    UNION ALL
+                    SELECT idarticle, idunite, idmag, quantite, 'consommation_interne' AS type_mouvement FROM conso
+                    UNION ALL
+                    SELECT idarticle, idunite, idmag, quantite, 'echange_entree' AS type_mouvement FROM ech_in
+                    UNION ALL
+                    SELECT idarticle, idunite, idmag, quantite, 'echange_sortie' AS type_mouvement FROM ech_out
+                ),
+                solde AS (
+                    SELECT
+                        ma.idarticle,
+                        SUM(
+                            CASE
+                                WHEN ma.type_mouvement IN ('entree','reception','transfert_in','inventaire','avoir','echange_entree')
+                                    THEN ma.quantite * COALESCE(uc_coeff.coeff_hierarchique, 1)
+                                WHEN ma.type_mouvement IN ('vente','sortie','transfert_out','consommation_interne','echange_sortie')
+                                    THEN - ma.quantite * COALESCE(uc_coeff.coeff_hierarchique, 1)
+                                ELSE 0
+                            END
+                        ) AS solde_base
+                    FROM mouvements_agreges ma
+                    LEFT JOIN uc_coeff
+                        ON uc_coeff.idarticle = ma.idarticle
+                       AND uc_coeff.idunite = ma.idunite
+                    WHERE ma.idmag = %s
+                    GROUP BY ma.idarticle
+                ),
+                dp AS (
+                    SELECT idarticle,idunite,prix,ROW_NUMBER() OVER(PARTITION BY idarticle,idunite ORDER BY id DESC) rn
+                    FROM tb_prix
+                )
+                SELECT a.idarticle, u.idunite, u.codearticle, a.designation,
+                       uc_coeff.designationunite, COALESCE(uc_coeff.qtunite,1),
+                       COALESCE(p.prix,0),
+                       COALESCE(s.solde_base,0)/NULLIF(COALESCE(uc_coeff.coeff_hierarchique,1),0) AS stock
+                FROM tb_article a
+                JOIN tb_unite u ON a.idarticle=u.idarticle
+                LEFT JOIN uc_coeff ON uc_coeff.idarticle=u.idarticle AND uc_coeff.idunite=u.idunite
+                LEFT JOIN solde s ON s.idarticle=u.idarticle
+                LEFT JOIN dp p ON p.idarticle=u.idarticle AND p.idunite=u.idunite AND p.rn=1
+                WHERE a.deleted=0 AND u.deleted=0 AND (u.codearticle ILIKE %s OR a.designation ILIKE %s)
+                ORDER BY a.designation, u.codearticle
+                """
 
-        def charger_articles(filtre=""):
-            for item in tree.get_children():
-                tree.delete(item)
-            conn = self.connect_db()
+        def charger(filtre=""):
+            _clear_tree_selection()
+            for i in tree.get_children():
+                tree.delete(i)
+            mag_nom = self.combo_magasin.get()
+            idmag = self.magasins_map.get(mag_nom)
+            tree.heading("Stock", text=f"Stock '{mag_nom}'" if mag_nom else "Stock Magasin")
+            if not idmag:
+                return
+            conn = self.conn if self.conn else self.connect_db()
+            close_conn = conn is not self.conn
             if not conn:
                 return
             try:
                 cur = conn.cursor()
-                filtre_like = f"%{filtre}%"
-                designationmag = (self.combo_magasin.get() or "").strip()
-                idmag_actif = self.magasins_map.get(designationmag)
-                tree.heading("Stock", text=f"Magasin {designationmag}" if designationmag else "Magasin")
-                if idmag_actif is None:
-                    return
-                snapshot = get_snapshot_cached(int(idmag_actif), conn=self.conn)
-                cur.execute(QUERY_ARTICLES, (filtre_like, filtre_like))
+                cur.execute(QUERY_ARTICLES, (idmag, f"%{filtre}%", f"%{filtre}%"))
                 for idx, row in enumerate(cur.fetchall()):
-                    stock_total = snapshot.stock_unite(row[0], row[1])
-                    tree.insert(
-                        '',
-                        'end',
-                        values=(row[0], row[1], row[2] or "", row[3] or "", row[4] or "", format_nombre_auto(stock_total)),
-                        tags=("even" if idx % 2 == 0 else "odd",),
-                    )
+                    stk = float(row[7] or 0)
+                    tags = ("even",) if idx % 2 == 0 else ("odd",)
+                    if stk <= 0:
+                        tags = tags + ("stock_nul",)
+                    tree.insert("", "end", values=(
+                        row[0], row[1], row[2] or "",
+                        row[3] or "", row[4] or "",
+                        self.formater_nombre(row[5]),
+                        self.formater_nombre(row[6]),
+                        self.formater_nombre(stk),
+                    ), tags=tags)
             except Exception as e:
-                messagebox.showerror("Erreur", f"Chargement articles : {e}")
+                messagebox.showerror("Erreur chargement", str(e))
             finally:
-                if 'cur' in locals() and cur:
+                if 'cur' in locals():
                     cur.close()
-                conn.close()
+                if close_conn and conn:
+                    conn.close()
 
-        def valider_selection():
+        debounce_id = None
+
+        def debounced_charger_article(_e=None):
+            nonlocal debounce_id
+            if _e and _e.keysym in ("Up", "Down", "Return"):
+                return
+            if debounce_id:
+                fen.after_cancel(debounce_id)
+            debounce_id = fen.after(300, lambda: charger(entry_search.get()))
+
+        entry_search.bind("<KeyRelease>", debounced_charger_article)
+        entry_search.bind("<Up>", _on_search_key)
+        entry_search.bind("<Down>", _on_search_key)
+        entry_search.bind("<Return>", _on_search_key)
+
+        def valider():
             sel = tree.selection()
             if not sel:
-                messagebox.showwarning("Attention", "Sélectionnez un article.")
+                messagebox.showwarning("Attention", "Sélectionnez un article!")
                 return
-            values = tree.item(sel[0]).get('values', [])
-            if len(values) < 6:
-                messagebox.showerror("Erreur", "Données incomplètes.")
+            vals = tree.item(sel[0])['values']
+            if len(vals) < 8:
+                messagebox.showerror("Erreur", "Données d'article incomplètes.")
                 return
-            article = {
-                'idarticle': values[0],
-                'idunite': values[1],
-                'code_article': values[2],
-                'nom_article': values[3],
-                'nom_unite': values[4],
-                'stock_disponible': self.parser_nombre(str(values[5])),
-            }
             fen.destroy()
-            self.on_article_selected(article)
+            self.on_article_selected({
+                'idarticle': vals[0],
+                'idunite': vals[1],
+                'code_article': vals[2],
+                'nom_article': vals[3],
+                'nom_unite': vals[4],
+                'prixunit': self.parser_nombre(str(vals[6])),
+                'stock_temporaire': self.parser_nombre(str(vals[7])),
+            })
 
-        entry_search.bind('<KeyRelease>', lambda e: charger_articles(entry_search.get()))
-        tree.bind('<Double-Button-1>', lambda e: valider_selection())
+        tree.bind('<Double-Button-1>', lambda _e: valider())
 
-        btn_frame = ctk.CTkFrame(main_frame)
-        btn_frame.pack(fill="x")
+        bf = ctk.CTkFrame(mf, fg_color="transparent")
+        bf.pack(fill="x", padx=12, pady=(0, 12))
         ctk.CTkButton(
-            btn_frame,
+            bf,
             text="❌ Annuler",
             command=fen.destroy,
             fg_color=Colors.DANGER,
             hover_color=Colors.DANGER_DARK,
-        ).pack(side="left", padx=5, pady=5)
+        ).pack(side="left", padx=5)
         ctk.CTkButton(
-            btn_frame,
+            bf,
             text="✅ Valider",
-            command=valider_selection,
+            command=valider,
             fg_color=Colors.SUCCESS_DARK,
             hover_color=Colors.INFO_DARK,
-        ).pack(side="right", padx=5, pady=5)
+        ).pack(side="right", padx=5)
 
-        charger_articles()
+        charger()
 
     def on_article_selected(self, article_data):
         self.article_selectionne = article_data

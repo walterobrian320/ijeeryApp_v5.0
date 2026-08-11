@@ -14,6 +14,8 @@ from html import escape
 from tkcalendar import DateEntry
 from resource_utils import get_config_path, safe_file_read
 from app_theme import Colors, Fonts, styled, Theme
+from stock_service import get_snapshot_cached
+from stock_snapshot import format_nombre_auto
 from pages.ui_dialogs import MessageDialog, YesNoDialog
 
 
@@ -1383,12 +1385,13 @@ class PageCommandeFrs(ctk.CTkFrame):
 
         tf = ctk.CTkFrame(main, fg_color=Colors.BORDER, corner_radius=8)
         tf.pack(fill="both", expand=True, pady=(0, 8))
-        cols = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité")
+        cols = ("ID_Article", "ID_Unite", "Code", "Désignation", "Unité", "Stock")
         tree = ttk.Treeview(tf, columns=cols, show="headings", height=14, style="iJeery.Treeview")
         self._configure_table_alternating_colors(tree)
+        tree.tag_configure("stock_nul", foreground=Colors.DANGER)
         tree.column("ID_Article", width=0, stretch=False)
         tree.column("ID_Unite", width=0, stretch=False)
-        tree.column("Code", width=140); tree.column("Désignation", width=480); tree.column("Unité", width=110)
+        tree.column("Code", width=140); tree.column("Désignation", width=420); tree.column("Unité", width=110); tree.column("Stock", width=100, anchor="e")
         for c in cols: tree.heading(c, text=c)
         sb = ttk.Scrollbar(tf, orient="vertical", command=tree.yview)
         tree.configure(yscrollcommand=sb.set)
@@ -1404,6 +1407,7 @@ class PageCommandeFrs(ctk.CTkFrame):
             if not conn: return
             try:
                 cur = conn.cursor()
+                snapshot = get_snapshot_cached(0, conn=conn)
                 q = """SELECT T2.idarticle, T1.codearticle, T2.designation, T1.designationunite, T1.idunite
                        FROM tb_unite T1 INNER JOIN tb_article T2 ON T1.idarticle=T2.idarticle
                        WHERE T2.deleted=0"""
@@ -1414,8 +1418,12 @@ class PageCommandeFrs(ctk.CTkFrame):
                 q += ' ORDER BY T1.codearticle'
                 cur.execute(q, p)
                 rows = cur.fetchall()
-                for r in rows:
-                    tree.insert("", "end", values=(r[0], r[4], r[1], r[2], r[3]))
+                for idx, r in enumerate(rows):
+                    stock_total = snapshot.stock_unite(r[0], r[4])
+                    tags = ("row_even" if idx % 2 == 0 else "row_odd",)
+                    if stock_total <= 0:
+                        tags = tags + ("stock_nul",)
+                    tree.insert("", "end", values=(r[0], r[4], r[1], r[2], r[3], format_nombre_auto(stock_total)), tags=tags)
                 self._refresh_table_alternating_colors(tree)
                 lbl_c.configure(text=f"{len(rows)} article(s)")
             except Exception as e:
@@ -1427,9 +1435,17 @@ class PageCommandeFrs(ctk.CTkFrame):
 
         def valider():
             sel = tree.selection()
-            if not sel: messagebox.showwarning("Attention", "Sélectionnez un article."); return
+            if not sel:
+                messagebox.showwarning("Attention", "Sélectionnez un article.")
+                return
             v = tree.item(sel[0])['values']
-            self.article_selectionne = {'idarticle': v[0], 'idunite': v[1], 'nomart': v[3], 'unite': v[4]}
+            self.article_selectionne = {
+                'idarticle': v[0],
+                'idunite': v[1],
+                'nomart': v[3],
+                'unite': v[4],
+                'stock_disponible': self.parser_nombre(str(v[5])),
+            }
             self.entry_article.configure(state="normal")
             self.entry_article.delete(0, "end")
             self.entry_article.insert(0, v[3])

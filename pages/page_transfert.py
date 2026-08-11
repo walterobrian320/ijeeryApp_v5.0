@@ -550,6 +550,7 @@ class PageTransfert(ctk.CTkFrame):
         )
         tree.tag_configure("even", background=Colors.BG_CARD)
         tree.tag_configure("odd",  background=Colors.BG_ROW_ALT)
+        tree.tag_configure("stock_nul", foreground=Colors.DANGER)
 
         nom_magasin_courant = (self.combo_mag_sortie.get() or "").strip()
         col_cfg = {
@@ -621,6 +622,9 @@ class PageTransfert(ctk.CTkFrame):
 
                 for idx, row in enumerate(cur.fetchall()):
                     stock_total = snapshot.stock_unite(row[0], row[1])
+                    tags = ("even" if idx % 2 == 0 else "odd",)
+                    if stock_total <= 0:
+                        tags = tags + ("stock_nul",)
                     tree.insert(
                         '',
                         'end',
@@ -629,7 +633,7 @@ class PageTransfert(ctk.CTkFrame):
                             row[2] or "", row[3] or "", row[4] or "",
                             format_nombre_auto(stock_total),
                         ),
-                        tags=("even" if idx % 2 == 0 else "odd",),
+                        tags=tags,
                     )
 
             except Exception as e:

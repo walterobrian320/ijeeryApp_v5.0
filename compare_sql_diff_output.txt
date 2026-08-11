@@ -1,0 +1,33 @@
+TYPE COUNTS
+CONSTRAINT: base=101, other=98, diff=3
+DEFAULT: base=89, other=88, diff=3
+FK CONSTRAINT: base=16, other=13, diff=3
+INDEX: base=40, other=35, diff=5
+SEQUENCE: base=90, other=88, diff=2
+SEQUENCE OWNED BY: base=89, other=88, diff=3
+TABLE: base=95, other=93, diff=2
+
+ONLY IN base_vide_0308.sql: 19
+CONSTRAINT: logistique_voyage logistique_voyage_numero_voyage_key
+CONSTRAINT: logistique_voyage logistique_voyage_pkey
+CONSTRAINT: logistique_voyage_detail logistique_voyage_detail_pkey
+DEFAULT: logistique_voyage id
+DEFAULT: logistique_voyage_detail id
+FK CONSTRAINT: logistique_voyage logistique_voyage_vehicule_id_fkey
+FK CONSTRAINT: logistique_voyage_detail logistique_voyage_detail_idfrs_fkey
+FK CONSTRAINT: logistique_voyage_detail logistique_voyage_detail_voyage_id_fkey
+INDEX: idx_voyage_detail_article
+INDEX: idx_voyage_detail_voyage
+INDEX: idx_voyage_numero
+INDEX: idx_voyage_statut
+INDEX: idx_voyage_vehicule
+SEQUENCE: logistique_voyage_detail_id_seq
+SEQUENCE: logistique_voyage_id_seq
+SEQUENCE OWNED BY: logistique_voyage_detail_id_seq
+SEQUENCE OWNED BY: logistique_voyage_id_seq
+TABLE: logistique_voyage
+TABLE: logistique_voyage_detail
+
+ONLY IN structure_ambanja_1313.sql: 2
+DEFAULT: tb_transporteur idtransporteur
+SEQUENCE OWNED BY: tb_transporteur_idtransporteur_seq

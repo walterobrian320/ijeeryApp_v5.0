@@ -929,6 +929,7 @@ class PageListeFacture(ctk.CTkFrame):
         self.session_data             = session_data or {}
         self.id_user_connecte         = self.get_connected_user_id(parent, session_data)
         self.magasin_map              = {}
+        self.user_map                 = {}
         self.user_default_magasin_nom = None
 
         _apply_tree_style("Facture")
@@ -1012,6 +1013,19 @@ class PageListeFacture(ctk.CTkFrame):
         self.combo_magasin.pack(side="left", padx=(0, 8))
         self.combo_magasin.bind("<<ComboboxSelected>>", lambda e: self.charger_donnees())
         self.charger_magasins_filtre()
+
+        # Utilisateur
+        ctk.CTkLabel(inner, text="Utilisateur :", font=_f(10),
+                     text_color=C.TEXT_SECONDARY).pack(side="left", padx=(0, 2))
+        self.combo_utilisateur = ctk.CTkComboBox(
+            inner, values=["Tout"], state="readonly",
+            width=160, height=30,
+            fg_color=C.BG_INPUT, border_color=C.BORDER,
+            button_color=C.PRIMARY, font=_f(10))
+        self.combo_utilisateur.set("Tout")
+        self.combo_utilisateur.pack(side="left", padx=(0, 8))
+        self.combo_utilisateur.bind("<<ComboboxSelected>>", lambda e: self.charger_donnees())
+        self.charger_utilisateurs_filtre()
 
         # Boutons droite
         self.btn_export = ctk.CTkButton(
@@ -1170,6 +1184,35 @@ class PageListeFacture(ctk.CTkFrame):
         finally:
             conn.close()
 
+    def charger_utilisateurs_filtre(self):
+        conn = self.connect_db()
+        if not conn:
+            return
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT iduser,
+                       CASE
+                           WHEN NULLIF(TRIM(username), '') IS NOT NULL THEN username
+                           ELSE CONCAT(COALESCE(TRIM(prenomuser), ''), ' ', COALESCE(TRIM(nomuser), ''))
+                       END AS libelle
+                FROM tb_users
+                WHERE deleted = 0 AND COALESCE(active, 0) = 1
+                ORDER BY libelle
+                """
+            )
+            users = cursor.fetchall()
+            self.user_map = {libelle: iduser for iduser, libelle in users if libelle}
+            valeurs = ["Tout"] + [libelle for _, libelle in users if libelle]
+            if hasattr(self, "combo_utilisateur"):
+                self.combo_utilisateur.configure(values=valeurs)
+                current_value = self.combo_utilisateur.get()
+                if current_value not in valeurs:
+                    self.combo_utilisateur.set("Tout")
+        finally:
+            conn.close()
+
     def _detail_row_weight(self, show=True):
         if show:
             self.grid_rowconfigure(2, weight=2)
@@ -1199,6 +1242,9 @@ class PageListeFacture(ctk.CTkFrame):
         magasin_filtre_nom = self.combo_magasin.get() \
             if hasattr(self, "combo_magasin") else "Tout"
         magasin_filtre_id = self.magasin_map.get(magasin_filtre_nom)
+        utilisateur_filtre_nom = self.combo_utilisateur.get() \
+            if hasattr(self, "combo_utilisateur") else "Tout"
+        utilisateur_filtre_id = self.user_map.get(utilisateur_filtre_nom)
 
         conn = self.connect_db()
         if not conn:
@@ -1275,6 +1321,12 @@ class PageListeFacture(ctk.CTkFrame):
                 else:
                     sql += " AND v.idmag = %s"
                 params.append(magasin_filtre_id)
+            if utilisateur_filtre_nom != "Tout" and utilisateur_filtre_id is not None:
+                if filtre_avoir:
+                    sql += " AND a.iduser = %s"
+                else:
+                    sql += " AND v.iduser = %s"
+                params.append(utilisateur_filtre_id)
             if filtre_avoir:
                 sql += " ORDER BY a.dateregistre DESC, a.id DESC"
             else:

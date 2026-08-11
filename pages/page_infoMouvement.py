@@ -761,6 +761,10 @@ class PageChangementArticle(ctk.CTkFrame):
         """Ouvre la fenêtre de recherche pour ENTRÉE."""
         self.open_recherche_article("entree")
 
+    def ouvrir_recherche_article(self, type_mouvement: str):
+        """Legacy alias for older calls."""
+        return self.open_recherche_article(type_mouvement)
+
     def open_recherche_article(self, type_mouvement: str):
         """
         Fenêtre modale de recherche d'article avec stock via StockManager (StockSnapshot).
@@ -933,7 +937,42 @@ class PageChangementArticle(ctk.CTkFrame):
 
             fen.destroy()
 
-        entry_search.bind('<KeyRelease>', lambda e: charger_articles(entry_search.get()))
+        def _select_tree_item(item_id):
+            if not item_id:
+                return
+            tree.selection_set(item_id)
+            tree.focus(item_id)
+            tree.see(item_id)
+
+        def _navigate_tree(direction):
+            items = tree.get_children()
+            if not items:
+                return
+            current = tree.selection()
+            if current and current[0] in items:
+                idx = items.index(current[0])
+            else:
+                idx = 0 if direction > 0 else len(items) - 1
+            target = max(0, min(len(items) - 1, idx + direction))
+            _select_tree_item(items[target])
+
+        def _on_search_key(event):
+            if event.keysym == 'Down':
+                _navigate_tree(1)
+                return 'break'
+            if event.keysym == 'Up':
+                _navigate_tree(-1)
+                return 'break'
+            if event.keysym == 'Return':
+                if not tree.selection():
+                    children = tree.get_children()
+                    if children:
+                        _select_tree_item(children[0])
+                valider_selection()
+                return 'break'
+            charger_articles(entry_search.get())
+
+        entry_search.bind('<KeyRelease>', _on_search_key)
         tree.bind('<Double-Button-1>', lambda e: valider_selection())
 
         btn_frame = ctk.CTkFrame(main_frame)
@@ -959,7 +998,7 @@ class PageChangementArticle(ctk.CTkFrame):
         *** LOGIQUE MÉTIER — NE PAS MODIFIER ***
         """
         if not self.article_sortie_selectionne:
-            messagebox.showwarning("Attention", "Sélectionnez un article.")
+            self.open_recherche_article("sortie")
             return
         try:
             qty = self.parser_nombre(self.entry_qty_sortie.get())
@@ -1004,7 +1043,7 @@ class PageChangementArticle(ctk.CTkFrame):
         *** LOGIQUE MÉTIER — NE PAS MODIFIER ***
         """
         if not self.article_entree_selectionne:
-            messagebox.showwarning("Attention", "Sélectionnez un article.")
+            self.open_recherche_article("entree")
             return
         try:
             qty = self.parser_nombre(self.entry_qty_entree.get())

@@ -677,7 +677,42 @@ class PageTransfert(ctk.CTkFrame):
             fen.destroy()
             self.after(50, lambda: self.entry_quantite.focus_set())
 
-        entry_search.bind('<KeyRelease>', lambda e: charger_articles(entry_search.get()))
+        def _select_tree_item(item_id):
+            if not item_id:
+                return
+            tree.selection_set(item_id)
+            tree.focus(item_id)
+            tree.see(item_id)
+
+        def _navigate_tree(direction):
+            items = tree.get_children()
+            if not items:
+                return
+            current = tree.selection()
+            if current and current[0] in items:
+                idx = items.index(current[0])
+            else:
+                idx = 0 if direction > 0 else len(items) - 1
+            target = max(0, min(len(items) - 1, idx + direction))
+            _select_tree_item(items[target])
+
+        def _on_search_key(event):
+            if event.keysym == 'Down':
+                _navigate_tree(1)
+                return 'break'
+            if event.keysym == 'Up':
+                _navigate_tree(-1)
+                return 'break'
+            if event.keysym == 'Return':
+                if not tree.selection():
+                    children = tree.get_children()
+                    if children:
+                        _select_tree_item(children[0])
+                valider_selection()
+                return 'break'
+            charger_articles(entry_search.get())
+
+        entry_search.bind('<KeyRelease>', _on_search_key)
         tree.bind('<Double-Button-1>', lambda e: valider_selection())
 
         btn_frame = ctk.CTkFrame(main_frame)
@@ -812,8 +847,8 @@ class PageTransfert(ctk.CTkFrame):
         Vérifie le stock disponible avant d'autoriser l'ajout.
         *** LOGIQUE MÉTIER — NE PAS MODIFIER ***
         """
-        if not hasattr(self, 'article_selectionne'):
-            MessageDialog("Attention", "Sélectionnez un article.", type_='warning')
+        if not getattr(self, 'article_selectionne', None):
+            self.rechercher_article()
             return
 
         if not self.article_selectionne.get('idunite'):

@@ -978,12 +978,48 @@ class PageSortie(ctk.CTkFrame):
                 if conn is not None and conn is not self.conn:
                     conn.close()
 
+        def _select_tree_item(item_id):
+            if not item_id:
+                return
+            tree.selection_set(item_id)
+            tree.focus(item_id)
+            tree.see(item_id)
+
+        def _navigate_tree(direction):
+            items = tree.get_children()
+            if not items:
+                return
+            current = tree.selection()
+            if current and current[0] in items:
+                idx = items.index(current[0])
+            else:
+                idx = 0 if direction > 0 else len(items) - 1
+            target = max(0, min(len(items) - 1, idx + direction))
+            _select_tree_item(items[target])
+
+        def _on_search_key(event):
+            if event.keysym == "Down":
+                _navigate_tree(1)
+                return "break"
+            if event.keysym == "Up":
+                _navigate_tree(-1)
+                return "break"
+            if event.keysym == "Return":
+                if not tree.selection():
+                    children = tree.get_children()
+                    if children:
+                        _select_tree_item(children[0])
+                valider_selection()
+                return "break"
+            charger_articles(entry_search.get())
+
         def valider_selection():
-            sel = tree.selection()
-            if not sel:
+            selection = tree.selection()
+            if not selection:
                 messagebox.showwarning("Attention", "Sélectionnez un article.")
                 return
-            values = tree.item(sel[0]).get('values', [])
+
+            values = tree.item(selection[0]).get('values', [])
             if len(values) < 6:
                 messagebox.showerror("Erreur", "Données incomplètes.")
                 return
@@ -1000,7 +1036,7 @@ class PageSortie(ctk.CTkFrame):
             fen.destroy()
             self.on_article_selected(article)
 
-        entry_search.bind('<KeyRelease>', lambda e: charger_articles(entry_search.get()))
+        entry_search.bind('<KeyRelease>', _on_search_key)
         tree.bind('<Double-Button-1>', lambda e: valider_selection())
 
         btn_frame = ctk.CTkFrame(main_frame)
@@ -1058,7 +1094,7 @@ class PageSortie(ctk.CTkFrame):
         *** LOGIQUE MÉTIER — NE PAS MODIFIER ***
         """
         if not self.article_selectionne:
-            messagebox.showwarning("Attention", "Sélectionnez d'abord un article.")
+            self.open_recherche_article()
             return
 
         try:

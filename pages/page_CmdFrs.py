@@ -1431,7 +1431,42 @@ class PageCommandeFrs(ctk.CTkFrame):
             finally:
                 conn.close()
 
-        entry_s.bind('<KeyRelease>', lambda e: charger(entry_s.get()))
+        def _select_tree_item(item_id):
+            if not item_id:
+                return
+            tree.selection_set(item_id)
+            tree.focus(item_id)
+            tree.see(item_id)
+
+        def _navigate_tree(direction):
+            items = tree.get_children()
+            if not items:
+                return
+            current = tree.selection()
+            if current and current[0] in items:
+                idx = items.index(current[0])
+            else:
+                idx = 0 if direction > 0 else len(items) - 1
+            target = max(0, min(len(items) - 1, idx + direction))
+            _select_tree_item(items[target])
+
+        def _on_search_key(event):
+            if event.keysym == "Down":
+                _navigate_tree(1)
+                return "break"
+            if event.keysym == "Up":
+                _navigate_tree(-1)
+                return "break"
+            if event.keysym == "Return":
+                if not tree.selection():
+                    children = tree.get_children()
+                    if children:
+                        _select_tree_item(children[0])
+                valider()
+                return "break"
+            charger(entry_s.get())
+
+        entry_s.bind('<KeyRelease>', _on_search_key)
 
         def valider():
             sel = tree.selection()
@@ -1472,7 +1507,7 @@ class PageCommandeFrs(ctk.CTkFrame):
     # ─────────────────────────────────────────────────────────────────────────
     def ajouter_article(self):
         if not self.article_selectionne:
-            messagebox.showwarning("Attention", "Sélectionnez un article.")
+            self.ouvrir_recherche_article()
             return
         if not self.fournisseur_id:
             messagebox.showwarning("Attention", "Sélectionnez un fournisseur.")

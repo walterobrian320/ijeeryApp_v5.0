@@ -889,7 +889,7 @@ class PageEntree(ctk.CTkFrame):
 
     def valider_detail(self):
         if not self.article_selectionne:
-            messagebox.showwarning("Attention", "Sélectionnez d'abord un article.")
+            self.open_recherche_article()
             return
 
         try:

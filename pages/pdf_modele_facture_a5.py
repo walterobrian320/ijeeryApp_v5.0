@@ -121,8 +121,8 @@ def generer_pdf_a5_modele_ventedepot(
         f"{_util.get('prenomuser', '') or ''} {_util.get('nomuser', '') or ''}".strip()
     )
 
-    MAX_P1 = 22
-    MAX_PN = 22
+    MAX_P1 = 20
+    MAX_PN = 20
     MARGIN = 10 * mm
     HEADER_ANCHOR = 42 * mm
     OP_GAP = 5 * mm

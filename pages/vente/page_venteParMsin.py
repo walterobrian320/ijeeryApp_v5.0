@@ -2285,7 +2285,7 @@ class PageVenteParMsin(ctk.CTkFrame):
         from reportlab.pdfgen import canvas as rl_canvas
         from reportlab.platypus import Table as RLTable, TableStyle as RLTableStyle, Paragraph
 
-        MAX_P1 = 22; MAX_PN = 22; MARGIN = 10 * mm
+        MAX_P1 = 20; MAX_PN = 20; MARGIN = 10 * mm
         HEADER_ANCHOR = 42 * mm
         OP_GAP = 5 * mm
         c = rl_canvas.Canvas(filename, pagesize=A5)

@@ -1,0 +1,11 @@
+Candidates: idarticle=1240, idstock=0, idprix=0
+Foreign keys referencing tb_article.idarticle:
+Non-zero reference counts for idarticle (table,column,id,count,constraint):
+Triggers on tb_article:
+Sequence ownership checks (pg_get_serial_sequence):
+  tb_article,idarticle,public.tb_article_idarticle_seq
+  tb_stock,idstock,None
+  tb_prix,idprix,None
+  tb_inventaire,idinventaire,None
+  tb_log_stock,idstock,None
+Backup SQL written to D:\Projets 2026\ijeeryApp_v5.0\tools\backup_affected_rows.sql

@@ -48,6 +48,8 @@ class PageDecaissement(ctk.CTkToplevel):
         self.current_user_id = loaded_user_id
 
         self.categories = {}
+        self.modes = {}  # Dictionnaire {nom_mode: idmode}
+        self.row_mode_map = {}  # Map row_id -> nom_mode pour la sélection et la modification
         # Protection contre les double-clics
         self._processing = False
         self._finalized = False
@@ -65,6 +67,7 @@ class PageDecaissement(ctk.CTkToplevel):
             except Exception:
                 pass
             self.charger_categories()
+            self.charger_modes()
             self.charger_liste()
         else:
             messagebox.showerror("Erreur", "Connexion échouée")
@@ -221,10 +224,15 @@ class PageDecaissement(ctk.CTkToplevel):
         self.entry_montant.bind("<KeyRelease>", lambda e: self.format_montant())
         self.entry_montant.bind("<FocusOut>", lambda e: self.format_montant())
 
+        # Mode de paiement
+        ctk.CTkLabel(form, text="Mode de paiement:", anchor="w").grid(row=2, column=0, padx=5, pady=6, sticky='w')
+        self.combo_mode = ctk.CTkComboBox(form, width=200, values=[], state="readonly")
+        self.combo_mode.grid(row=2, column=1, columnspan=2, padx=5, pady=6, sticky='ew')
+
         # Description
-        ctk.CTkLabel(form, text="Description:", anchor="w").grid(row=2, column=0, padx=5, pady=6, sticky='w')
+        ctk.CTkLabel(form, text="Description:", anchor="w").grid(row=3, column=0, padx=5, pady=6, sticky='w')
         self.entry_description = ctk.CTkEntry(form, width=200)
-        self.entry_description.grid(row=2, column=1, columnspan=2, padx=5, pady=6, sticky='ew')
+        self.entry_description.grid(row=3, column=1, columnspan=2, padx=5, pady=6, sticky='ew')
 
         # ── Bannière d'autorisation (visible uniquement en mode modification) ──
         self.banner_autorisation = ctk.CTkFrame(form_outer, fg_color="#FFF3CD", corner_radius=6)
@@ -293,30 +301,36 @@ class PageDecaissement(ctk.CTkToplevel):
             query = """
                 SELECT d.id, d.datepmt, d.refpmt,
                        cc.categoriecompte, d.mtpaye, d.observation,
-                       COALESCE(u.username, 'N/A') as operateur
+                       COALESCE(u.username, 'N/A') as operateur,
+                       COALESCE(mp.modedepaiement, 'Espèces') as mode_paiement
                 FROM tb_decaissement d
                 LEFT JOIN tb_categoriecompte cc ON d.idcc = cc.idcc
                 LEFT JOIN tb_users u ON d.iduser = u.iduser
+                LEFT JOIN tb_modepaiement mp ON d.idmode = mp.idmode
                 ORDER BY d.datepmt DESC, d.id DESC
             """
             self.cursor.execute(query)
             rows = self.cursor.fetchall()
+
+            self.row_mode_map = {}
 
             # Vider le tableau
             for item in self.tree.get_children():
                 self.tree.delete(item)
 
             for row in rows:
-                id_, datepmt, refpmt, categorie, mtpaye, observation, operateur = row
+                id_, datepmt, refpmt, categorie, mtpaye, observation, operateur, mode_paiement = row
                 date_str = datepmt.strftime("%d/%m/%Y %H:%M") if datepmt else ""
                 montant_str = f"{float(mtpaye):,.0f}".replace(",", ".") if mtpaye else "0"
                 categorie = categorie or "—"
                 observation = observation or ""
                 operateur = operateur or "N/A"
+                mode_paiement = mode_paiement or "Espèces"
+                self.row_mode_map[str(id_)] = mode_paiement
 
                 # Filtre de recherche
                 if keyword:
-                    haystack = f"{refpmt} {categorie} {observation} {operateur}".lower()
+                    haystack = f"{refpmt} {categorie} {observation} {operateur} {mode_paiement}".lower()
                     if keyword not in haystack:
                         continue
 
@@ -351,6 +365,13 @@ class PageDecaissement(ctk.CTkToplevel):
         # Remplir description
         self.entry_description.delete(0, "end")
         self.entry_description.insert(0, values[5])
+
+        # Remplir le mode de paiement correspondant à la ligne sélectionnée
+        mode_nom = self.row_mode_map.get(str(self.selected_id), "Espèces")
+        if mode_nom in self.modes:
+            self.combo_mode.set(mode_nom)
+        elif self.combo_mode.cget("values"):
+            self.combo_mode.set(self.combo_mode.cget("values")[0])
 
         # Activer le bouton Modifier, désactiver Enregistrer
         self.bouton_modifier.configure(state="normal")
@@ -395,6 +416,10 @@ class PageDecaissement(ctk.CTkToplevel):
         self.combo_categorie.configure(state="disabled",
                                        fg_color="#e0e0e0",
                                        text_color="#888888")
+        # Mode de paiement
+        self.combo_mode.configure(state="disabled",
+                                  fg_color="#e0e0e0",
+                                  text_color="#888888")
         # Bouton "+" catégorie
         self.bouton_ajouter_categorie.configure(state="disabled")
 
@@ -425,6 +450,10 @@ class PageDecaissement(ctk.CTkToplevel):
         self.combo_categorie.configure(state="readonly",
                                         fg_color=("white", "#2b2b2b"),
                                         text_color=("black", "white"))
+        # Mode de paiement
+        self.combo_mode.configure(state="readonly",
+                                  fg_color=("white", "#2b2b2b"),
+                                  text_color=("black", "white"))
         # Bouton "+" catégorie
         self.bouton_ajouter_categorie.configure(state="normal")
 
@@ -453,6 +482,10 @@ class PageDecaissement(ctk.CTkToplevel):
         self.combo_categorie.configure(state="readonly",
                                         fg_color=("white", "#2b2b2b"),
                                         text_color=("black", "white"))
+        # Mode de paiement
+        self.combo_mode.configure(state="readonly",
+                                  fg_color=("white", "#2b2b2b"),
+                                  text_color=("black", "white"))
         # Bouton "+"
         self.bouton_ajouter_categorie.configure(state="normal")
 
@@ -588,6 +621,75 @@ class PageDecaissement(ctk.CTkToplevel):
                 except:
                     pass
 
+    def enregistrer(self):
+        """Enregistre le nouveau décaissement avec l'utilisateur connecté et le mode de paiement sélectionné."""
+        if not self.conn or not self.cursor:
+            return
+
+        try:
+            if not self.winfo_exists():
+                return
+
+            reference = self.generer_reference()
+            categorie_nom = self.combo_categorie.get()
+            idcc = self.categories.get(categorie_nom)
+            mode_nom = self.combo_mode.get()
+            idmode = self.modes.get(mode_nom, 1)  # Par défaut 1 (Espèces)
+            
+            mtpaye_str = self.entry_montant.get()
+            observation = self.entry_description.get()
+            
+            if not idcc or not mtpaye_str or not observation:
+                messagebox.showwarning("Attention", "Champs vides")
+                return
+
+            # Supprimer les séparateurs de milliers et convertir en float
+            mtpaye = float(mtpaye_str.replace('.', ''))
+            typeoperation_id = self.get_type_operation()
+            datepmt = datetime.now()
+            
+            # Récupérer l'ID utilisateur
+            if getattr(self, 'current_user_id', None):
+                iduser = self.current_user_id
+            else:
+                self.cursor.execute(
+                    "SELECT iduser FROM tb_users WHERE LOWER(TRIM(username)) = LOWER(TRIM(%s))", 
+                    (self.current_user,)
+                )
+                result = self.cursor.fetchone()
+                iduser = result[0] if result else None
+                if not iduser:
+                    messagebox.showerror("Erreur", f"Utilisateur '{self.current_user}' introuvable")
+                    return
+            
+            # INSERTION AVEC LE MODE SÉLECTIONNÉ
+            query = """
+            INSERT INTO tb_decaissement (refpmt, idcc, mtpaye, observation, idtypeoperation, datepmt, iduser, idmode)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            print(f"DEBUG: Insertion décaissement avec iduser = {iduser}, idmode = {idmode} ({mode_nom})")
+            self.cursor.execute(query, (reference, idcc, mtpaye, observation, typeoperation_id, datepmt, iduser, idmode))
+            self.conn.commit()
+            self._finalized = True
+
+            messagebox.showinfo("Succès", 
+                f"Décaissement enregistré avec succès!\n\n"
+                f"Référence: {reference}\n"
+                f"Mode: {mode_nom}\n"
+                f"Montant: {mtpaye:,.0f} Ar")
+            
+            # Réinitialiser les champs
+            self.vider_formulaire()
+            self.charger_liste()
+        
+        except ValueError:
+            messagebox.showerror("Erreur", "Le montant doit être un nombre valide")
+            self.conn.rollback()
+        except Exception as e:
+            messagebox.showerror("Erreur SQL", str(e))
+            print(f"DEBUG: Exception complète: {e}")
+            self.conn.rollback()
+
     def _on_modifier_click(self):
         """Enregistre les modifications sur la ligne sélectionnée.
         Refuse si les champs sont encore verrouillés (code d'autorisation non saisi)."""
@@ -606,6 +708,8 @@ class PageDecaissement(ctk.CTkToplevel):
 
         categorie_nom = self.combo_categorie.get()
         idcc = self.categories.get(categorie_nom)
+        mode_nom = self.combo_mode.get()
+        idmode = self.modes.get(mode_nom, 1)  # Par défaut 1 (Espèces)
         mtpaye_str = self.entry_montant.get()
         observation = self.entry_description.get()
 
@@ -620,13 +724,13 @@ class PageDecaissement(ctk.CTkToplevel):
             mtpaye = float(mtpaye_str.replace('.', '').replace(',', ''))
             self.cursor.execute(
                 """UPDATE tb_decaissement
-                   SET idcc = %s, mtpaye = %s, observation = %s
+                   SET idcc = %s, mtpaye = %s, observation = %s, idmode = %s
                    WHERE id = %s""",
-                (idcc, mtpaye, observation, self.selected_id)
+                (idcc, mtpaye, observation, idmode, self.selected_id)
             )
 
             self.conn.commit()
-            messagebox.showinfo("Succes", f"Decaissement #{self.selected_id} modifie avec succes.")
+            messagebox.showinfo("Succes", f"Decaissement #{self.selected_id} modifie avec succes (mode: {mode_nom}).")
             self.vider_formulaire()
             self.charger_liste()
 
@@ -662,6 +766,37 @@ class PageDecaissement(ctk.CTkToplevel):
             print(f"DEBUG: {len(category_names)} catégories chargées")
         except psycopg2.Error as e:
             messagebox.showerror("Erreur SQL", f"Erreur lors du chargement des catégories : {e}")
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur inattendue : {e}")
+
+    def charger_modes(self):
+        """Charge les modes de paiement depuis la base de données et met à jour le combobox."""
+        if not self.conn or not self.cursor:
+            messagebox.showwarning("Avertissement", "Connexion à la base de données non disponible pour charger les modes de paiement.")
+            return
+
+        try:
+            self.cursor.execute("SELECT idmode, modedepaiement FROM tb_modepaiement ORDER BY modedepaiement")
+            self.modes = {}
+            mode_names = []
+            default_mode = None
+            for row in self.cursor.fetchall():
+                self.modes[row[1]] = row[0]
+                mode_names.append(row[1])
+                # Chercher "Espèces" comme mode par défaut
+                if row[1].lower() == "espèces":
+                    default_mode = row[1]
+            self.combo_mode.configure(values=mode_names)
+            # Définir le mode par défaut
+            if default_mode:
+                self.combo_mode.set(default_mode)
+            elif mode_names:
+                self.combo_mode.set(mode_names[0])
+            else:
+                self.combo_mode.set("")
+            print(f"DEBUG: {len(mode_names)} modes de paiement chargés")
+        except psycopg2.Error as e:
+            messagebox.showerror("Erreur SQL", f"Erreur lors du chargement des modes de paiement : {e}")
         except Exception as e:
             messagebox.showerror("Erreur", f"Erreur inattendue : {e}")
 
@@ -814,116 +949,6 @@ class PageDecaissement(ctk.CTkToplevel):
             messagebox.showerror("Erreur PDF", f"Erreur lors de la génération du ticket: {e}")
             print(f"DEBUG: Erreur complète: {e}")
             return None
-
-    def enregistrer(self):
-        """Enregistre le décaissement avec l'utilisateur connecté."""
-        if not self.conn or not self.cursor:
-            return
-        if not self.winfo_exists():
-            return
-
-        try:
-            reference = self.generer_reference()
-            categorie_nom = self.combo_categorie.get()
-            idcc = self.categories.get(categorie_nom)
-            mtpaye_str = self.entry_montant.get()
-            observation = self.entry_description.get()
-
-            if not idcc or not mtpaye_str or not observation:
-                messagebox.showwarning("Attention", "Tous les champs doivent être remplis")
-                return
-
-            mtpaye = float(mtpaye_str.replace('.', ''))
-            typeoperation_id = self.get_type_operation()
-            datepmt = datetime.now()
-
-            print(f"DEBUG: current_user = '{self.current_user}'")
-
-            if getattr(self, 'current_user_id', None):
-                iduser = self.current_user_id
-                print(f"DEBUG: iduser depuis session = {iduser}")
-            else:
-                self.cursor.execute("SELECT iduser, username FROM tb_users")
-                all_users = self.cursor.fetchall()
-                print(f"DEBUG: Utilisateurs dans la base: {all_users}")
-
-                self.cursor.execute(
-                    "SELECT iduser FROM tb_users WHERE LOWER(TRIM(username)) = LOWER(TRIM(%s))",
-                    (self.current_user,)
-                )
-                result = self.cursor.fetchone()
-                if result:
-                    iduser = result[0]
-                    print(f"DEBUG: iduser trouvé = {iduser}")
-                else:
-                    print(f"ATTENTION: Utilisateur '{self.current_user}' introuvable")
-                    iduser = resolve_connected_user_id(
-                        master=self.master_app,
-                        session_data=getattr(self, "session_data", None),
-                        id_user_connecte=getattr(self, "current_user_id", None),
-                    )
-                    print(f"DEBUG: Utilisation id session: {iduser}")
-
-            query = """
-            INSERT INTO tb_decaissement (refpmt, idcc, mtpaye, observation, idtypeoperation, datepmt, iduser, idmode)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            print(f"DEBUG: Insertion avec iduser = {iduser}, idmode = 1 (Espèces)")
-            self.cursor.execute(query, (reference, idcc, mtpaye, observation,
-                                        typeoperation_id, datepmt, iduser, 1))
-            self.conn.commit()
-            self._finalized = True
-
-            fichier_pdf = self.generer_ticket_pdf(
-                reference=reference,
-                categorie=categorie_nom,
-                montant=mtpaye,
-                description=observation,
-                operateur=self.current_user
-            )
-
-            if fichier_pdf:
-                messagebox.showinfo("Succès",
-                    f"Décaissement enregistré avec succès!\n\n"
-                    f"Référence: {reference}\n"
-                    f"Ticket généré: {os.path.basename(fichier_pdf)}\n"
-                    f"Emplacement: {os.path.dirname(fichier_pdf)}")
-                try:
-                    if sys.platform == "win32":
-                        os.startfile(fichier_pdf)
-                    elif sys.platform == "darwin":
-                        os.system(f"open '{fichier_pdf}'")
-                    else:
-                        os.system(f"xdg-open '{fichier_pdf}'")
-                except Exception as e:
-                    print(f"Impossible d'ouvrir le PDF automatiquement: {e}")
-                    try:
-                        if sys.platform == "win32":
-                            os.startfile(os.path.dirname(fichier_pdf))
-                        elif sys.platform == "darwin":
-                            os.system(f"open '{os.path.dirname(fichier_pdf)}'")
-                        else:
-                            os.system(f"xdg-open '{os.path.dirname(fichier_pdf)}'")
-                    except:
-                        pass
-            else:
-                messagebox.showinfo("Succès",
-                    f"Décaissement enregistré avec succès!\n"
-                    f"Référence: {reference}\n"
-                    f"(Erreur lors de la génération du ticket)")
-
-            # Réinitialiser
-            self.vider_formulaire()
-            self.charger_liste()
-            self._finalized = False
-
-        except ValueError:
-            messagebox.showerror("Erreur", "Le montant doit être un nombre valide")
-            self.conn.rollback()
-        except Exception as e:
-            messagebox.showerror("Erreur SQL", str(e))
-            print(f"DEBUG: Exception complète: {e}")
-            self.conn.rollback()
 
     def annuler(self):
         """Ferme la fenêtre."""

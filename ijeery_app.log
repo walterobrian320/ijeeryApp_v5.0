@@ -1185,3 +1185,23 @@ KeyboardInterrupt
 2026-08-12 13:47:20 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
 2026-08-12 13:47:24 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
 2026-08-12 13:47:24 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-15 13:27:31 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-15 13:27:52 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-15 13:27:52 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-15 13:27:55 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-15 13:27:55 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-15 13:48:31 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-15 13:48:36 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-15 13:48:36 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-15 13:48:39 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-15 13:48:40 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-15 13:50:26 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-15 13:50:30 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-15 13:50:30 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-15 13:50:32 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-15 13:50:32 | INFO     | ijeery | [DB] Connexion établie.
+2026-08-15 14:02:31 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-15 14:02:36 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-15 14:02:36 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-08-15 14:02:38 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-08-15 14:02:38 | INFO     | ijeery | [DB] Connexion établie.

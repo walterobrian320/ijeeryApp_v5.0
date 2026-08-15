@@ -88,6 +88,7 @@ class PageEncaissement(ctk.CTkToplevel):
         self.session_data = getattr(master, "session_data", None) or {"user_id": self.current_user_id, "username": self.current_user}
         self._logger = AppLogger(session_data=self.session_data, fallback_user_id=self.current_user_id)
         self.categories = {}
+        self.modes = {}  # Dictionnaire {nom_mode: idmode}
         # Protection contre les double-clics
         self._processing = False
         self._finalized = False
@@ -104,6 +105,7 @@ class PageEncaissement(ctk.CTkToplevel):
             except Exception:
                 pass
             self.charger_categories()
+            self.charger_modes()
         else:
             messagebox.showerror("Erreur", "Connexion échouée")
             self.destroy()
@@ -163,10 +165,15 @@ class PageEncaissement(ctk.CTkToplevel):
         self.entry_montant.bind("<KeyRelease>", lambda e: self.format_montant())
         self.entry_montant.bind("<FocusOut>", lambda e: self.format_montant())
 
+        # mode de paiement
+        ctk.CTkLabel(form, text="Mode de paiement:", anchor="w").grid(row=2, column=0, padx=5, pady=8, sticky='w')
+        self.combo_mode = ctk.CTkComboBox(form, width=200, values=[])
+        self.combo_mode.grid(row=2, column=1, columnspan=2, padx=5, pady=8, sticky='ew')
+
         # description
-        ctk.CTkLabel(form, text="Description:", anchor="w").grid(row=2, column=0, padx=5, pady=8, sticky='w')
+        ctk.CTkLabel(form, text="Description:", anchor="w").grid(row=3, column=0, padx=5, pady=8, sticky='w')
         self.entry_description = ctk.CTkEntry(form, width=200)
-        self.entry_description.grid(row=2, column=1, columnspan=2, padx=5, pady=8, sticky='ew')
+        self.entry_description.grid(row=3, column=1, columnspan=2, padx=5, pady=8, sticky='ew')
 
         # boutons
         button_frame = ctk.CTkFrame(main, fg_color="transparent")
@@ -270,6 +277,36 @@ class PageEncaissement(ctk.CTkToplevel):
             messagebox.showerror("Erreur SQL", f"Erreur lors du chargement des catégories : {e}")
         except Exception as e:
             messagebox.showerror("Erreur", f"Erreur inattendue lors du chargement des catégories : {e}")
+
+    def charger_modes(self):
+        """Charge les modes de paiement depuis la base de données et met à jour le combobox."""
+        if not self.conn or not self.cursor:
+            messagebox.showwarning("Avertissement", "Connexion à la base de données non disponible pour charger les modes de paiement.")
+            return
+
+        try:
+            self.cursor.execute("SELECT idmode, modedepaiement FROM tb_modepaiement ORDER BY modedepaiement")
+            self.modes = {}
+            mode_names = []
+            default_mode = None
+            for row in self.cursor.fetchall():
+                self.modes[row[1]] = row[0]
+                mode_names.append(row[1])
+                # Chercher "Espèces" comme mode par défaut
+                if row[1].lower() == "espèces":
+                    default_mode = row[1]
+            self.combo_mode.configure(values=mode_names)
+            # Définir le mode par défaut
+            if default_mode:
+                self.combo_mode.set(default_mode)
+            elif mode_names:
+                self.combo_mode.set(mode_names[0])
+            else:
+                self.combo_mode.set("")
+        except psycopg2.Error as e:
+            messagebox.showerror("Erreur SQL", f"Erreur lors du chargement des modes de paiement : {e}")
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur inattendue lors du chargement des modes de paiement : {e}")
 
     def get_type_operation(self):
         """
@@ -492,6 +529,8 @@ class PageEncaissement(ctk.CTkToplevel):
             reference = self.generer_reference()
             categorie_nom = self.combo_categorie.get()
             idcc = self.categories.get(categorie_nom)
+            mode_nom = self.combo_mode.get()
+            idmode = self.modes.get(mode_nom, 1)  # Par défaut 1 (Espèces)
             
             mtpaye_str = self.entry_montant.get()
             observation = self.entry_description.get()
@@ -543,13 +582,13 @@ class PageEncaissement(ctk.CTkToplevel):
                     messagebox.showerror("Erreur", f"Erreur lors de la recherche de l'utilisateur: {e}")
                     return
                 
-            # INSERTION AVEC L'ID UTILISATEUR ET IDMODE = 1 (Espèces)
+            # INSERTION AVEC L'ID UTILISATEUR ET LE MODE SÉLECTIONNÉ
             query = """
             INSERT INTO tb_encaissement (refpmt, idcc, mtpaye, observation, idtypeoperation, datepmt, iduser, idmode)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """
-            print(f"DEBUG: Insertion avec iduser = {iduser}, idmode = 1 (Espèces)")
-            self.cursor.execute(query, (reference, idcc, mtpaye, observation, typeoperation_id, datepmt, iduser, 1))
+            print(f"DEBUG: Insertion avec iduser = {iduser}, idmode = {idmode} ({mode_nom})")
+            self.cursor.execute(query, (reference, idcc, mtpaye, observation, typeoperation_id, datepmt, iduser, idmode))
         
             self.conn.commit()
             try:

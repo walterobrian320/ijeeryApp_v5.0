@@ -654,7 +654,7 @@ class _FactureDetailCore:
             traceback.print_exc()
 
     def annuler_facture(self):
-        """Annule la facture (change le statut à 'ANNULE')"""
+        """Annule la facture uniquement si elle est encore en attente."""
         if messagebox.askyesno(
                 parent=self, title="Confirmation",
                 message=f"Voulez-vous annuler la facture {self.refvente} ?"):
@@ -663,8 +663,47 @@ class _FactureDetailCore:
                 conn = connect_page_db()
                 cursor = conn.cursor()
                 cursor.execute(
-                    "UPDATE tb_vente SET statut = %s WHERE refvente = %s",
-                    ("ANNULE", self.refvente))
+                    "SELECT id, statut FROM tb_vente WHERE refvente = %s",
+                    (self.refvente,),
+                )
+                vente = cursor.fetchone()
+                if not vente:
+                    conn.rollback()
+                    messagebox.showwarning(
+                        parent=self,
+                        title="Annulation impossible",
+                        message="Cette facture n'existe plus.",
+                    )
+                    return
+
+                if vente[1] != "EN_ATTENTE":
+                    conn.rollback()
+                    messagebox.showwarning(
+                        parent=self,
+                        title="Annulation impossible",
+                        message=(
+                            f"Cette facture n'est plus en attente "
+                            f"(statut : {vente[1] or 'inconnu'})."
+                        ),
+                    )
+                    return
+
+                cursor.execute(
+                    """
+                    UPDATE tb_vente
+                    SET statut = %s
+                    WHERE id = %s AND statut = %s
+                    """,
+                    ("ANNULE", vente[0], "EN_ATTENTE"),
+                )
+                if cursor.rowcount != 1:
+                    conn.rollback()
+                    messagebox.showwarning(
+                        parent=self,
+                        title="Annulation impossible",
+                        message="La facture a été modifiée entre-temps.",
+                    )
+                    return
                 conn.commit()
                 messagebox.showinfo(
                     parent=self, title="Succès", message=f"La facture {self.refvente} a été annulée.")

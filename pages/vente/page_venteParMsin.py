@@ -1916,6 +1916,43 @@ class PageVenteParMsin(ctk.CTkFrame):
                 MessageDialog("Erreur", "Veuillez entrer ou choisir un client.", 'error')
                 return
 
+            quantites_par_article = {}
+            for detail in self.detail_vente:
+                cle = (
+                    detail['idarticle'],
+                    detail['idunite'],
+                    detail['idmag'],
+                    detail.get('code_article', 'N/A'),
+                    detail.get('nom_article', ''),
+                    detail.get('nom_unite', ''),
+                    detail.get('designationmag', ''),
+                )
+                quantites_par_article[cle] = (
+                    quantites_par_article.get(cle, 0)
+                    + float(detail.get('qtvente', 0) or 0)
+                )
+
+            insuffisances_stock = []
+            for (idarticle, idunite, idmag, code, nom, unite, magasin), quantite_demandee in quantites_par_article.items():
+                stock_disponible = self.calculer_stock_magasin_precis(
+                    idarticle, idunite, idmag,
+                )
+                if quantite_demandee > stock_disponible:
+                    insuffisances_stock.append(
+                        f"[{code}] {nom} ({unite}) - demandé : "
+                        f"{self.formater_nombre(quantite_demandee)}, "
+                        f"en stock {magasin} : {self.formater_nombre(stock_disponible)}"
+                    )
+
+            if insuffisances_stock:
+                MessageDialog(
+                    "Stock insuffisant",
+                    "Certaines articles n'ont pas suffisamment de stock pour être enregistrés :\n\n"
+                    + "\n".join(insuffisances_stock),
+                    'warning',
+                )
+                return
+
             conn = self._get_conn()
             if not conn: return
             cur = conn.cursor()
@@ -3076,6 +3113,17 @@ class PageVenteParMsin(ctk.CTkFrame):
                 if 'cur' in locals():
                     cur.close()
                 self._put_conn(conn)
+
+        ctk.CTkButton(
+            filters,
+            text="🔎 Filtrer",
+            width=95,
+            height=30,
+            font=Fonts.button(10),
+            fg_color=Colors.PRIMARY,
+            hover_color=Colors.PRIMARY_HOVER,
+            command=charger,
+        ).pack(side="left", padx=(8, 0))
 
         def charger_selectionne():
             selection = tree.selection()

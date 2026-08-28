@@ -400,6 +400,7 @@ class page_listeArticle(customtkinter.CTkFrame):
             tb_article AS T2 ON T1.idarticle = T2.idarticle
         INNER JOIN
             tb_categoriearticle AS T3 ON T2.idca = T3.idca
+        WHERE T2."deleted" = 0
         ORDER BY T2."designation" ASC, T1."codearticle" ASC;
         """
         for attempt in range(2):

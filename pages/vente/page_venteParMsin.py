@@ -29,6 +29,7 @@ from typing import Optional, Dict, Any, List
 # ──────────────────────────────────────────────────────────────────────────────
 import customtkinter as ctk
 from tkinter import ttk
+from tkcalendar import DateEntry
 import psycopg2
 import psycopg2.pool
 
@@ -626,13 +627,21 @@ class PageVenteParMsin(ctk.CTkFrame):
         )
         self.btn_creer_avoir.grid(row=0, column=1, padx=4, pady=8)
 
+        # — Charger un modèle de facture —
+        self.btn_charger_modele = ctk.CTkButton(
+            bar, text="📋 Charger modèle",
+            fg_color=Colors.WARNING, hover_color=Colors.WARNING_LIGHT,
+            command=self.open_recherche_modele_facture, **btn_kw,
+        )
+        self.btn_charger_modele.grid(row=0, column=2, padx=4, pady=8)
+
         # — Supprimer Ligne —
         self.btn_supprimer_ligne = ctk.CTkButton(
             bar, text="🗑 Supprimer Ligne",
             fg_color=Colors.DANGER, hover_color=Colors.DANGER_DARK,
             command=self.supprimer_detail, **btn_kw,
         )
-        self.btn_supprimer_ligne.grid(row=0, column=2, padx=4, pady=8)
+        self.btn_supprimer_ligne.grid(row=0, column=3, padx=4, pady=8)
 
         # — Créer Proforma (masqué par défaut) —
         self.btn_creer_proforma = ctk.CTkButton(
@@ -640,7 +649,7 @@ class PageVenteParMsin(ctk.CTkFrame):
             fg_color=Colors.SUCCESS, hover_color=Colors.SUCCESS_DARK,
             command=self._ouvrir_page_proforma, **btn_kw,
         )
-        self.btn_creer_proforma.grid(row=0, column=3, padx=4, pady=8)
+        self.btn_creer_proforma.grid(row=0, column=4, padx=4, pady=8)
         self.btn_creer_proforma.grid_remove()
 
         # — Enregistrer (bouton principal, à droite) —
@@ -2962,6 +2971,217 @@ class PageVenteParMsin(ctk.CTkFrame):
         self.fenetre_proforma.grab_release()
         self.fenetre_proforma.destroy()
         if hasattr(self, 'fenetre_proforma'): del self.fenetre_proforma
+
+    def open_recherche_modele_facture(self):
+        """Sélectionne une facture existante à recopier comme nouvelle facture."""
+        fen = ctk.CTkToplevel(self)
+        fen.title("Charger un modèle de facture")
+        fen.geometry("1050x600")
+        Theme.apply_toplevel(fen)
+        fen.transient(self.winfo_toplevel())
+        fen.grab_set()
+        fen.lift()
+        fen.focus_force()
+        fen.attributes("-topmost", True)
+
+        main = ctk.CTkFrame(fen, fg_color=Colors.BG_PAGE)
+        main.pack(fill="both", expand=True, padx=12, pady=12)
+
+        ctk.CTkLabel(
+            main, text="Sélectionner une facture modèle",
+            font=Fonts.heading(14), text_color=Colors.MIDNIGHT,
+        ).pack(pady=(0, 10))
+
+        filters = ctk.CTkFrame(main, fg_color="transparent")
+        filters.pack(fill="x", pady=(0, 8))
+        ctk.CTkLabel(filters, text="Recherche :", font=Fonts.label(10)).pack(side="left", padx=(0, 4))
+        search = ctk.CTkEntry(
+            filters, width=230, height=30,
+            placeholder_text="N° facture ou client…",
+            fg_color=Colors.BG_INPUT, border_color=Colors.BORDER,
+        )
+        search.pack(side="left", padx=(0, 8))
+        ctk.CTkLabel(filters, text="Statut :", font=Fonts.label(10)).pack(side="left", padx=(0, 4))
+        status = ctk.CTkComboBox(
+            filters, values=["EN_ATTENTE", "VALIDEE", "ANNULE", "Tout"],
+            width=130, height=30, state="readonly",
+            fg_color=Colors.BG_INPUT, border_color=Colors.BORDER,
+        )
+        status.set("EN_ATTENTE")
+        status.pack(side="left", padx=(0, 8))
+        ctk.CTkLabel(filters, text="Du :", font=Fonts.label(10)).pack(side="left", padx=(0, 4))
+        date_start = DateEntry(filters, width=10, date_pattern="dd/mm/yyyy")
+        date_start.set_date(datetime.now())
+        date_start.pack(side="left", padx=(0, 6))
+        ctk.CTkLabel(filters, text="Au :", font=Fonts.label(10)).pack(side="left", padx=(0, 4))
+        date_end = DateEntry(filters, width=10, date_pattern="dd/mm/yyyy")
+        date_end.set_date(datetime.now())
+        date_end.pack(side="left")
+
+        columns = ("ID", "Facture", "Date", "Client", "Montant", "Statut", "Lignes")
+        tree = ttk.Treeview(main, columns=columns, show="headings", style="Vente.Treeview")
+        for col, width, anchor in (
+            ("ID", 0, "center"), ("Facture", 130, "w"), ("Date", 145, "center"),
+            ("Client", 220, "w"), ("Montant", 120, "e"),
+            ("Statut", 110, "center"), ("Lignes", 70, "e"),
+        ):
+            tree.heading(col, text=col)
+            tree.column(col, width=width, minwidth=0 if width == 0 else 50,
+                        stretch=width != 0, anchor=anchor)
+        tree.pack(fill="both", expand=True, pady=(0, 8))
+
+        def charger():
+            tree.delete(*tree.get_children())
+            if date_start.get_date() > date_end.get_date():
+                MessageDialog("Erreur", "La date de début doit être antérieure ou égale à la date de fin.", 'warning')
+                return
+            conn = self._get_conn()
+            if not conn:
+                return
+            try:
+                cur = conn.cursor()
+                query = """
+                    SELECT v.id, v.refvente, v.dateregistre,
+                           COALESCE(c.nomcli, 'Client Divers'),
+                           COALESCE(v.totmtvente, 0), v.statut,
+                           COUNT(vd.id)
+                    FROM tb_vente v
+                    LEFT JOIN tb_client c ON c.idclient = v.idclient
+                    LEFT JOIN tb_ventedetail vd ON vd.idvente = v.id
+                    WHERE v.deleted = 0
+                      AND v.dateregistre >= %s
+                      AND v.dateregistre < (%s::date + INTERVAL '1 day')
+                """
+                params = [date_start.get_date(), date_end.get_date()]
+                selected_status = status.get()
+                if selected_status != "Tout":
+                    query += " AND v.statut = %s"
+                    params.append(selected_status)
+                search_value = search.get().strip()
+                if search_value:
+                    query += " AND (v.refvente ILIKE %s OR c.nomcli ILIKE %s)"
+                    params.extend([f"%{search_value}%", f"%{search_value}%"])
+                query += " GROUP BY v.id, v.refvente, v.dateregistre, c.nomcli, v.totmtvente, v.statut ORDER BY v.dateregistre DESC, v.id DESC"
+                cur.execute(query, params)
+                for idx, row in enumerate(cur.fetchall()):
+                    tree.insert(
+                        "", "end", iid=str(row[0]),
+                        values=(row[0], row[1], row[2].strftime("%d/%m/%Y %H:%M:%S"),
+                                row[3], self.formater_nombre(row[4]), row[5], row[6]),
+                        tags=("even" if idx % 2 == 0 else "odd",),
+                    )
+            except Exception as e:
+                MessageDialog("Erreur", f"Chargement des modèles : {e}", 'error')
+            finally:
+                if 'cur' in locals():
+                    cur.close()
+                self._put_conn(conn)
+
+        def charger_selectionne():
+            selection = tree.selection()
+            if not selection:
+                MessageDialog("Attention", "Sélectionnez une facture modèle.", 'warning')
+                return
+            self.charger_modele_facture(int(selection[0]))
+            fen.destroy()
+
+        for widget in (search, status, date_start, date_end):
+            widget.bind("<Return>", lambda _event: charger())
+        search.bind("<KeyRelease>", lambda _event: charger())
+        status.configure(command=lambda _value: charger())
+        tree.bind("<Double-Button-1>", lambda _event: charger_selectionne())
+
+        buttons = ctk.CTkFrame(main, fg_color="transparent")
+        buttons.pack(fill="x")
+        styled.button_danger(buttons, text="Annuler", icon="❌", width=120,
+                             command=fen.destroy).pack(side="left")
+        styled.button_success(buttons, text="Charger modèle", icon="📋", width=150,
+                              command=charger_selectionne).pack(side="right")
+        charger()
+
+    def charger_modele_facture(self, idvente: int):
+        """Recopie une facture dans le formulaire courant sans activer le mode modification."""
+        conn = self._get_conn()
+        if not conn:
+            return
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT v.refvente, v.description, v.idclient, COALESCE(c.nomcli, 'Client Divers')
+                FROM tb_vente v
+                LEFT JOIN tb_client c ON c.idclient = v.idclient
+                WHERE v.id = %s AND v.deleted = 0
+                """,
+                (idvente,),
+            )
+            header = cur.fetchone()
+            if not header:
+                MessageDialog("Erreur", "La facture modèle est introuvable.", 'warning')
+                return
+
+            cur.execute(
+                """
+                SELECT vd.idarticle, vd.idunite, u.codearticle, a.designation,
+                       u.designationunite, vd.qtvente, vd.prixunit,
+                       COALESCE(vd.remise, 0), vd.idmag, m.designationmag
+                FROM tb_ventedetail vd
+                INNER JOIN tb_article a ON a.idarticle = vd.idarticle
+                INNER JOIN tb_unite u ON u.idunite = vd.idunite
+                LEFT JOIN tb_magasin m ON m.idmag = vd.idmag
+                                WHERE vd.idvente = %s
+                                    AND a.deleted = 0
+                                    AND COALESCE(u.deleted, 0) = 0
+                ORDER BY vd.id
+                """,
+                (idvente,),
+            )
+            details = cur.fetchall()
+            if not details:
+                MessageDialog("Attention", "La facture modèle ne contient aucune ligne.", 'warning')
+                return
+
+            self.nouveau_facture()
+            self.mode_modification = False
+            self.idvente_charge = None
+            self.entry_client.delete(0, "end")
+            self.entry_client.insert(0, header[3])
+            if header[2]:
+                self.client_map[header[3]] = header[2]
+            self.entry_designation.delete(0, "end")
+            self.entry_designation.insert(0, f"Modèle : {header[0]}")
+
+            target_magasin = self.combo_magasin.get().strip()
+            target_idmag = self.magasin_map.get(target_magasin)
+            if not target_idmag:
+                MessageDialog("Erreur", "Sélectionnez un magasin valide avant de charger le modèle.", 'warning')
+                return
+
+            self.detail_vente = []
+            for row in details:
+                idarticle, idunite, code, designation, unite, qte, prix, remise, idmag, magasin = row
+                qte = float(qte or 0)
+                prix = float(prix or 0)
+                remise = float(remise or 0)
+                montant_ht = qte * prix
+                montant_remise = qte * remise
+                self.detail_vente.append({
+                    'idarticle': idarticle, 'idunite': idunite,
+                    'code_article': code or 'N/A', 'nom_article': designation or '',
+                    'nom_unite': unite or '', 'qtvente': qte, 'prixunit': prix,
+                    'remise': remise, 'idmag': target_idmag,
+                    'designationmag': target_magasin, 'montant_ht': montant_ht,
+                    'montant_remise': montant_remise,
+                    'montant_ttc': max(0, montant_ht - montant_remise),
+                })
+            self.charger_details_treeview()
+            MessageDialog("Modèle chargé", f"La facture {header[0]} a été chargée comme nouvelle facture.", 'info')
+        except Exception as e:
+            MessageDialog("Erreur", f"Chargement du modèle : {e}", 'error')
+        finally:
+            if 'cur' in locals():
+                cur.close()
+            self._put_conn(conn)
 
     def ouvrir_suivi_depot(self):
         """Ouvre la fenêtre de suivi du stock par dépôt (import flexible)."""

@@ -1066,7 +1066,7 @@ class PageCommandeFrs(ctk.CTkFrame):
         lbl_c = ctk.CTkLabel(main, text="", font=Fonts.small(10), text_color=Colors.TEXT_MUTED)
         lbl_c.pack(pady=(0, 4))
 
-        def charger(filtre=""):
+        def charger(filtre="", force_refresh=False):
             for i in tree.get_children(): tree.delete(i)
             conn = self.connect_db()
             if not conn: return
@@ -1149,7 +1149,7 @@ class PageCommandeFrs(ctk.CTkFrame):
         lbl_c = ctk.CTkLabel(main, text="", font=Fonts.small(10), text_color=Colors.TEXT_MUTED)
         lbl_c.pack(pady=(0, 4))
 
-        def charger(filtre=""):
+        def charger(filtre="", force_refresh=False):
             for i in tree.get_children(): tree.delete(i)
             conn = self.connect_db()
             if not conn: return
@@ -1401,7 +1401,7 @@ class PageCommandeFrs(ctk.CTkFrame):
         lbl_c = ctk.CTkLabel(main, text="", font=Fonts.small(10), text_color=Colors.TEXT_MUTED)
         lbl_c.pack(pady=(0, 4))
 
-        def charger(filtre=""):
+        def charger(filtre="", force_refresh=False):
             for i in tree.get_children(): tree.delete(i)
             conn = self.connect_db()
             if not conn: return

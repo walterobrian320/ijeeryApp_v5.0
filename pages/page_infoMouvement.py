@@ -848,7 +848,7 @@ class PageChangementArticle(ctk.CTkFrame):
             ORDER BY a.designation ASC, u.codearticle ASC, u.idunite ASC
         """
 
-        def charger_articles(filtre=""):
+        def charger_articles(filtre="", force_refresh=False):
             for item in tree.get_children():
                 tree.delete(item)
             conn = self.connect_db()
@@ -869,7 +869,9 @@ class PageChangementArticle(ctk.CTkFrame):
                     return
 
                 idmag_int = int(idmag_actif)
-                snapshot = get_snapshot_cached(idmag_int, conn=conn)
+                snapshot = get_snapshot_cached(
+                    idmag_int, conn=conn, force=force_refresh,
+                )
 
                 cur.execute(QUERY_ARTICLES, (filtre_like, filtre_like))
                 rows = cur.fetchall()
@@ -986,7 +988,7 @@ class PageChangementArticle(ctk.CTkFrame):
             fg_color=Colors.SUCCESS_DARK, hover_color=Colors.INFO_DARK,
         ).pack(side="right", padx=5, pady=5)
 
-        charger_articles()
+        charger_articles(force_refresh=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # SECTION 8 — GESTION DES LISTES (SORTIE / ENTRÉE)

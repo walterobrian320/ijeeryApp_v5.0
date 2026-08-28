@@ -936,7 +936,7 @@ class PageSortie(ctk.CTkFrame):
             ORDER BY a.designation ASC, u.codearticle ASC, u.idunite ASC
         """
 
-        def charger_articles(filtre=""):
+        def charger_articles(filtre="", force_refresh=False):
             for item in tree.get_children():
                 tree.delete(item)
 
@@ -953,7 +953,9 @@ class PageSortie(ctk.CTkFrame):
                 if idmag_actif is None:
                     return
 
-                snapshot = get_snapshot_cached(int(idmag_actif), conn=conn)
+                snapshot = get_snapshot_cached(
+                    int(idmag_actif), conn=conn, force=force_refresh,
+                )
                 cur.execute(QUERY_ARTICLES, (filtre_like, filtre_like))
                 for idx, row in enumerate(cur.fetchall()):
                     stock_total = snapshot.stock_unite(row[0], row[1])
@@ -1050,7 +1052,7 @@ class PageSortie(ctk.CTkFrame):
             fg_color=Colors.SUCCESS_DARK, hover_color=Colors.INFO_DARK,
         ).pack(side="right", padx=5, pady=5)
 
-        charger_articles()
+        charger_articles(force_refresh=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # SECTION 7 — GESTION DU DÉTAIL DE SORTIE

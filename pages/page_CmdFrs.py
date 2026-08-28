@@ -640,7 +640,7 @@ class PageCommandeFrs(ctk.CTkFrame):
                                   text_color=Colors.TEXT_MUTED)
         lbl_count.pack(pady=(0, 4))
 
-        def charger(filtre=""):
+        def charger(filtre="", force_refresh=False):
             for i in tree.get_children(): tree.delete(i)
             conn = self.connect_db()
             if not conn: return
@@ -1407,7 +1407,9 @@ class PageCommandeFrs(ctk.CTkFrame):
             if not conn: return
             try:
                 cur = conn.cursor()
-                snapshot = get_snapshot_cached(0, conn=conn)
+                snapshot = get_snapshot_cached(
+                    0, conn=conn, force=force_refresh,
+                )
                 q = """SELECT T2.idarticle, T1.codearticle, T2.designation, T1.designationunite, T1.idunite
                        FROM tb_unite T1 INNER JOIN tb_article T2 ON T1.idarticle=T2.idarticle
                        WHERE T2.deleted=0"""
@@ -1500,7 +1502,7 @@ class PageCommandeFrs(ctk.CTkFrame):
         bf.pack(fill="x")
         styled.button_danger(bf, text="Annuler", icon="❌", width=110, height=36, command=fen.destroy).pack(side="left", padx=4)
         styled.button_success(bf, text="Valider", icon="✅", width=110, height=36, command=valider).pack(side="right", padx=4)
-        charger()
+        charger(force_refresh=True)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Ajouter / Supprimer article

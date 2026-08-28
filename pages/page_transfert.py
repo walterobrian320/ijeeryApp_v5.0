@@ -581,7 +581,7 @@ class PageTransfert(ctk.CTkFrame):
 
         # ── Chargement des articles (requête consolidée) ──────────────────────
 
-        def charger_articles(filtre=""):
+        def charger_articles(filtre="", force_refresh=False):
             for item in tree.get_children():
                 tree.delete(item)
 
@@ -600,7 +600,9 @@ class PageTransfert(ctk.CTkFrame):
                 if idmag_actif is None:
                     return
 
-                snapshot = get_snapshot_cached(int(idmag_actif), conn=conn)
+                snapshot = get_snapshot_cached(
+                    int(idmag_actif), conn=conn, force=force_refresh,
+                )
 
                 cur.execute(
                     """
@@ -726,7 +728,7 @@ class PageTransfert(ctk.CTkFrame):
             fg_color=Colors.SUCCESS_DARK, hover_color=Colors.INFO_DARK,
         ).pack(side="right", padx=5, pady=5)
 
-        charger_articles()
+        charger_articles(force_refresh=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # SECTION 5 — CALCUL DE STOCK CONSOLIDÉ

@@ -436,13 +436,21 @@ class PageAVQ(ctk.CTkFrame):
         table_card.grid_columnconfigure(0, weight=1)
         table_card.grid_rowconfigure(0, weight=1)
 
-        tv = ttk.Treeview(table_card, columns=("id", "nom", "prenom"), show="headings", height=10, style="P.Treeview")
+        tv = ttk.Treeview(
+            table_card,
+            columns=("id", "nom", "prenom", "categorie", "poste"),
+            show="headings", height=10, style="P.Treeview",
+        )
         tv.heading("id", text="ID")
         tv.heading("nom", text="Nom")
         tv.heading("prenom", text="Prénom")
+        tv.heading("categorie", text="Catégorie")
+        tv.heading("poste", text="Poste")
         tv.column("id", width=70, anchor="center")
         tv.column("nom", width=200, anchor="w")
         tv.column("prenom", width=200, anchor="w")
+        tv.column("categorie", width=150, anchor="w")
+        tv.column("poste", width=170, anchor="w")
         tv.grid(row=0, column=0, sticky="nsew", padx=(6, 0), pady=6)
         vsb = ttk.Scrollbar(table_card, orient="vertical", command=tv.yview)
         tv.configure(yscrollcommand=vsb.set)
@@ -456,16 +464,32 @@ class PageAVQ(ctk.CTkFrame):
                     return
                 like = f"%{query.strip()}%"
                 self.cursor.execute(
-                    "SELECT id, nom, prenom FROM tb_personnel WHERE (nom ILIKE %s OR prenom ILIKE %s) ORDER BY nom, prenom",
+                    """
+                    SELECT p.id, p.nom, p.prenom,
+                           COALESCE(cp.titre, 'Inconnu') AS categorie,
+                           COALESCE(pp.titre, 'Inconnu') AS poste
+                    FROM tb_personnel p
+                    LEFT JOIN tb_postepersonnel pp
+                           ON p.idposte = pp.idposte AND COALESCE(pp.deleted, 0)=0
+                    LEFT JOIN tb_categoriepersonnel cp
+                           ON pp.idcategorie = cp.idcategorie AND COALESCE(cp.deleted, 0)=0
+                    WHERE (p.nom ILIKE %s OR p.prenom ILIKE %s)
+                      AND COALESCE(p.deleted, 0)=0
+                    ORDER BY p.nom, p.prenom
+                    """,
                     (like, like),
                 )
                 rows = self.cursor.fetchall()
-                for _id, nom, prenom in rows:
+                for _id, nom, prenom, categorie, poste in rows:
                     nom_disp = (nom or "").strip() if nom is not None else ""
                     prenom_disp = (prenom or "").strip() if prenom is not None else ""
                     nom_disp = nom_disp if nom_disp else "-"
                     prenom_disp = prenom_disp if prenom_disp else "-"
-                    tv.insert("", "end", values=(_id, nom_disp, prenom_disp))
+                    tv.insert(
+                        "", "end",
+                        values=(_id, nom_disp, prenom_disp,
+                                categorie or "Inconnu", poste or "Inconnu"),
+                    )
             except Exception:
                 # pas bloquant: on laisse vide
                 return
@@ -474,7 +498,7 @@ class PageAVQ(ctk.CTkFrame):
             sel = tv.selection()
             if not sel:
                 return
-            _id, nom, prenom = tv.item(sel[0], "values")
+            _id, nom, prenom, _categorie, _poste = tv.item(sel[0], "values")
             try:
                 self.id_prof_selectionne = int(_id)
             except Exception:

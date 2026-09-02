@@ -47,5 +47,14 @@
       "Caisse_FermerAuto_Encaissement": false,
       "Caisse_FermerAuto_Decaissement": true
     }
+  },
+  "MouvementStock": {
+    "_comment": "Préférences personnelles du menu Mouvement de stock (par id utilisateur tb_users.iduser).",
+    "MenuDefautParUtilisateur": {
+      "1": "Bon de commande"
+    },
+    "SidebarHamburgerParUtilisateur": {
+      "1": true
+    }
   }
 }

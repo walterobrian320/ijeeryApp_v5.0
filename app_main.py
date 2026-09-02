@@ -445,6 +445,8 @@ class Sidebar(ctk.CTkFrame):
         self.grid_rowconfigure(3, weight=1)   # scroll area
         self.grid_columnconfigure(0, weight=1)
 
+        self._scroll_width_hint = _SIDEBAR_W_OPEN
+
         self._build_toggle_row()
         self._build_logo()
         self._build_user_info()
@@ -533,6 +535,8 @@ class Sidebar(ctk.CTkFrame):
             scrollbar_button_hover_color=Colors.PRIMARY,
         )
         self._scroll.grid(row=3, column=0, sticky="nsew", padx=0, pady=0)
+        self._scroll.grid_columnconfigure(0, weight=1)
+        self._scroll.grid_rowconfigure(0, weight=1)
 
     def _build_menu(self):
         """Construit les accordéons de menu selon les autorisations."""
@@ -543,7 +547,9 @@ class Sidebar(ctk.CTkFrame):
 
             acc = MenuAccordion(self._scroll, cfg, self._app, self)
             acc.pack(fill="x", pady=1)
+            acc.grid_columnconfigure(0, weight=1)
             self._accordions.append(acc)
+        self.update_idletasks()
 
     def _enable_sidebar_mousewheel(self):
         """Active le scroll roulette sur toute la sidebar (frame + boutons)."""
@@ -639,12 +645,16 @@ class Sidebar(ctk.CTkFrame):
     def _close(self):
         self._is_open = False
         self.configure(width=_SIDEBAR_W_CLOSED)
+        self.grid_columnconfigure(0, weight=1)
+        if self._scroll is not None:
+            self._scroll.grid_columnconfigure(0, weight=1)
 
         # Cacher logo, bloc utilisateur, scroll, logout
         self._logo_frame.grid_remove()
         self._user_frame.grid_remove()
         self._scroll.grid_remove()
         self._btn_logout.grid_remove()
+        self.update_idletasks()
 
         # Changer icône hamburger
         self._btn_hamburger.configure(text="☰")
@@ -652,11 +662,15 @@ class Sidebar(ctk.CTkFrame):
     def _open(self):
         self._is_open = True
         self.configure(width=_SIDEBAR_W_OPEN)
+        self.grid_columnconfigure(0, weight=1)
+        if self._scroll is not None:
+            self._scroll.grid_columnconfigure(0, weight=1)
 
         self._logo_frame.grid()
         self._user_frame.grid()
         self._scroll.grid()
         self._btn_logout.grid()
+        self.update_idletasks()
 
         self._btn_hamburger.configure(text="✕")
 
@@ -967,6 +981,7 @@ class App(ctk.CTk):
         self.session_data     = session_data
         self.id_user_connecte = session_data.get("user_id")
         self._vente_tab_mgr   = None
+        self._persistent_pages = {}
         self._logger          = AppLogger(session_data=session_data, fallback_user_id=self.id_user_connecte)
 
         # Connexion DB
@@ -1041,18 +1056,34 @@ class App(ctk.CTk):
 
     # ── Navigation ────────────────────────────────────────────────────────────
 
+    def _persistent_key(self, module_path: Optional[str], class_name: Optional[str]) -> Optional[str]:
+        if module_path == "pages.page_infoMouvement" and class_name == "PageInfoMouvementStock":
+            return "pages.page_infoMouvement.PageInfoMouvementStock"
+        return None
+
+    def _is_persistent_page(self, widget) -> bool:
+        """Conserve les pages de mouvement stock en mémoire tant que l'app reste ouverte."""
+        return type(widget).__name__ == "PageInfoMouvementStock"
+
     def _safe_clear_content(self):
         """
         Détruit proprement tous les widgets enfants du content_frame.
-        On evite update_idletasks() ici : il peut redessiner brievement
-        l'ancienne page pendant une navigation lente.
+        Les pages persistantes (ex. Mouvement Stock) sont simplement masquées,
+        pour éviter leur réinitialisation quand on va vers un autre menu.
         """
-        children = self._content.winfo_children()
+        children = list(self._content.winfo_children())
         if not children:
             return
 
         for w in children:
             try:
+                if self._is_persistent_page(w):
+                    key = self._persistent_key("pages.page_infoMouvement", "PageInfoMouvementStock")
+                    if key:
+                        self._persistent_pages[key] = w
+                    w.grid_remove()
+                    w.pack_forget()
+                    continue
                 w.grid_remove()
                 w.pack_forget()
             except Exception:
@@ -1060,9 +1091,50 @@ class App(ctk.CTk):
 
         for w in children:
             try:
+                if self._is_persistent_page(w):
+                    continue
                 w.destroy()
             except Exception:
                 pass
+
+    def _restore_persistent_page_if_needed(self, module_path: Optional[str], class_name: Optional[str]):
+        key = self._persistent_key(module_path, class_name)
+        if not key:
+            return False
+
+        cached = self._persistent_pages.get(key)
+        if cached is None:
+            for w in list(self._content.winfo_children()):
+                if self._is_persistent_page(w):
+                    self._persistent_pages[key] = w
+                    cached = w
+                    break
+
+        if cached is not None and cached.winfo_exists():
+            for w in list(self._content.winfo_children()):
+                try:
+                    if w is cached:
+                        continue
+                    w.grid_remove()
+                    w.pack_forget()
+                except Exception:
+                    pass
+            try:
+                cached.grid()
+            except Exception:
+                pass
+            cached.grid(row=0, column=0, sticky="nsew")
+            try:
+                cached.grid_rowconfigure(0, weight=1)
+                cached.grid_columnconfigure(0, weight=1)
+            except (tk.TclError, AttributeError):
+                pass
+            try:
+                cached.update_idletasks()
+            except Exception:
+                pass
+            return True
+        return False
 
     def navigate(self, module_path: Optional[str], class_name: Optional[str],
                  kwargs_key: Optional[str], auth_key: str):
@@ -1070,6 +1142,9 @@ class App(ctk.CTk):
         Charge et affiche une page dans la zone de contenu.
         kwargs_key contrôle les arguments spéciaux à passer.
         """
+        if self._restore_persistent_page_if_needed(module_path, class_name):
+            return
+
         # ── Vider le contenu en annulant d'abord les callbacks "after" pendants ──
         # Cela évite le TclError quand une page a un after() en cours
         # (ex: page_stock qui rappelle recharger_treeview après destruction)
@@ -1117,6 +1192,10 @@ class App(ctk.CTk):
         if instance is None:
             self._show_not_authorized("Impossible de créer la page.")
             return
+
+        key = self._persistent_key(module_path, class_name)
+        if key and self._is_persistent_page(instance):
+            self._persistent_pages[key] = instance
 
         if isinstance(instance, ctk.CTkToplevel):
             instance.lift(); instance.focus_force(); instance.transient(self)

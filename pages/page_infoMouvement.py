@@ -1547,6 +1547,61 @@ if __name__ == "__main__":
 
 
 
+class _MemoireMouvementStock:
+    """Mémoire de session pour conserver les pages et leur état entre navigations."""
+
+    def __init__(self):
+        self._pages = {}
+        self._snapshots = {}
+
+    def remember_page(self, menu_label: str, page: Any):
+        if page is None:
+            return
+        self._pages[menu_label] = page
+        self._snapshots[menu_label] = self._snapshot_page(page)
+
+    def _snapshot_page(self, page: Any):
+        if page is None:
+            return {}
+        if hasattr(page, "snapshot_state"):
+            try:
+                return page.snapshot_state()
+            except Exception:
+                pass
+        if hasattr(page, "get_memory_state"):
+            try:
+                return page.get_memory_state()
+            except Exception:
+                pass
+        return {"_page_instance": id(page)}
+
+    def restore_page(self, menu_label: str, page: Any):
+        if page is None:
+            return
+        snapshot = self._snapshots.get(menu_label)
+        if not snapshot:
+            return
+        if hasattr(page, "restore_state"):
+            try:
+                page.restore_state(snapshot)
+                return
+            except Exception:
+                pass
+        if hasattr(page, "apply_memory_state"):
+            try:
+                page.apply_memory_state(snapshot)
+                return
+            except Exception:
+                pass
+
+    def get_page(self, menu_label: str):
+        return self._pages.get(menu_label)
+
+    def forget(self, menu_label: str):
+        self._pages.pop(menu_label, None)
+        self._snapshots.pop(menu_label, None)
+
+
 class PageInfoMouvementStock(ctk.CTkFrame):
     """Frame principal avec navigation - Pour intégration dans app_main"""
 
@@ -1593,6 +1648,7 @@ class PageInfoMouvementStock(ctk.CTkFrame):
         self.pages: Dict[str, Any] = {}
         self.current_page = None
         self.menu_buttons: Dict[str, ctk.CTkButton] = {}
+        self._memoire_pages = _MemoireMouvementStock()
 
         self.create_sidebar()
         self._appliquer_etat_sidebar()
@@ -1975,12 +2031,17 @@ class PageInfoMouvementStock(ctk.CTkFrame):
         )
         self._maj_liens_param_config()
 
-        if self.current_page:
-            self.current_page.grid_remove()
+        if self.current_page and self.current_page is not self.pages.get(menu_label):
+            try:
+                self.current_page.grid_remove()
+            except tk.TclError:
+                pass
 
         if menu_label not in self.pages:
             try:
-                self.pages[menu_label] = page_class(self.content_frame, self.iduser)
+                page = page_class(self.content_frame, self.iduser)
+                self.pages[menu_label] = page
+                self._memoire_pages.remember_page(menu_label, page)
             except Exception as e:
                 messagebox.showerror(
                     "Erreur",
@@ -1988,13 +2049,26 @@ class PageInfoMouvementStock(ctk.CTkFrame):
                 )
                 return
 
-        self.current_page = self.pages[menu_label]
-        self.current_page.grid(row=0, column=0, sticky="nsew")
+        self.current_page = self.pages.get(menu_label)
+        if self.current_page is None:
+            try:
+                self.current_page = self._memoire_pages.get_page(menu_label)
+                if self.current_page is not None:
+                    self.pages[menu_label] = self.current_page
+            except Exception:
+                self.current_page = None
+
+        if self.current_page is None:
+            return
+
         try:
+            self._memoire_pages.restore_page(menu_label, self.current_page)
+            self.current_page.grid(row=0, column=0, sticky="nsew")
             self.current_page.grid_rowconfigure(0, weight=1)
             self.current_page.grid_columnconfigure(0, weight=1)
         except (tk.TclError, AttributeError):
             pass
+
         self.content_frame.update_idletasks()
 
         for btn_label, btn in self.menu_buttons.items():
@@ -2005,6 +2079,24 @@ class PageInfoMouvementStock(ctk.CTkFrame):
                     else "transparent"
                 ),
             )
+
+    def memoiser_etat_page(self, menu_label: str | None = None):
+        """Sauvegarde l'état actuel de la page active dans la mémoire de session."""
+        target = menu_label or self._current_menu_label
+        if not target:
+            return
+        page = self.pages.get(target)
+        if page is not None:
+            self._memoire_pages.remember_page(target, page)
+
+    def restaurer_page_memoire(self, menu_label: str):
+        """Restaure la page depuis la mémoire si elle a déjà été créée."""
+        page = self._memoire_pages.get_page(menu_label)
+        if page is not None:
+            self.pages[menu_label] = page
+            self._memoire_pages.restore_page(menu_label, page)
+            return page
+        return None
 
 
 # Test standalone si lancé directement

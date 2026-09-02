@@ -33,17 +33,24 @@ except ImportError:
 
     
 def charger_personnels(cursor):
-        """Charge la liste des personnels depuis la base de données."""
+    """Charge la liste des personnels depuis la base de données."""
+    if cursor is None:
+        return []
+    try:
         cursor.execute("SELECT id, nom, prenom FROM tb_personnel ORDER BY nom")
-        # [UI] Affichage propre: prenom None → "-"
-        out = []
-        for _id, nom, prenom in cursor.fetchall():
-            prenom_disp = (prenom or "").strip() if prenom is not None else ""
-            prenom_disp = prenom_disp if prenom_disp else "-"
-            nom_disp = (nom or "").strip() if nom is not None else ""
-            nom_disp = nom_disp if nom_disp else "-"
-            out.append({"id": _id, "nom": nom, "prenom": prenom, "nom_complet": f"{nom_disp} {prenom_disp}"})
-        return out
+        rows = cursor.fetchall()
+    except Exception as exc:
+        print(f"Chargement des personnels impossible : {exc}")
+        return []
+    # [UI] Affichage propre: prenom None → "-"
+    out = []
+    for _id, nom, prenom in rows:
+        prenom_disp = (prenom or "").strip() if prenom is not None else ""
+        prenom_disp = prenom_disp if prenom_disp else "-"
+        nom_disp = (nom or "").strip() if nom is not None else ""
+        nom_disp = nom_disp if nom_disp else "-"
+        out.append({"id": _id, "nom": nom, "prenom": prenom, "nom_complet": f"{nom_disp} {prenom_disp}"})
+    return out
 
 # ---
 class FenetreAvanceSpec(ctk.CTkFrame):
@@ -80,6 +87,7 @@ class FenetreAvanceSpec(ctk.CTkFrame):
 
         # Widgets d'interface
         self.creer_widgets()
+        self.charger_modes_paiement()
 
         # Chargement initial des données
         self.charger_avances()
@@ -128,9 +136,13 @@ class FenetreAvanceSpec(ctk.CTkFrame):
                 nbremboursement INTEGER NOT NULL CHECK (nbremboursement > 0),
                 datepmt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 idtypeoperation INT DEFAULT '2',
-                iduser INT
+                iduser INT,
+                idmode INT
             )
             """)
+            self.cursor.execute(
+                "ALTER TABLE tb_avancespecpers ADD COLUMN IF NOT EXISTS idmode INT"
+            )
             self.conn.commit()
             return True
             
@@ -359,15 +371,22 @@ class FenetreAvanceSpec(ctk.CTkFrame):
             )
         self._refresh_table_alternating_colors(self.tree)
 
-    def generate_observation(self, nom, prenom):
-        today = date.today().strftime("%d/%m/%Y")
+    def generate_observation(self, nom, prenom, reference, date_paiement=None):
         # [LOGIQUE] Robuste aux valeurs NULL (évite prenom=None → capitalize() crash)
         nom_s = (nom or "").strip()
         prenom_s = (prenom or "").strip()
         nom_fmt = nom_s.upper() if nom_s else "INCONNU"
         prenom_fmt = prenom_s.capitalize() if prenom_s else ""
         sep = " " if prenom_fmt else ""
-        return f"AVS - {nom_fmt}{sep}{prenom_fmt} - {today}"
+        mois_fr = (
+            "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+            "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+        )
+        paiement = date_paiement or datetime.now()
+        return (
+            f"Avance Spéciale de {nom_fmt}{sep}{prenom_fmt} - "
+            f"mois de {mois_fr[paiement.month - 1]} - {reference}"
+        )
 
     def _fmt_personnel(self, nom, prenom):
         nom_s = (nom or "").strip() if nom is not None else ""
@@ -469,9 +488,26 @@ class FenetreAvanceSpec(ctk.CTkFrame):
         )
         self.nbremb_entry.grid(row=0, column=6, padx=(0, 12), pady=10, sticky="w")
 
+        ctk.CTkLabel(input_frame, text="Mode de paiement", font=Fonts.label(11), text_color=Colors.TEXT_SECONDARY).grid(
+            row=0, column=7, padx=(0, 6), pady=10, sticky="w"
+        )
+        self.mode_paiement_combo = ctk.CTkComboBox(
+            input_frame,
+            values=["AUTRES"],
+            variable=ctk.StringVar(value="AUTRES"),
+            state="readonly",
+            width=130,
+            height=32,
+            fg_color=Colors.BG_INPUT,
+            border_color=Colors.BORDER,
+            button_color=Colors.PRIMARY,
+            font=Fonts.body(11),
+        )
+        self.mode_paiement_combo.grid(row=0, column=8, padx=(0, 10), pady=10, sticky="w")
+
         styled.button_success(
             input_frame, text="Enregistrer", icon="💾", width=150, height=32, command=self.enregistrer_avance
-        ).grid(row=0, column=7, padx=(0, 12), pady=10, sticky="e")
+        ).grid(row=0, column=9, padx=(0, 12), pady=10, sticky="e")
 
         # Card filtres/tri (liste avances spéciales)
         filtres_frame = ctk.CTkFrame(self, fg_color=Colors.BG_CARD, corner_radius=12, border_width=1, border_color=Colors.BORDER)
@@ -566,14 +602,55 @@ class FenetreAvanceSpec(ctk.CTkFrame):
 
         # (UI) poids déjà configurés via grid_columnconfigure ci-dessus
 
+    def charger_modes_paiement(self):
+        """Charge les modes disponibles en gardant AUTRES comme choix initial."""
+        if not getattr(self, "cursor", None) or not hasattr(self, "mode_paiement_combo"):
+            return
+        try:
+            self.cursor.execute(
+                "SELECT idmode, modedepaiement FROM tb_modepaiement ORDER BY modedepaiement"
+            )
+            rows = self.cursor.fetchall()
+            self.modes_paiement = {
+                str(label).strip().upper(): idmode
+                for idmode, label in rows
+                if label and str(label).strip()
+            }
+            values = ["AUTRES"] + [
+                label for label in self.modes_paiement if label != "AUTRES"
+            ]
+            self.mode_paiement_combo.configure(values=values)
+            self.mode_paiement_combo.set("AUTRES")
+        except psycopg2.Error as e:
+            self.modes_paiement = {}
+            self.mode_paiement_combo.configure(values=["AUTRES"])
+            self.mode_paiement_combo.set("AUTRES")
+            print(f"Modes de paiement indisponibles : {e}")
+
     def charger_avances(self):
-        self.cursor.execute("""
+        if not getattr(self, "cursor", None):
+            self._avances_raw = []
+            if hasattr(self, "tree"):
+                self.apply_filters()
+            return
+        try:
+            if self.conn is None or self.conn.closed:
+                self.conn = self.connect_db()
+                self.cursor = self.conn.cursor() if self.conn else None
+            if not self.cursor:
+                self._avances_raw = []
+                return
+            self.cursor.execute("""
             SELECT tap.datepmt, tap.refpmt, tap.observation, tap.mtpaye, tap.nbremboursement, p.nom, p.prenom
             FROM tb_avancespecpers tap
             JOIN tb_personnel p ON tap.idpers = p.id
             ORDER BY tap.datepmt DESC
-        """)
-        resultats = self.cursor.fetchall()
+            """)
+            resultats = self.cursor.fetchall()
+        except Exception as e:
+            self._avances_raw = []
+            print(f"Chargement avances spéciales impossible : {e}")
+            return
         self._avances_raw = []
         for ligne in resultats:
             datepmt = ligne[0] if ligne[0] else datetime.now()
@@ -600,7 +677,9 @@ class FenetreAvanceSpec(ctk.CTkFrame):
             if "AVS -" in observation:
                 expected_name = self._fmt_personnel(nom_prof, prenom_prof)
                 if expected_name and expected_name.upper() not in observation.upper():
-                    observation = self.generate_observation(nom_prof, prenom_prof)
+                    observation = self.generate_observation(
+                        nom_prof, prenom_prof, reference, datepmt
+                    )
 
             self._avances_raw.append({
                 "date_dt": datepmt,
@@ -651,15 +730,24 @@ class FenetreAvanceSpec(ctk.CTkFrame):
             pers_info = next((p for p in self.personnel if p["id"] == personnel_id), None)
             nom = pers_info["nom"] if pers_info else None
             prenom = pers_info["prenom"] if pers_info else None
-            observation = self.generate_observation(nom, prenom)
             date_actuelle = datetime.now()
+            observation = self.generate_observation(
+                nom, prenom, reference, date_actuelle
+            )
+            mode_nom = self.mode_paiement_combo.get().strip().upper()
+            idmode = self.modes_paiement.get(mode_nom)
 
             print(f"Enregistrement avec iduser: {self.iduser}")  # Debug
 
             self.cursor.execute("""
-                INSERT INTO tb_avancespecpers (refpmt, observation, idpers, mtpaye, nbremboursement, datepmt, idtypeoperation, iduser)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, (reference, observation, personnel_id, montant_val, nb_remboursement_val, date_actuelle, 2, self.iduser))
+                INSERT INTO tb_avancespecpers
+                    (refpmt, observation, idpers, mtpaye, nbremboursement,
+                     datepmt, idtypeoperation, iduser, idmode)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                reference, observation, personnel_id, montant_val,
+                nb_remboursement_val, date_actuelle, 2, self.iduser, idmode,
+            ))
 
             self.conn.commit()
 
@@ -682,6 +770,7 @@ class FenetreAvanceSpec(ctk.CTkFrame):
             messagebox.showinfo("Succès", "Avance enregistrée.")
             self.charger_avances()
             self.annuler_saisie()
+            self.mode_paiement_combo.set("AUTRES")
 
         except ValueError:
             messagebox.showerror("Erreur", "Veuillez saisir des valeurs numériques valides pour le montant et le nombre de remboursements.")

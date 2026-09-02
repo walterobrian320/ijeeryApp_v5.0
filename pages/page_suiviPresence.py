@@ -12,6 +12,7 @@ from datetime import datetime, date
 import psycopg2
 import pandas as pd
 import customtkinter as ctk
+import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
 from resource_utils import get_config_path
@@ -131,18 +132,19 @@ HISTORY_TREE_COLUMNS = [
 # Onglets Chrome
 # ─────────────────────────────────────────────────────────────────────────────
 
-class ChromeTabs(ctk.CTkFrame):
+class ChromeTabs(tk.Frame):
     TAB_W = 155
     TAB_H = 34
     IND_H = 3
 
     def __init__(self, parent, tabs: list, command=None, **kwargs):
-        super().__init__(parent, fg_color="transparent", **kwargs)
+        kwargs.pop("fg_color", None)
+        super().__init__(parent, bg=Colors.BG_PAGE, **kwargs)
         self._tabs    = tabs
         self._command = command
         self._active  = 0
         total_w = len(tabs) * self.TAB_W
-        self._canvas = ctk.CTkCanvas(
+        self._canvas = tk.Canvas(
             self, height=self.IND_H, width=total_w,
             bg=Colors.BG_PAGE, highlightthickness=0,
         )
@@ -158,24 +160,25 @@ class ChromeTabs(ctk.CTkFrame):
         for w in self.winfo_children():
             if w is not self._canvas:
                 w.destroy()
-        row = ctk.CTkFrame(self, fg_color="transparent", height=self.TAB_H)
+        row = tk.Frame(self, bg=Colors.BG_PAGE, height=self.TAB_H)
         row.pack(side="top", fill="x")
         row.pack_propagate(False)
         for i, label in enumerate(self._tabs):
             active = (i == self._active)
-            ctk.CTkButton(
+            tk.Button(
                 row, text=label,
-                font=Fonts.bold(12) if active else Fonts.body(12),
-                fg_color=Colors.BG_CARD   if active else Colors.BG_PAGE,
-                text_color=Colors.PRIMARY if active else Colors.TEXT_SECONDARY,
-                hover_color=Colors.BG_CARD,
-                corner_radius=0, height=self.TAB_H, width=self.TAB_W,
-                border_width=0,
+                font=("Segoe UI", 12, "bold" if active else "normal"),
+                bg=Colors.BG_CARD if active else Colors.BG_PAGE,
+                fg=Colors.PRIMARY if active else Colors.TEXT_SECONDARY,
+                activebackground=Colors.BG_CARD,
+                activeforeground=Colors.PRIMARY,
+                relief="flat", bd=0, highlightthickness=0,
+                height=1, width=max(1, self.TAB_W // 8),
                 command=lambda idx=i: self._select(idx),
-            ).pack(side="left")
+            ).pack(side="left", fill="y")
             if i < len(self._tabs) - 1:
-                ctk.CTkFrame(row, width=1, height=18,
-                              fg_color=Colors.BORDER).pack(side="left", pady=8)
+                tk.Frame(row, width=1, height=18,
+                         bg=Colors.BORDER).pack(side="left", pady=8)
         self._canvas.pack(side="top", fill="x")
         self._draw_indicator()
 
@@ -1044,6 +1047,10 @@ class PageSuiviPresence(ctk.CTkFrame):
     # ── Helpers ──────────────────────────────────────────────────────────────
 
     def _parse(self, value):
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
         try:
             return datetime.strptime(value, "%Y-%m-%d").date()
         except Exception:

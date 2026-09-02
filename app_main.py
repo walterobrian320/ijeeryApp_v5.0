@@ -1057,13 +1057,17 @@ class App(ctk.CTk):
     # ── Navigation ────────────────────────────────────────────────────────────
 
     def _persistent_key(self, module_path: Optional[str], class_name: Optional[str]) -> Optional[str]:
-        if module_path == "pages.page_infoMouvement" and class_name == "PageInfoMouvementStock":
-            return "pages.page_infoMouvement.PageInfoMouvementStock"
+        persistent_pages = {
+            ("pages.page_infoMouvement", "PageInfoMouvementStock"),
+            ("pages.page_avanceSpecial_", "FenetreAvanceSpec"),
+        }
+        if (module_path, class_name) in persistent_pages:
+            return f"{module_path}.{class_name}"
         return None
 
     def _is_persistent_page(self, widget) -> bool:
         """Conserve les pages de mouvement stock en mémoire tant que l'app reste ouverte."""
-        return type(widget).__name__ == "PageInfoMouvementStock"
+        return type(widget).__name__ in {"PageInfoMouvementStock", "FenetreAvanceSpec"}
 
     def _safe_clear_content(self):
         """
@@ -1078,7 +1082,11 @@ class App(ctk.CTk):
         for w in children:
             try:
                 if self._is_persistent_page(w):
-                    key = self._persistent_key("pages.page_infoMouvement", "PageInfoMouvementStock")
+                    key = self._persistent_key(
+                        "pages.page_infoMouvement" if type(w).__name__ == "PageInfoMouvementStock"
+                        else "pages.page_avanceSpecial_",
+                        type(w).__name__,
+                    )
                     if key:
                         self._persistent_pages[key] = w
                     w.grid_remove()

@@ -35,15 +35,21 @@ def generer_reference():
     now = datetime.now()
     return now.strftime("AVQ-%Y%m%d%H%M%S%f")[:-3]
 
-def generate_observation(nom_prof, prenom_prof):
-    today = date.today().strftime("%d%m%Y")
+MOIS_FR = (
+    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+)
+
+def generate_observation(nom_prof, prenom_prof, reference, date_paiement=None):
     # [LOGIQUE] Robuste aux valeurs NULL en base / sélection incomplète
     nom = (nom_prof or "").strip()
     prenom = (prenom_prof or "").strip()
     nom_fmt = nom.upper() if nom else "INCONNU"
     prenom_fmt = prenom.capitalize() if prenom else ""
     sep = " " if prenom_fmt else ""
-    return f"AVQ - {nom_fmt}{sep}{prenom_fmt} - {today}"
+    paiement = date_paiement or datetime.now()
+    mois = MOIS_FR[paiement.month - 1]
+    return f"Avance 15ème mois de {mois} pour {nom_fmt}{sep}{prenom_fmt} - {reference}"
 
 class PageAVQ(ctk.CTkFrame):
     def __init__(self, master=None, iduser=None):
@@ -54,6 +60,7 @@ class PageAVQ(ctk.CTkFrame):
         self.id_prof_selectionne = None
         self.selected_personnel_var = ctk.StringVar(value="")
         self.iduser = iduser if iduser is not None else resolve_connected_user_id(master=master)
+        self.modes_paiement = {}
         self._avances_raw = []
         self._sort_state = new_sort_state()
         self._table_sort = None
@@ -73,6 +80,7 @@ class PageAVQ(ctk.CTkFrame):
             self.initialize_database()
         
         self.create_widgets()
+        self.charger_modes_paiement()
         self.charger_avances()
 
     def _setup_treeview_style(self):
@@ -234,8 +242,25 @@ class PageAVQ(ctk.CTkFrame):
         )
         self.montant_entry.grid(row=0, column=4, padx=(0, 10), pady=10, sticky="w")
 
+        ctk.CTkLabel(saisie_frame, text="Mode de paiement", font=Fonts.label(11), text_color=Colors.TEXT_SECONDARY).grid(
+            row=0, column=5, padx=(0, 6), pady=10, sticky="w"
+        )
+        self.mode_paiement_combo = ctk.CTkComboBox(
+            saisie_frame,
+            values=["AUTRES"],
+            variable=ctk.StringVar(value="AUTRES"),
+            state="readonly",
+            width=130,
+            height=32,
+            fg_color=Colors.BG_INPUT,
+            border_color=Colors.BORDER,
+            button_color=Colors.PRIMARY,
+            font=Fonts.body(11),
+        )
+        self.mode_paiement_combo.grid(row=0, column=6, padx=(0, 10), pady=10, sticky="w")
+
         styled.button_success(saisie_frame, text="Enregistrer", icon="💾", width=150, height=32, command=self.enregistrer_avance).grid(
-            row=0, column=5, padx=(0, 12), pady=10, sticky="e"
+            row=0, column=7, padx=(0, 12), pady=10, sticky="e"
         )
 
         # Card filtres/tri (liste avances)
@@ -321,6 +346,32 @@ class PageAVQ(ctk.CTkFrame):
         styled.button_danger(buttons_frame, text="Annuler", icon="✖", width=120, height=32, command=self.annuler_avance).pack(side="left", padx=0, pady=10)
         styled.button_premium(buttons_frame, text="Exporter PDF", icon="📄", width=140, height=32, command=self.exporter_pdf).pack(side="right", padx=10, pady=10)
         styled.button_premium(buttons_frame, text="Exporter Excel", icon="📊", width=150, height=32, command=self.exporter_excel).pack(side="right", padx=0, pady=10)
+
+    def charger_modes_paiement(self):
+        """Charge les modes disponibles en gardant NULL comme choix initial."""
+        if not getattr(self, "cursor", None):
+            return
+        try:
+            self.cursor.execute(
+                "SELECT idmode, modedepaiement FROM tb_modepaiement ORDER BY modedepaiement"
+            )
+            rows = self.cursor.fetchall()
+            self.modes_paiement = {
+                str(label).strip().upper(): idmode
+                for idmode, label in rows
+                if label and str(label).strip()
+            }
+            values = ["AUTRES"] + [
+                label for label in self.modes_paiement.keys()
+                if label != "AUTRES"
+            ]
+            self.mode_paiement_combo.configure(values=values)
+            self.mode_paiement_combo.set("AUTRES")
+        except psycopg2.Error as e:
+            self.modes_paiement = {}
+            self.mode_paiement_combo.configure(values=["AUTRES"])
+            self.mode_paiement_combo.set("AUTRES")
+            print(f"Modes de paiement indisponibles : {e}")
 
     def selectionner_personnel_event(self, event):
         # This method is called by the ttk.Combobox event binding
@@ -591,15 +642,23 @@ class PageAVQ(ctk.CTkFrame):
                 messagebox.showerror("Erreur", "Personnel non trouvé.")
                 return
 
-            observation = generate_observation(personnel[0], personnel[1])
             reference = generer_reference()
             date_paiement = datetime.now()
+            observation = generate_observation(
+                personnel[0], personnel[1], reference, date_paiement
+            )
             type_operation = "2"
+            mode_nom = self.mode_paiement_combo.get().strip().upper()
+            idmode = self.modes_paiement.get(mode_nom)
 
             self.cursor.execute("""
-                INSERT INTO tb_avancepers (refpmt, idpers, mtpaye, observation, datepmt, idtypeoperation, iduser)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (reference, self.id_prof_selectionne, montant_paye, observation, date_paiement, type_operation, self.iduser))
+                INSERT INTO tb_avancepers
+                    (refpmt, idpers, mtpaye, observation, datepmt, idtypeoperation, iduser, idmode)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                reference, self.id_prof_selectionne, montant_paye, observation,
+                date_paiement, type_operation, self.iduser, idmode,
+            ))
             self.conn.commit()
             try:
                 try_imprimer_ticket_avance(
@@ -620,6 +679,7 @@ class PageAVQ(ctk.CTkFrame):
             self.montant_entry.delete(0, ctk.END)
             self.selected_personnel_var.set("")
             self.id_prof_selectionne = None
+            self.mode_paiement_combo.set("AUTRES")
         except psycopg2.Error as e:
             self.conn.rollback()
             messagebox.showerror("Erreur", f"Erreur lors de l'enregistrement : {e}")

@@ -436,8 +436,6 @@ class PageCommandeFrs(ctk.CTkFrame):
             font=Fonts.bold(10), text_color=Colors.INFO
         )
         self.info_charge.pack(side="left")
-        self.info_charge.bind("<Enter>", self._show_charge_tooltip)
-        self.info_charge.bind("<Leave>", self._hide_charge_tooltip)
         self.info_charge.bind("<Button-1>", self._show_charge_tooltip)
         self.info_charge.pack_forget()
         self._charge_tooltip = None
@@ -732,27 +730,76 @@ class PageCommandeFrs(ctk.CTkFrame):
 
     def _show_charge_tooltip(self, event=None):
         if self._charge_tooltip and self._charge_tooltip.winfo_exists():
+            self._charge_tooltip.lift()
+            self._charge_tooltip.focus_force()
             return
         tip = ctk.CTkToplevel(self)
-        tip.overrideredirect(True)
-        tip.attributes("-topmost", True)
+        self._charge_tooltip = tip
+        tip.title("Informations frais / charges")
+        tip.geometry("560x260")
+        tip.minsize(420, 180)
+        tip.transient(self.winfo_toplevel())
         tip.configure(fg_color=Colors.BG_CARD)
+        tip.protocol("WM_DELETE_WINDOW", self._hide_charge_tooltip)
+
+        container = ctk.CTkFrame(
+            tip,
+            fg_color=Colors.BG_CARD,
+            border_width=1,
+            border_color=Colors.INFO,
+            corner_radius=8,
+        )
+        container.pack(fill="both", expand=True, padx=12, pady=12)
 
         texte = self._get_infos_charge_value() or ""
         if not texte:
-            texte = " "
-        lbl = ctk.CTkLabel(
-            tip, text=texte,
-            font=Fonts.small(10), text_color=Colors.TEXT_PRIMARY,
-            fg_color=Colors.BG_CARD, padx=8, pady=4,
-            wraplength=320, justify="left"
-        )
-        lbl.pack()
+            texte = "Aucune information sur les frais ou charges n'est configurée."
 
+        lbl = ctk.CTkLabel(
+            container,
+            text="Informations sur les frais / charges",
+            font=Fonts.bold(13),
+            text_color=Colors.INFO,
+            anchor="w",
+        )
+        lbl.pack(fill="x", padx=14, pady=(12, 6))
+
+        content = ctk.CTkTextbox(
+            container,
+            height=110,
+            wrap="word",
+            font=Fonts.body(11),
+            text_color=Colors.TEXT_PRIMARY,
+            fg_color=Colors.BG_INPUT,
+            border_width=1,
+            border_color=Colors.BORDER,
+            corner_radius=6,
+        )
+        content.pack(fill="both", expand=True, padx=14, pady=(0, 10))
+        content.insert("1.0", texte)
+        content.configure(state="disabled")
+
+        ctk.CTkButton(
+            container,
+            text="Fermer",
+            width=100,
+            height=30,
+            fg_color=Colors.MIDNIGHT,
+            hover_color=Colors.MIDNIGHT_LIGHT,
+            font=Fonts.button(10),
+            command=self._hide_charge_tooltip,
+        ).pack(anchor="e", padx=14, pady=(0, 12))
+
+        tip.update_idletasks()
         x = (event.x_root + 8) if event else (self.winfo_rootx() + 20)
         y = (event.y_root + 10) if event else (self.winfo_rooty() + 20)
+        screen_w = tip.winfo_screenwidth()
+        screen_h = tip.winfo_screenheight()
+        x = min(x, max(0, screen_w - tip.winfo_width() - 12))
+        y = min(y, max(0, screen_h - tip.winfo_height() - 40))
         tip.geometry(f"+{x}+{y}")
-        self._charge_tooltip = tip
+        tip.lift()
+        tip.focus_force()
 
     def _hide_charge_tooltip(self, event=None):
         if self._charge_tooltip and self._charge_tooltip.winfo_exists():

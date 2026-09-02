@@ -100,6 +100,7 @@ class PageInfosCharges(ctk.CTkFrame):
         conn = self.connect_db()
         if not conn:
             return
+        cur = None
         try:
             cur = conn.cursor()
             cur.execute("SELECT valeur FROM tb_autre_infos WHERE intitule=%s", ("infos_charge",))
@@ -109,7 +110,8 @@ class PageInfosCharges(ctk.CTkFrame):
             messagebox.showerror("Erreur", f"Chargement infos charge : {e}")
             self._infos_charge_value = ""
         finally:
-            cur.close()
+            if cur:
+                cur.close()
             conn.close()
 
         self.txt_infos_charge.configure(state="normal")
@@ -124,15 +126,28 @@ class PageInfosCharges(ctk.CTkFrame):
 
     def _save_infos_charge(self):
         valeur = self.txt_infos_charge.get("1.0", "end").strip()
+        if len(valeur) > 1000:
+            messagebox.showwarning(
+                "Information trop longue",
+                "Le texte des infos charges ne peut pas dépasser 1000 caractères.",
+            )
+            return
+
         conn = self.connect_db()
         if not conn:
             return
+        cur = None
         try:
             cur = conn.cursor()
             cur.execute(
                 "UPDATE tb_autre_infos SET valeur=%s WHERE intitule=%s",
                 (valeur, "infos_charge")
             )
+            if cur.rowcount == 0:
+                cur.execute(
+                    "INSERT INTO tb_autre_infos (intitule, valeur) VALUES (%s, %s)",
+                    ("infos_charge", valeur),
+                )
             conn.commit()
             try:
                 self._logger.log(
@@ -150,6 +165,7 @@ class PageInfosCharges(ctk.CTkFrame):
             conn.rollback()
             messagebox.showerror("Erreur", f"Enregistrement infos charge : {e}")
         finally:
-            cur.close()
+            if cur:
+                cur.close()
             conn.close()
 

@@ -11,6 +11,7 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from resource_utils import get_config_path, safe_file_read
+from settings_utils import load_settings
 from log_utils import AppLogger, resolve_connected_user_id
 
 
@@ -137,6 +138,27 @@ class PageEncaissement(ctk.CTkToplevel):
         except Exception as e:
             print(f"DEBUG: impossible de charger session.json: {e}")
         return None, None
+
+    def _should_close_after_movement(self):
+        settings = load_settings()
+        user_settings = settings.get("User_Settings", {})
+        if not isinstance(user_settings, dict):
+            return False
+
+        candidates = []
+        if getattr(self, 'current_user_id', None) is not None:
+            candidates.append(str(self.current_user_id))
+        if getattr(self, 'current_user', None):
+            candidates.append(str(self.current_user))
+        candidates.append("default")
+
+        for key in candidates:
+            cfg = user_settings.get(key, {})
+            if isinstance(cfg, dict):
+                value = cfg.get("Caisse_FermerAuto_Encaissement", False)
+                if value is not None:
+                    return bool(value)
+        return False
 
     def create_widgets(self):
         """Crée et positionne les widgets de l'interface utilisateur avec un design épuré."""
@@ -669,6 +691,9 @@ class PageEncaissement(ctk.CTkToplevel):
             self.bouton_enregistrer.configure(state="normal")
             self.bouton_annuler.configure(state="normal")
             self.entry_description.focus_set()
+
+            if self._should_close_after_movement():
+                self.after(120, self.destroy)
         
         except ValueError:
             messagebox.showerror("Erreur", "Le montant doit être un nombre valide")

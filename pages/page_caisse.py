@@ -8,7 +8,7 @@ from datetime import datetime
 import json
 import os
 from resource_utils import get_config_path, safe_file_read
-from settings_utils import open_file_if_enabled
+from settings_utils import open_file_if_enabled, load_settings, save_settings
 from log_utils import resolve_connected_user_id
 
 # Imports ReportLab pour le PDF
@@ -176,10 +176,112 @@ class PageCaisse(ctk.CTkFrame):
     def _build_header(self):
         hdr = ctk.CTkFrame(self, fg_color=C.BG_HEADER, corner_radius=0)
         hdr.grid(row=0, column=0, sticky="ew")
+
+        bar = ctk.CTkFrame(hdr, fg_color="transparent")
+        bar.pack(fill="x", padx=16, pady=10)
+
         ctk.CTkLabel(
-            hdr, text="Gestion de la Caisse",
+            bar, text="Gestion de la Caisse",
             font=_f(18, "bold"), text_color="#FFFFFF"
-        ).pack(side="left", padx=16, pady=10)
+        ).pack(side="left")
+
+        link_font = ctk.CTkFont(family="Segoe UI", size=11, underline=True)
+        self.lbl_parametres = ctk.CTkLabel(
+            bar,
+            text="⚙ Paramètres",
+            font=link_font,
+            text_color="#DDEEFF",
+            cursor="hand2",
+        )
+        self.lbl_parametres.pack(side="right")
+        self.lbl_parametres.bind("<Button-1>", lambda _e: self._ouvrir_parametres_caisse())
+
+    def _get_user_settings_key(self):
+        if self.current_user_id is not None:
+            return str(self.current_user_id)
+        if self.current_username and self.current_username != "Système":
+            return str(self.current_username)
+        return "default"
+
+    def _load_user_caisse_settings(self):
+        settings = load_settings()
+        user_settings = settings.get("User_Settings", {})
+        if not isinstance(user_settings, dict):
+            return {}
+        key = self._get_user_settings_key()
+        user_cfg = user_settings.get(key, {})
+        if not isinstance(user_cfg, dict):
+            return {}
+        return user_cfg
+
+    def _save_user_caisse_settings(self, **kwargs):
+        settings = load_settings()
+        user_settings = settings.get("User_Settings", {})
+        if not isinstance(user_settings, dict):
+            user_settings = {}
+        key = self._get_user_settings_key()
+        user_cfg = user_settings.get(key, {})
+        if not isinstance(user_cfg, dict):
+            user_cfg = {}
+        user_cfg.update(kwargs)
+        user_settings[key] = user_cfg
+        settings["User_Settings"] = user_settings
+        save_settings(settings)
+
+    def _ouvrir_parametres_caisse(self):
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Paramètres de caisse")
+        dialog.geometry("420x260")
+        dialog.transient(self)
+        dialog.grab_set()
+        dialog.resizable(False, False)
+
+        ctk.CTkLabel(
+            dialog,
+            text="Paramètres de gestion de caisse",
+            font=_f(16, "bold"),
+            text_color=C.TEXT_PRIMARY,
+        ).pack(padx=18, pady=(16, 8))
+
+        settings = self._load_user_caisse_settings()
+        var_enc = ctk.BooleanVar(value=bool(settings.get("Caisse_FermerAuto_Encaissement", False)))
+        var_dec = ctk.BooleanVar(value=bool(settings.get("Caisse_FermerAuto_Decaissement", False)))
+
+        frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        frame.pack(fill="both", expand=True, padx=18, pady=(0, 8))
+
+        ctk.CTkSwitch(
+            frame,
+            text="Encaissement : fermer automatiquement après mouvement",
+            variable=var_enc,
+            onvalue=True,
+            offvalue=False,
+            font=_f(11),
+            text_color=C.TEXT_PRIMARY,
+        ).pack(anchor="w", pady=(0, 8))
+
+        ctk.CTkSwitch(
+            frame,
+            text="Décaissement : fermer automatiquement après mouvement",
+            variable=var_dec,
+            onvalue=True,
+            offvalue=False,
+            font=_f(11),
+            text_color=C.TEXT_PRIMARY,
+        ).pack(anchor="w", pady=(0, 8))
+
+        def sauver():
+            self._save_user_caisse_settings(
+                Caisse_FermerAuto_Encaissement=bool(var_enc.get()),
+                Caisse_FermerAuto_Decaissement=bool(var_dec.get()),
+            )
+            messagebox.showinfo("Paramètres", "Paramètres caisse enregistrés.", parent=dialog)
+            dialog.destroy()
+
+        btns = ctk.CTkFrame(dialog, fg_color="transparent")
+        btns.pack(padx=18, pady=(0, 18))
+        ctk.CTkButton(btns, text="Enregistrer", width=120, command=sauver).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(btns, text="Fermer", width=120, fg_color="#B0B0B0", hover_color="#8A8A8A", command=dialog.destroy).pack(side="left")
 
     def _build_badges(self):
         """Deux rangées de badges cliquables (documents + modes de paiement)."""

@@ -41,5 +41,11 @@
   "Client_PmtCredit_PrintX80": 0,
   "Client_Creance_OpenTicketPdf": 0,
   "Fournisseur_PmtDette_OpenTicket80": 0,
-  "Fournisseur_Dette_OpenTicketPdf": 0
+  "Fournisseur_Dette_OpenTicketPdf": 0,
+  "User_Settings": {
+    "1": {
+      "Caisse_FermerAuto_Encaissement": false,
+      "Caisse_FermerAuto_Decaissement": true
+    }
+  }
 }

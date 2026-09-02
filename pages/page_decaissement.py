@@ -647,6 +647,16 @@ class PageDecaissement(ctk.CTkToplevel):
             mtpaye = float(mtpaye_str.replace('.', ''))
             typeoperation_id = self.get_type_operation()
             datepmt = datetime.now()
+
+            confirmation_message = (
+                f"Voulez-vous enregistrer ce mouvement ?\n\n"
+                f"Description: {observation}\n"
+                f"Montant: {mtpaye:,.0f} Ar\n"
+                f"Référence: {reference}\n"
+                f"Mode: {mode_nom}"
+            )
+            if not messagebox.askyesno("Confirmation", confirmation_message):
+                return
             
             # Récupérer l'ID utilisateur
             if getattr(self, 'current_user_id', None):
@@ -671,12 +681,6 @@ class PageDecaissement(ctk.CTkToplevel):
             self.cursor.execute(query, (reference, idcc, mtpaye, observation, typeoperation_id, datepmt, iduser, idmode))
             self.conn.commit()
             self._finalized = True
-
-            messagebox.showinfo("Succès", 
-                f"Décaissement enregistré avec succès!\n\n"
-                f"Référence: {reference}\n"
-                f"Mode: {mode_nom}\n"
-                f"Montant: {mtpaye:,.0f} Ar")
             
             # Réinitialiser les champs
             self.vider_formulaire()

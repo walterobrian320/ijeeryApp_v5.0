@@ -547,6 +547,15 @@ class PageEncaissement(ctk.CTkToplevel):
             
             # DEBUG: Afficher le nom d'utilisateur actuel
             print(f"DEBUG: current_user = '{self.current_user}'")
+
+            confirmation_message = (
+                f"Voulez-vous enregistrer ce mouvement ?\n\n"
+                f"Description: {observation}\n"
+                f"Montant: {mtpaye:,.0f} Ar\n"
+                f"Référence: {reference}"
+            )
+            if not messagebox.askyesno("Confirmation", confirmation_message):
+                return
             
             # Si nous avons déjà l'ID utilisateur depuis la session, l'utiliser
             if getattr(self, 'current_user_id', None):
@@ -644,11 +653,22 @@ class PageEncaissement(ctk.CTkToplevel):
                     f"Référence: {reference}\n"
                     f"(Erreur lors de la génération du ticket)")
             
-            # Réinitialiser les champs
+            # Réinitialiser le formulaire pour une nouvelle saisie
             self.entry_montant.delete(0, 'end')
             self.entry_description.delete(0, 'end')
             if self.combo_categorie.cget("values"):
                 self.combo_categorie.set(self.combo_categorie.cget("values")[0])
+            if self.combo_mode.cget("values"):
+                default_mode = "Espèces"
+                if default_mode in self.modes:
+                    self.combo_mode.set(default_mode)
+                else:
+                    self.combo_mode.set(self.combo_mode.cget("values")[0])
+            self._finalized = False
+            self._processing = False
+            self.bouton_enregistrer.configure(state="normal")
+            self.bouton_annuler.configure(state="normal")
+            self.entry_description.focus_set()
         
         except ValueError:
             messagebox.showerror("Erreur", "Le montant doit être un nombre valide")

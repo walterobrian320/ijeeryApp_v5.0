@@ -12,7 +12,7 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from resource_utils import get_config_path, safe_file_read
-from settings_utils import load_settings
+from settings_utils import load_settings, open_file_if_enabled
 from log_utils import resolve_connected_user_id
 
 
@@ -413,6 +413,7 @@ class PageDecaissement(ctk.CTkToplevel):
     def vider_formulaire(self):
         """Remet le formulaire à zéro pour une nouvelle saisie (tous les champs libres)."""
         self.selected_id = None
+        self._finalized = False
         if self.combo_categorie.cget("values"):
             self.combo_categorie.set(self.combo_categorie.cget("values")[0])
         self._set_montant_value("")
@@ -703,6 +704,21 @@ class PageDecaissement(ctk.CTkToplevel):
             self.cursor.execute(query, (reference, idcc, mtpaye, observation, typeoperation_id, datepmt, iduser, idmode))
             self.conn.commit()
             self._finalized = True
+
+            fichier_pdf = self.generer_ticket_pdf(
+                reference=reference,
+                categorie=categorie_nom,
+                montant=mtpaye,
+                description=observation,
+                operateur=self.current_user,
+            )
+            if fichier_pdf:
+                open_file_if_enabled(
+                    fichier_pdf,
+                    operation="open",
+                    setting_key="Decaissement_OpenPdf",
+                    setting_default=1,
+                )
             
             # Réinitialiser les champs
             self.vider_formulaire()

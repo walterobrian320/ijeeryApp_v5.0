@@ -6182,35 +6182,6 @@ ALTER TABLE ONLY public.tb_postepersonnel
 -- PostgreSQL database dump complete
 --
 
-\unrestrict dGbpmZgGebNfDi017u0gdzc6XIUcDmPsL6vWA8DMusXfkgU3AOtrW9GtOi4Gj96
-
-
--- Tables paramètres (présentes sur sarah_gros, absentes du dump Structure initial)
-CREATE TABLE public.tb_param_livraison_client (
-    id smallint NOT NULL DEFAULT 1,
-    idtransporteur_defaut integer,
-    transporteur_bl_auto smallint NOT NULL DEFAULT 0,
-    CONSTRAINT tb_param_livraison_client_pkey PRIMARY KEY (id),
-    CONSTRAINT tb_param_livraison_client_singleton CHECK (id = 1)
-);
-
-CREATE TABLE public.tb_param_commande_frs (
-    id smallint NOT NULL DEFAULT 1,
-    idfrs_defaut integer,
-    CONSTRAINT tb_param_commande_frs_pkey PRIMARY KEY (id),
-    CONSTRAINT tb_param_commande_frs_singleton CHECK (id = 1)
-);
-
-ALTER TABLE ONLY public.tb_param_livraison_client
-    ADD CONSTRAINT tb_param_livraison_client_idtransporteur_fkey
-    FOREIGN KEY (idtransporteur_defaut) REFERENCES public.tb_transporteur(idtransporteur)
-    ON UPDATE CASCADE ON DELETE SET NULL;
-
-ALTER TABLE ONLY public.tb_param_commande_frs
-    ADD CONSTRAINT tb_param_commande_frs_idfrs_defaut_fkey
-    FOREIGN KEY (idfrs_defaut) REFERENCES public.tb_fournisseur(idfrs)
-    ON UPDATE CASCADE ON DELETE SET NULL;
-
 COMMIT;
 
 -- Fin schéma vide — exécuter ensuite : sql/ijeery_seed_minimal.sql

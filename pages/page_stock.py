@@ -457,7 +457,7 @@ class PageStock(ctk.CTkFrame):
 
         Stratégie performance:
         - 1 requête pour la liste des unités (articles + prix)
-        - 1 requête récursive pour les facteurs de conversion de TOUTES les unités
+        - 1 requête centrale pour les facteurs de conversion de toutes les unités
         - N requêtes (N = nb magasins) pour le stock base par article via le moteur central
         """
         conn = self.connect_db()
@@ -498,35 +498,7 @@ class PageStock(ctk.CTkFrame):
             """)
             unite_rows = cursor.fetchall()
 
-            # 2) Facteurs de conversion de toutes les unités -> base
-            cursor.execute("""
-                WITH RECURSIVE facteur_conversion AS (
-                    SELECT
-                        u.idunite,
-                        u.idarticle,
-                        u.niveau,
-                        1.0::double precision AS facteur_vers_base
-                    FROM tb_unite u
-                    WHERE u.niveau = 0
-                      AND u.deleted = 0
-                    UNION ALL
-                    SELECT
-                        u.idunite,
-                        u.idarticle,
-                        u.niveau,
-                        fc.facteur_vers_base * u.qtunite AS facteur_vers_base
-                    FROM tb_unite u
-                    JOIN facteur_conversion fc
-                      ON fc.idarticle = u.idarticle
-                     AND fc.niveau    = u.niveau - 1
-                    WHERE u.deleted = 0
-                )
-                SELECT idunite, facteur_vers_base
-                FROM facteur_conversion
-            """)
-            facteurs = {int(idu): float(f) for (idu, f) in cursor.fetchall()}
-
-            # 3) Calcul des stocks en unité de base par article et par magasin via le moteur central
+            # 2) Facteurs et soldes issus du même moteur que les snapshots.
             db_config = load_db_config()
             if not db_config:
                 return []
@@ -539,6 +511,12 @@ class PageStock(ctk.CTkFrame):
                 password=db_config['password'],
             )
 
+            facteurs = {
+                int(ligne["idunite"]): float(ligne["facteur_vers_base"])
+                for ligne in sm.get_unites_tous_articles()
+            }
+
+            # 3) Calcul des stocks en unité de base par article et par magasin via le moteur central
             stock_base_par_article_mag: dict[int, dict[int, float]] = {}
             for idmag, _nom_mag in self.magasins:
                 lignes = sm.get_stock_tous_articles(idmagasin=int(idmag), date_fin=None)

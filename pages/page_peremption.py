@@ -128,6 +128,7 @@ class PageGestionPeremption(ctk.CTkFrame):
         self.search_timer = None
         self._sort_state = new_sort_state()
         self._tree_sort = None
+        self._anomalies_initiales_verifiees = False
 
         self._apply_tree_style()
         self._build_ui()
@@ -200,34 +201,58 @@ class PageGestionPeremption(ctk.CTkFrame):
             lots_par_article_magasin.setdefault(cle, []).append(lot)
 
         resultat = []
+        anomalies = []
         for cle, lots_article in lots_par_article_magasin.items():
             idarticle, idmag = cle
             unite_max = unite_max_par_article.get(idarticle)
             if unite_max is None:
-                raise ValueError(
-                    f"Aucune unité active trouvée pour l'article {idarticle}."
+                designation = lots_article[0]["designationarticle"]
+                magasin = lots_article[0]["designationmag"] or str(idmag)
+                lots_ids = ", ".join(
+                    str(lot["id_lot"]) for lot in lots_article
                 )
+                unites_ids = ", ".join(
+                    sorted({str(lot["id_unite"]) for lot in lots_article})
+                )
+                anomalies.append(
+                    f"Article {idarticle} ({designation}), magasin {magasin} : "
+                    f"aucune unité active de base (niveau 0). "
+                    f"Lots {lots_ids}, unités {unites_ids}, non affichés."
+                )
+                continue
             facteur_max = float(unite_max["facteur_vers_base"] or 0.0)
             if facteur_max <= 0:
-                raise ValueError(
-                    f"Facteur de conversion invalide pour l'article {idarticle}."
+                anomalies.append(
+                    f"Article {idarticle} ({lots_article[0]['designationarticle']}) : "
+                    "facteur de conversion de l'unité principale invalide; "
+                    "ses lots ne sont pas affichés."
                 )
+                continue
 
             stock_row = stocks_par_magasin.get(cle, {})
             stock_base = float(stock_row.get("stock_en_base", 0.0) or 0.0)
             lignes_lot = []
+            anomalie_lot = None
             for lot in lots_article:
                 idunite_lot = int(lot["id_unite"])
                 unite_lot = unites_par_id.get(idunite_lot)
                 if unite_lot is None or int(unite_lot["idarticle"]) != idarticle:
-                    raise ValueError(
-                        f"Unité {idunite_lot} invalide pour le lot de l'article {idarticle}."
+                    anomalie_lot = (
+                        f"Article {idarticle} ({lot['designationarticle']}), "
+                        f"lot {lot['id_lot']} : l'unité {idunite_lot} "
+                        "est inactive ou ne correspond pas à l'article; "
+                        "les lots de ce magasin ne sont pas affichés."
                     )
+                    break
                 facteur_lot = float(unite_lot["facteur_vers_base"] or 0.0)
                 if facteur_lot <= 0:
-                    raise ValueError(
-                        f"Facteur de conversion invalide pour l'unité {idunite_lot}."
+                    anomalie_lot = (
+                        f"Article {idarticle} ({lot['designationarticle']}), "
+                        f"lot {lot['id_lot']} : facteur de conversion "
+                        f"invalide pour l'unité {idunite_lot}; les lots de ce "
+                        "magasin ne sont pas affichés."
                     )
+                    break
                 quantite_lot = float(lot["quantite"] or 0.0)
                 lignes_lot.append({
                     "id_lot": lot["id_lot"],
@@ -249,6 +274,10 @@ class PageGestionPeremption(ctk.CTkFrame):
                     "qt_lot_unite": quantite_lot,
                     "has_lot": True,
                 })
+
+            if anomalie_lot:
+                anomalies.append(anomalie_lot)
+                continue
 
             lignes_lot.sort(
                 key=lambda row: (
@@ -308,7 +337,7 @@ class PageGestionPeremption(ctk.CTkFrame):
                 "has_lot": False,
             })
 
-        return resultat
+        return resultat, anomalies
 
     def _load_magasins(self):
         rows = self._exec(SQL_MAGASINS)
@@ -545,7 +574,7 @@ class PageGestionPeremption(ctk.CTkFrame):
         self.lbl_total.configure(text="…")
         self.update()
         try:
-            rows = self._charger_lignes_stock_centralisees()
+            rows, anomalies = self._charger_lignes_stock_centralisees()
         except Exception as exc:
             self._lbl_statut.configure(text="Erreur de calcul")
             messagebox.showerror("Erreur de calcul du stock", str(exc))
@@ -557,8 +586,28 @@ class PageGestionPeremption(ctk.CTkFrame):
                     or terme in str(r['designationarticle']).lower()]
         self.all_rows = rows
         self._populate(rows)
-        self._lbl_statut.configure(
-            text=f"MAJ : {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+        date_maj = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        avertir_anomalies = bool(anomalies) and not self._anomalies_initiales_verifiees
+        self._anomalies_initiales_verifiees = True
+        if anomalies:
+            self._lbl_statut.configure(
+                text=f"MAJ : {date_maj} — {len(anomalies)} anomalie(s) de stock"
+            )
+        else:
+            self._lbl_statut.configure(text=f"MAJ : {date_maj}")
+
+        if avertir_anomalies:
+            limite = 20
+            details = "\n".join(anomalies[:limite])
+            if len(anomalies) > limite:
+                details += f"\n… et {len(anomalies) - limite} autre(s) anomalie(s)."
+            messagebox.showwarning(
+                "Lots de péremption non calculables",
+                "Les articles valides ont été chargés. Certains lots sont "
+                "masqués car leur unité active ou leur conversion est invalide. "
+                "Aucune donnée n'a été modifiée.\n\n"
+                + details,
+            )
 
     @staticmethod
     def _tag(row):

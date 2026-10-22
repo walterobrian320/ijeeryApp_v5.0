@@ -1482,3 +1482,8 @@ KeyboardInterrupt
 2026-10-23 01:14:22 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
 2026-10-23 01:14:24 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
 2026-10-23 01:14:24 | INFO     | ijeery | [DB] Connexion établie.
+2026-10-23 01:44:39 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-10-23 01:44:42 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-10-23 01:44:43 | INFO     | ijeery | Fichier config.json lu (encodage utf-8)
+2026-10-23 01:44:45 | INFO     | ijeery | === iJeery démarré | frozen=False | exe=D:\Projets 2026\ijeeryApp_v5.0\.venv-build\Scripts\python.exe | cwd=D:\Projets 2026\ijeeryApp_v5.0 | log=d:\Projets 2026\ijeeryApp_v5.0\ijeery_app.log ===
+2026-10-23 01:44:45 | INFO     | ijeery | [DB] Connexion établie.

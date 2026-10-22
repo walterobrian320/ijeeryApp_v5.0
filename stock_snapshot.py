@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Any
 
-from db import get_connection, load_db_config
-from stock_manager import StockManager
+from db import load_db_config
+from stock_manager_update_latest import StockManagerUpdateLatest
 
 
 def format_nombre_auto(nombre: Any) -> str:
@@ -35,41 +35,6 @@ def read_db_config() -> Dict[str, Any]:
     return cfg
 
 
-def _fetch_facteurs_conversion(conn) -> Dict[int, float]:
-    """Retourne {idunite: facteur_vers_base} pour toutes les unités."""
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            WITH RECURSIVE facteur_conversion AS (
-                SELECT
-                    u.idunite,
-                    u.idarticle,
-                    u.niveau,
-                    1.0::double precision AS facteur_vers_base
-                FROM tb_unite u
-                WHERE u.niveau = 0
-                  AND u.deleted = 0
-
-                UNION ALL
-
-                SELECT
-                    u.idunite,
-                    u.idarticle,
-                    u.niveau,
-                    fc.facteur_vers_base * u.qtunite AS facteur_vers_base
-                FROM tb_unite u
-                JOIN facteur_conversion fc
-                  ON fc.idarticle = u.idarticle
-                 AND fc.niveau    = u.niveau - 1
-                WHERE u.deleted = 0
-            )
-            SELECT idunite, facteur_vers_base
-            FROM facteur_conversion
-            """
-        )
-        return {int(idu): float(f) for (idu, f) in cur.fetchall()}
-
-
 @dataclass(frozen=True)
 class StockSnapshot:
     """Snapshot des stocks (en base) pour 1 magasin, + facteurs de conversion.
@@ -88,21 +53,8 @@ class StockSnapshot:
         if db is None:
             raise FileNotFoundError("config.json introuvable ou invalide")
 
-        # 1) facteurs de conversion (via SQL, une seule fois)
-        own_conn = conn is None
-        if own_conn:
-            conn = get_connection()
-        try:
-            facteurs = _fetch_facteurs_conversion(conn)
-        finally:
-            if own_conn and conn is not None:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
-
-        # 2) stock base par article via StockManager (logique métier)
-        sm = StockManager(
+        # Stock et conversions proviennent du même moteur central.
+        sm = StockManagerUpdateLatest(
             host=db["host"],
             port=db["port"],
             dbname=db["database"],
@@ -110,6 +62,10 @@ class StockSnapshot:
             password=db["password"],
         )
         try:
+            facteurs = {
+                int(row["idunite"]): float(row["facteur_vers_base"])
+                for row in sm.get_unites_tous_articles()
+            }
             lignes = sm.get_stock_tous_articles(idmagasin=int(idmagasin), date_fin=None)
             stock_base = {
                 int(l["idarticle"]): float(l.get("stock_en_base", 0.0) or 0.0)
@@ -133,4 +89,3 @@ class StockSnapshot:
         if facteur == 0:
             return 0.0
         return base / facteur
-

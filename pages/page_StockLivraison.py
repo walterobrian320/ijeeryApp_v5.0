@@ -257,7 +257,9 @@ class PageStockLivraison(ctk.CTkFrame):
                     vd.idarticle,
                     vd.idunite,
                     vd.idmag,
-                    (vd.qtvente - COALESCE(lv_sum.total_livre, 0)) AS reste_a_livrer
+                    (vd.qtvente - COALESCE(lv_sum.total_livre, 0)) AS reste_a_livrer,
+                    v.statut,
+                    COALESCE(lv_sum.total_livre, 0) AS total_livre
                 FROM tb_vente v
                 INNER JOIN tb_ventedetail vd ON vd.idvente = v.id
                 INNER JOIN tb_article  a  ON vd.idarticle = a.idarticle
@@ -285,10 +287,19 @@ class PageStockLivraison(ctk.CTkFrame):
             # On collecte les combinaisons uniques pour éviter de recalculer plusieurs fois
             combos_uniques = list({(r[5], r[6], r[7]) for r in resultats})
 
+            from stock_service import get_snapshot_cached, stock_unite
             stocks = {}
+            snapshots = {}
             for idarticle, idunite, idmag in combos_uniques:
-                stocks[(idarticle, idunite, idmag)] = self._calculer_stock_sql(
-                    cursor, idarticle, idunite, idmag
+                idmag_int = int(idmag)
+                if idmag_int not in snapshots:
+                    snapshots[idmag_int] = get_snapshot_cached(
+                        idmag_int, conn=conn, force=True
+                    )
+                stocks[(idarticle, idunite, idmag)] = float(
+                    stock_unite(
+                        snapshots[idmag_int], int(idarticle), int(idunite)
+                    )
                 )
 
             # ── Étape 3 : remplir le tableau
@@ -296,9 +307,18 @@ class PageStockLivraison(ctk.CTkFrame):
                 code_art, designation, unite, magasin, nom_client = row[0], row[1], row[2], row[3], row[4]
                 idarticle, idunite, idmag = row[5], row[6], row[7]
                 reste = float(row[8])
+                statut_vente = row[9]
+                total_livre = float(row[10] or 0.0)
 
                 stock_theo = stocks.get((idarticle, idunite, idmag), 0.0)
-                stock_reel = stock_theo + reste   # stock avant livraison
+                if statut_vente == "VALIDEE":
+                    # La vente entière est déjà déduite; son reste non livré
+                    # est encore présent dans le magasin.
+                    stock_reel = stock_theo + reste
+                else:
+                    # Une vente EN_ATTENTE n'est pas déduite; seuls les articles
+                    # déjà livrés sont à retirer du stock présent.
+                    stock_reel = stock_theo - total_livre
 
                 self.tree.insert("", "end", values=(
                     code_art,
@@ -321,17 +341,6 @@ class PageStockLivraison(ctk.CTkFrame):
         finally:
             cursor.close()
             conn.close()
-
-    def _calculer_stock_sql(self, cursor, idarticle, idunite, idmag):
-        """Stock théorique aligné sur StockManager (snapshot centralisé)."""
-        try:
-            from stock_service import get_snapshot_cached, stock_unite
-            conn = getattr(cursor, "connection", None)
-            snap = get_snapshot_cached(int(idmag), conn=conn)
-            return float(stock_unite(snap, int(idarticle), int(idunite)))
-        except Exception as e:
-            print(f"Erreur calcul stock: {e}")
-            return 0.0
 
     def filtrer_donnees(self, event=None):
         """Filtre les données selon la recherche et le magasin sélectionné"""

@@ -24,6 +24,7 @@ from datetime import datetime, date
 from tkcalendar import DateEntry
 from resource_utils import get_config_path
 from app_theme import Colors, Fonts, styled, Theme
+from stock_service import invalidate_snapshot
 
 from reportlab.lib.pagesizes import A5
 from reportlab.lib.units import mm
@@ -1108,6 +1109,7 @@ class PageReceptionDirecte(ctk.CTkFrame):
                 ))
 
             conn.commit()
+            invalidate_snapshot(int(idmag))
             messagebox.showinfo(
                 "Succès",
                 f"Bon de Réception {refbr} enregistré avec succès !\n"

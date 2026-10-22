@@ -20,7 +20,7 @@ import sys
 import os
 
 from resource_utils import get_config_path, get_session_path
-from stock_manager import StockManager
+from stock_manager_update_latest import StockManagerUpdateLatest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -531,7 +531,7 @@ class PageArticleMouvement(ctk.CTkFrame):
     def _fetch_facteurs_conversion(self, conn) -> dict[int, float]:
         """Retourne {idunite: facteur_vers_base} via la CTE StockManager."""
         sql = f"""
-        WITH RECURSIVE {StockManager._cte_facteur_conversion()}
+        WITH RECURSIVE {StockManagerUpdateLatest._cte_facteur_conversion()}
         SELECT idunite, facteur_vers_base
         FROM facteur_conversion
         """
@@ -562,8 +562,8 @@ class PageArticleMouvement(ctk.CTkFrame):
 
         sql = f"""
         WITH RECURSIVE
-            {StockManager._cte_facteur_conversion()},
-            {StockManager._cte_tous_mouvements()},
+            {StockManagerUpdateLatest._cte_facteur_conversion()},
+            {StockManagerUpdateLatest._cte_tous_mouvements()},
             demandes(idarticle, idmag, datetime_cible) AS (
                 VALUES {values_sql}
             )

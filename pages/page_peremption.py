@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from resource_utils import get_config_path
 from log_utils import AppLogger, resolve_connected_user_id
 from treeview_sort_utils import TreeColumn, TreeSortController, new_sort_state
+from stock_manager_update_latest import StockManagerUpdateLatest
 
 # ── Thème iJeery ──────────────────────────────────────────────────────────────
 try:
@@ -71,167 +72,27 @@ def _f(size=11, weight="normal"):
         size=size, weight=weight)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Requêtes SQL (inchangées)
-# ─────────────────────────────────────────────────────────────────────────────
-SQL_TOUS = """
-WITH RECURSIVE
-    facteur_conversion AS (
-        SELECT u.idunite, u.idarticle, u.niveau, u.designationunite,
-               1.0::double precision AS facteur_vers_base
-        FROM tb_unite u WHERE u.niveau = 0 AND u.deleted = 0
-        UNION ALL
-        SELECT u.idunite, u.idarticle, u.niveau, u.designationunite,
-               fc.facteur_vers_base * u.qtunite
-        FROM tb_unite u
-        JOIN facteur_conversion fc ON fc.idarticle = u.idarticle
-                                  AND fc.niveau = u.niveau - 1
-        WHERE u.deleted = 0
-    ),
-    unite_max AS (
-        SELECT DISTINCT ON (u.idarticle)
-            u.idarticle, u.idunite, u.codearticle,
-            u.designationunite, fc.facteur_vers_base
-        FROM tb_unite u
-        JOIN facteur_conversion fc ON fc.idunite = u.idunite
-        WHERE u.deleted = 0
-        ORDER BY u.idarticle, u.niveau DESC
-    ),
-    tous_mouvements AS (
-        SELECT ed.idunite, ed.idmag, ed.qtentree AS quantite, 1 AS signe
-          FROM tb_entreedetail ed
-          JOIN tb_entree e ON e.id = ed.identree
-         WHERE ed.deleted = 0 AND e.deleted = 0
-        UNION ALL
-        SELECT lf.idunite, lf.idmag, lf.qtlivrefrs AS quantite, 1 AS signe
-          FROM tb_livraisonfrs lf WHERE lf.deleted = 0
-        UNION ALL
-        SELECT u.idunite, inv.idmag, inv.qtinventaire, 1
-          FROM tb_inventaire inv
-          JOIN tb_unite u ON u.codearticle = inv.codearticle
-                         AND u.niveau = 0 AND u.deleted = 0
-        UNION ALL
-        SELECT ad.idunite, ad.idmag, ad.qtavoir, 1
-          FROM tb_avoirdetail ad JOIN tb_avoir av ON av.id = ad.idavoir
-         WHERE ad.deleted = 0 AND av.deleted = 0
-        UNION ALL
-        SELECT dce.idunite, dce.idmagasin, dce.quantite_entree::double precision, 1
-          FROM tb_detailchange_entree dce
-          JOIN tb_changement chg ON chg.idchg = dce.idchg
-        UNION ALL
-        SELECT td.idunite, td.idmagentree, td.qttransfertentree, 1
-          FROM tb_transfertdetail td
-          JOIN tb_transfert t ON t.idtransfert = td.idtransfert
-         WHERE td.deleted = 0 AND t.deleted = 0
-        UNION ALL
-        SELECT vd.idunite, vd.idmag, vd.qtvente, -1
-          FROM tb_ventedetail vd JOIN tb_vente v ON v.id = vd.idvente
-         WHERE vd.deleted = 0 AND v.deleted = 0 AND v.statut = 'VALIDEE'
-        UNION ALL
-        SELECT sd.idunite, sd.idmag, sd.qtsortie, -1
-          FROM tb_sortiedetail sd JOIN tb_sortie s ON s.id = sd.idsortie
-         WHERE sd.deleted = 0 AND s.deleted = 0
-        UNION ALL
-        SELECT cid.idunite, cid.idmag, cid.qtconsomme::double precision, -1
-          FROM tb_consommationinterne_details cid
-          JOIN tb_consommationinterne ci ON ci.id = cid.idconsommation
-        UNION ALL
-        SELECT dcs.idunite, dcs.idmagasin, dcs.quantite_sortie::double precision, -1
-          FROM tb_detailchange_sortie dcs
-          JOIN tb_changement chg ON chg.idchg = dcs.idchg
-        UNION ALL
-        SELECT td.idunite, td.idmagsortie, td.qttransfertsortie, -1
-          FROM tb_transfertdetail td
-          JOIN tb_transfert t ON t.idtransfert = td.idtransfert
-         WHERE td.deleted = 0 AND t.deleted = 0
-    ),
-    stock_par_mag AS (
-        SELECT fc.idarticle, tm.idmag,
-               COALESCE(SUM(tm.quantite * fc.facteur_vers_base * tm.signe), 0.0)
-                   AS stock_base_mag
-        FROM tous_mouvements tm
-        JOIN facteur_conversion fc ON fc.idunite = tm.idunite
-        GROUP BY fc.idarticle, tm.idmag
-    ),
-    lots_ranked AS (
-        SELECT lp.id, lp.id_article, lp.id_unite, lp.idmag,
-               lp.quantite, lp.date_peremption, lp.priorite,
-               lp.date_entree, lp.note,
-               SUM(lp.quantite) OVER (
-                   PARTITION BY lp.id_article, lp.id_unite, lp.idmag
-                   ORDER BY lp.priorite DESC, lp.date_entree DESC
-                   ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-               ) AS cumul_depuis_recents
-        FROM tb_lot_peremption lp WHERE lp.deleted = 0
-    )
-SELECT
-    um.codearticle,
-    a.designation                                                                    AS designationarticle,
-    um.designationunite                                                              AS unite,
-    um.facteur_vers_base,
-    m.designationmag                                                                 AS designationmag,
-    lr.idmag,
-    ROUND((COALESCE(sm.stock_base_mag,0.0)/um.facteur_vers_base)::numeric, 4)        AS stock_global,
-    lr.id                                                                            AS id_lot,
-    lr.id_article,
-    lr.id_unite,
-    lr.date_peremption,
-    lr.date_entree,
-    lr.priorite,
-    lr.note,
-    ROUND((lr.quantite)::numeric, 4)                                                 AS qt_lot_unite,
-    ROUND(
-        (GREATEST(0.0, LEAST(
-            lr.quantite,
-            COALESCE(sm.stock_base_mag,0.0) - (lr.cumul_depuis_recents - lr.quantite)
-        )))::numeric
-    , 4)                                                                             AS qt_restante_unite,
-    a.idarticle,
-    TRUE                                                                             AS has_lot
-FROM lots_ranked lr
-JOIN tb_article  a  ON a.idarticle  = lr.id_article AND a.deleted = 0
-JOIN unite_max   um ON um.idarticle = lr.id_article
-LEFT JOIN tb_magasin m  ON m.idmag  = lr.idmag
-LEFT JOIN stock_par_mag sm ON sm.idarticle = lr.id_article AND sm.idmag = lr.idmag
-
-UNION ALL
-
-SELECT
-    um.codearticle,
-    a.designation                                                                    AS designationarticle,
-    um.designationunite                                                              AS unite,
-    um.facteur_vers_base,
-    m.designationmag                                                                 AS designationmag,
-    sm.idmag,
-    ROUND((sm.stock_base_mag / um.facteur_vers_base)::numeric, 4)                   AS stock_global,
-    NULL   AS id_lot,
-    a.idarticle AS id_article,
-    um.idunite  AS id_unite,
-    NULL   AS date_peremption,
-    NULL   AS date_entree,
-    NULL   AS priorite,
-    NULL   AS note,
-    NULL   AS qt_lot_unite,
-    NULL   AS qt_restante_unite,
-    a.idarticle,
-    FALSE  AS has_lot
-FROM tb_article a
-JOIN unite_max   um ON um.idarticle = a.idarticle
-JOIN stock_par_mag sm ON sm.idarticle = a.idarticle AND sm.stock_base_mag > 0
-JOIN tb_magasin  m  ON m.idmag = sm.idmag AND m.deleted = 0
-WHERE a.deleted = 0
-  AND NOT EXISTS (
-      SELECT 1 FROM tb_lot_peremption lp
-      WHERE lp.id_article = a.idarticle
-        AND lp.idmag = sm.idmag
-        AND lp.deleted = 0
-  )
-ORDER BY codearticle, designationmag,
-         priorite ASC NULLS LAST, date_entree ASC NULLS LAST;
-"""
-
 SQL_MAGASINS = ("SELECT idmag, designationmag FROM tb_magasin "
                 "WHERE deleted=0 ORDER BY designationmag;")
+
+SQL_LOTS = """
+SELECT
+    lp.id AS id_lot,
+    lp.id_article,
+    lp.id_unite,
+    lp.idmag,
+    lp.quantite,
+    lp.date_peremption,
+    lp.priorite,
+    lp.date_entree,
+    lp.note,
+    a.designation AS designationarticle,
+    m.designationmag
+FROM tb_lot_peremption lp
+JOIN tb_article a ON a.idarticle = lp.id_article AND a.deleted = 0
+LEFT JOIN tb_magasin m ON m.idmag = lp.idmag
+WHERE lp.deleted = 0
+"""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -312,6 +173,142 @@ class PageGestionPeremption(ctk.CTkFrame):
             return False
         finally:
             conn.close()
+
+    def _charger_lignes_stock_centralisees(self):
+        lots = self._exec(SQL_LOTS)
+        with StockManagerUpdateLatest.from_db_config() as manager:
+            unites = manager.get_unites_tous_articles()
+            unites_par_id = {int(row["idunite"]): row for row in unites}
+            unite_max_par_article = {}
+            for unite in unites:
+                idarticle = int(unite["idarticle"])
+                precedente = unite_max_par_article.get(idarticle)
+                if (
+                    precedente is None
+                    or int(unite["niveau"]) > int(precedente["niveau"])
+                ):
+                    unite_max_par_article[idarticle] = unite
+
+            stocks_par_magasin = {
+                (int(row["idarticle"]), int(row["idmag"])): row
+                for row in manager.get_stocks_tous_articles_par_magasin()
+            }
+
+        lots_par_article_magasin = {}
+        for lot in lots:
+            cle = (int(lot["id_article"]), int(lot["idmag"]))
+            lots_par_article_magasin.setdefault(cle, []).append(lot)
+
+        resultat = []
+        for cle, lots_article in lots_par_article_magasin.items():
+            idarticle, idmag = cle
+            unite_max = unite_max_par_article.get(idarticle)
+            if unite_max is None:
+                raise ValueError(
+                    f"Aucune unité active trouvée pour l'article {idarticle}."
+                )
+            facteur_max = float(unite_max["facteur_vers_base"] or 0.0)
+            if facteur_max <= 0:
+                raise ValueError(
+                    f"Facteur de conversion invalide pour l'article {idarticle}."
+                )
+
+            stock_row = stocks_par_magasin.get(cle, {})
+            stock_base = float(stock_row.get("stock_en_base", 0.0) or 0.0)
+            lignes_lot = []
+            for lot in lots_article:
+                idunite_lot = int(lot["id_unite"])
+                unite_lot = unites_par_id.get(idunite_lot)
+                if unite_lot is None or int(unite_lot["idarticle"]) != idarticle:
+                    raise ValueError(
+                        f"Unité {idunite_lot} invalide pour le lot de l'article {idarticle}."
+                    )
+                facteur_lot = float(unite_lot["facteur_vers_base"] or 0.0)
+                if facteur_lot <= 0:
+                    raise ValueError(
+                        f"Facteur de conversion invalide pour l'unité {idunite_lot}."
+                    )
+                quantite_lot = float(lot["quantite"] or 0.0)
+                lignes_lot.append({
+                    "id_lot": lot["id_lot"],
+                    "id_article": idarticle,
+                    "id_unite": idunite_lot,
+                    "idmag": idmag,
+                    "quantite": quantite_lot,
+                    "date_peremption": lot["date_peremption"],
+                    "priorite": lot["priorite"],
+                    "date_entree": lot["date_entree"],
+                    "note": lot["note"],
+                    "designationarticle": lot["designationarticle"],
+                    "designationmag": lot["designationmag"],
+                    "codearticle": unite_max["codearticle"],
+                    "unite": unite_max["designationunite"],
+                    "facteur_max": facteur_max,
+                    "facteur_lot": facteur_lot,
+                    "stock_global": stock_base / facteur_max,
+                    "qt_lot_unite": quantite_lot,
+                    "has_lot": True,
+                })
+
+            lignes_lot.sort(
+                key=lambda row: (
+                    row["priorite"] is None,
+                    row["priorite"] if row["priorite"] is not None else 0,
+                    row["date_entree"] is None,
+                    str(row["date_entree"] or ""),
+                    row["id_lot"],
+                ),
+                reverse=True,
+            )
+            cumul_precedent_base = 0.0
+            for row in lignes_lot:
+                quantite_lot_base = row["qt_lot_unite"] * row["facteur_lot"]
+                restante_base = max(
+                    0.0,
+                    min(
+                        quantite_lot_base,
+                        stock_base - cumul_precedent_base,
+                    ),
+                )
+                row["qt_restante_unite"] = restante_base / row["facteur_lot"]
+                cumul_precedent_base += quantite_lot_base
+            resultat.extend(lignes_lot)
+
+        for cle, stock_row in stocks_par_magasin.items():
+            idarticle, idmag = cle
+            if cle in lots_par_article_magasin:
+                continue
+            stock_base = float(stock_row.get("stock_en_base", 0.0) or 0.0)
+            if stock_base == 0:
+                continue
+            unite_max = unite_max_par_article.get(idarticle)
+            if unite_max is None:
+                continue
+            facteur_max = float(unite_max["facteur_vers_base"] or 0.0)
+            if facteur_max <= 0:
+                raise ValueError(
+                    f"Facteur de conversion invalide pour l'article {idarticle}."
+                )
+            resultat.append({
+                "codearticle": unite_max["codearticle"],
+                "designationarticle": stock_row["designation"],
+                "unite": unite_max["designationunite"],
+                "designationmag": stock_row["designationmag"],
+                "stock_global": stock_base / facteur_max,
+                "id_lot": None,
+                "id_article": idarticle,
+                "id_unite": unite_max["idunite"],
+                "date_peremption": None,
+                "date_entree": None,
+                "priorite": None,
+                "note": None,
+                "qt_lot_unite": None,
+                "qt_restante_unite": None,
+                "idarticle": idarticle,
+                "has_lot": False,
+            })
+
+        return resultat
 
     def _load_magasins(self):
         rows = self._exec(SQL_MAGASINS)
@@ -547,7 +544,12 @@ class PageGestionPeremption(ctk.CTkFrame):
         self._lbl_statut.configure(text="Chargement…")
         self.lbl_total.configure(text="…")
         self.update()
-        rows  = self._exec(SQL_TOUS)
+        try:
+            rows = self._charger_lignes_stock_centralisees()
+        except Exception as exc:
+            self._lbl_statut.configure(text="Erreur de calcul")
+            messagebox.showerror("Erreur de calcul du stock", str(exc))
+            return
         terme = self.entry_recherche.get().strip().lower()
         if terme:
             rows = [r for r in rows

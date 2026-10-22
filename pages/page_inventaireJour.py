@@ -20,6 +20,7 @@ from tkinter import ttk, messagebox, filedialog
 from resource_utils import get_config_path, get_session_path, safe_file_read
 from app_theme import Colors, Fonts, styled, Layout, Theme
 from log_utils import AppLogger
+from stock_manager_update_latest import StockManagerUpdateLatest
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1388,186 +1389,16 @@ class PageInventaireJour(ctk.CTkFrame):
     def _calc_stock_article(self, idarticle, idunite_cible, idmag=None):
         if not idarticle or not idunite_cible:
             return None
-        _SQL_STOCK = """
-        WITH
-          params AS (
-            SELECT
-              %(p_idarticle)s::integer AS p_idarticle,
-              %(p_idunite)s::integer   AS p_idunite,
-              %(p_idmag)s::integer     AS p_idmag
-          ),
-          unite_hierarchie AS (
-            SELECT
-              u.idarticle,
-              u.idunite,
-              u.niveau,
-              CASE WHEN COALESCE(u.qtunite, 1) > 0 THEN u.qtunite ELSE 1 END AS qtunite
-            FROM tb_unite u, params p
-            WHERE u.idarticle = p.p_idarticle
-              AND COALESCE(u.deleted, 0) = 0
-          ),
-          unite_coeff AS (
-            SELECT
-              idarticle,
-              idunite,
-              EXP(
-                SUM(LN(qtunite))
-                OVER (
-                  PARTITION BY idarticle
-                  ORDER BY niveau
-                  ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                )
-              ) AS coeff_vers_base
-            FROM unite_hierarchie
-          ),
-          coeff_cible AS (
-            SELECT uc.coeff_vers_base AS coeff
-            FROM unite_coeff uc, params p
-            WHERE uc.idunite = p.p_idunite
-          ),
-          code_cible AS (
-            SELECT u.codearticle
-            FROM tb_unite u, params p
-            WHERE u.idarticle = p.p_idarticle
-              AND u.idunite   = p.p_idunite
-            LIMIT 1
-          ),
-          rec AS (
-            SELECT lf.idunite, lf.idmag, SUM(lf.qtlivrefrs) AS qt
-            FROM tb_livraisonfrs lf, params p
-            WHERE lf.idarticle = p.p_idarticle
-              AND lf.deleted   = 0
-              AND (p.p_idmag IS NULL OR lf.idmag = p.p_idmag)
-            GROUP BY lf.idunite, lf.idmag
-          ),
-          ven AS (
-            SELECT vd.idunite, v.idmag, SUM(vd.qtvente) AS qt
-            FROM tb_ventedetail vd
-            INNER JOIN tb_vente v ON v.id      = vd.idvente
-                                  AND v.deleted = 0
-                                  AND v.statut  = 'VALIDEE',
-                 params p
-            WHERE vd.idarticle = p.p_idarticle
-              AND vd.deleted   = 0
-              AND (p.p_idmag IS NULL OR v.idmag = p.p_idmag)
-            GROUP BY vd.idunite, v.idmag
-          ),
-          t_in AS (
-            SELECT td.idunite, td.idmagentree AS idmag, SUM(td.qttransfert) AS qt
-            FROM tb_transfertdetail td, params p
-            WHERE td.idarticle = p.p_idarticle
-              AND td.deleted   = 0
-              AND (p.p_idmag IS NULL OR td.idmagentree = p.p_idmag)
-            GROUP BY td.idunite, td.idmagentree
-          ),
-          t_out AS (
-            SELECT td.idunite, td.idmagsortie AS idmag, SUM(td.qttransfert) AS qt
-            FROM tb_transfertdetail td, params p
-            WHERE td.idarticle = p.p_idarticle
-              AND td.deleted   = 0
-              AND (p.p_idmag IS NULL OR td.idmagsortie = p.p_idmag)
-            GROUP BY td.idunite, td.idmagsortie
-          ),
-          sor AS (
-            SELECT sd.idunite, sd.idmag, SUM(sd.qtsortie) AS qt
-            FROM tb_sortiedetail sd, params p
-            WHERE sd.idarticle = p.p_idarticle
-              AND (p.p_idmag IS NULL OR sd.idmag = p.p_idmag)
-            GROUP BY sd.idunite, sd.idmag
-          ),
-          inv AS (
-            SELECT u.idunite, i.idmag, SUM(i.qtinventaire) AS qt
-            FROM tb_inventaire i
-            INNER JOIN tb_unite u ON u.codearticle = i.codearticle
-            CROSS JOIN params p
-            CROSS JOIN code_cible cc
-            WHERE i.codearticle = cc.codearticle
-              AND u.idarticle   = p.p_idarticle
-              AND (p.p_idmag IS NULL OR i.idmag = p.p_idmag)
-            GROUP BY u.idunite, i.idmag
-          ),
-          avo AS (
-            SELECT ad.idunite, ad.idmag, SUM(ad.qtavoir) AS qt
-            FROM tb_avoirdetail ad
-            INNER JOIN tb_avoir a ON a.id = ad.idavoir AND a.deleted = 0,
-                 params p
-            WHERE ad.idarticle = p.p_idarticle
-              AND ad.deleted   = 0
-              AND (p.p_idmag IS NULL OR ad.idmag = p.p_idmag)
-            GROUP BY ad.idunite, ad.idmag
-          ),
-          conso AS (
-            SELECT cd.idunite, cd.idmag, SUM(cd.qtconsomme) AS qt
-            FROM tb_consommationinterne_details cd, params p
-            WHERE cd.idarticle = p.p_idarticle
-              AND (p.p_idmag IS NULL OR cd.idmag = p.p_idmag)
-            GROUP BY cd.idunite, cd.idmag
-          ),
-          ech_in AS (
-            SELECT dce.idunite, dce.idmagasin AS idmag, SUM(dce.quantite_entree) AS qt
-            FROM tb_detailchange_entree dce, params p
-            WHERE dce.idarticle = p.p_idarticle
-              AND (p.p_idmag IS NULL OR dce.idmagasin = p.p_idmag)
-            GROUP BY dce.idunite, dce.idmagasin
-          ),
-          ech_out AS (
-            SELECT dcs.idunite, dcs.idmagasin AS idmag, SUM(dcs.quantite_sortie) AS qt
-            FROM tb_detailchange_sortie dcs, params p
-            WHERE dcs.idarticle = p.p_idarticle
-              AND (p.p_idmag IS NULL OR dcs.idmagasin = p.p_idmag)
-            GROUP BY dcs.idunite, dcs.idmagasin
-          ),
-          solde_base AS (
-            SELECT
-              SUM(
-                (  COALESCE(r.qt,  0)
-                 + COALESCE(ti.qt, 0)
-                 + COALESCE(iv.qt, 0)
-                 + COALESCE(av.qt, 0)
-                 + COALESCE(ei.qt, 0)
-                 - COALESCE(ve.qt, 0)
-                 - COALESCE(so.qt, 0)
-                 - COALESCE(to_.qt, 0)
-                 - COALESCE(co.qt,  0)
-                 - COALESCE(eo.qt,  0)
-                ) * uc.coeff_vers_base
-              ) AS total_base
-            FROM unite_coeff uc
-            LEFT JOIN rec     r   ON r.idunite   = uc.idunite
-            LEFT JOIN ven     ve  ON ve.idunite  = uc.idunite
-            LEFT JOIN t_in    ti  ON ti.idunite  = uc.idunite
-            LEFT JOIN t_out   to_ ON to_.idunite = uc.idunite
-            LEFT JOIN sor     so  ON so.idunite  = uc.idunite
-            LEFT JOIN inv     iv  ON iv.idunite  = uc.idunite
-            LEFT JOIN avo     av  ON av.idunite  = uc.idunite
-            LEFT JOIN conso   co  ON co.idunite  = uc.idunite
-            LEFT JOIN ech_in  ei  ON ei.idunite  = uc.idunite
-            LEFT JOIN ech_out eo  ON eo.idunite  = uc.idunite
-          )
-        SELECT
-          GREATEST(0,
-            COALESCE(sb.total_base, 0) / NULLIF(cc.coeff, 0)
-          ) AS stock_reel
-        FROM solde_base sb, coeff_cible cc
-        """
         try:
-            if not db_manager.conn or db_manager.conn.closed:
-                if not db_manager.connect():
-                    return None
-            cursor = db_manager.conn.cursor()
-            cursor.execute(
-                _SQL_STOCK,
-                {"p_idarticle": idarticle, "p_idunite": idunite_cible, "p_idmag": idmag},
-            )
-            row = cursor.fetchone()
-            return row[0] if row and row[0] is not None else 0
-        except Exception:
+            with StockManagerUpdateLatest.from_db_config() as manager:
+                return manager.get_stock_article_unite(
+                    int(idarticle),
+                    int(idunite_cible),
+                    idmagasin=int(idmag) if idmag is not None else 0,
+                )
+        except Exception as exc:
+            print(f"[InventaireJour] Erreur calcul stock centralisé : {exc}")
             return None
-        finally:
-            try:
-                cursor.close()
-            except Exception:
-                pass
 
     def _fmt_dt(self, value):
         if not value: return "-"

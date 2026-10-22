@@ -7,6 +7,7 @@ import threading
 from tkinter import ttk
 from resource_utils import get_config_path, safe_file_read
 from log_utils import AppLogger, resolve_connected_user_id
+from stock_manager_update_latest import StockManagerUpdateLatest
 
 # ── Thème iJeery ──────────────────────────────────────────────────────────────
 try:
@@ -588,131 +589,88 @@ class PageStock(ctk.CTkFrame):
             self.after(0, lambda: messagebox.showerror("Erreur de chargement", f"Détails : {str(e)}"))
 
     def _calculer_all_data_stocks(self):
-        """Exécute la requête consolidée et prépare all_data (avec Fournisseur)."""
+        """Charge les métadonnées et ajoute les soldes du moteur central."""
         conn = self.connect_db()
         if not conn:
             return []
         try:
             cursor = conn.cursor()
-            query_optimisee = """
-            WITH unite_hierarchie AS (
-                SELECT idarticle, idunite, niveau, qtunite, designationunite
-                FROM tb_unite WHERE deleted = 0
-            ),
-            unite_coeff AS (
-                SELECT idarticle, idunite, niveau, qtunite, designationunite,
-                    exp(sum(ln(NULLIF(CASE WHEN qtunite > 0 THEN qtunite ELSE 1 END, 0)))
-                        OVER (PARTITION BY idarticle ORDER BY niveau
-                              ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
-                    ) as coeff_hierarchique
-                FROM unite_hierarchie
-            ),
-            base_unite_par_article AS (
-                SELECT DISTINCT ON (idarticle) idarticle, idunite
-                FROM tb_unite WHERE deleted = 0
-                ORDER BY idarticle, qtunite ASC, idunite ASC
-            ),
-            rec  AS (SELECT lf.idarticle, lf.idunite, lf.idmag, SUM(lf.qtlivrefrs) AS quantite FROM tb_livraisonfrs lf WHERE lf.deleted=0 GROUP BY lf.idarticle, lf.idunite, lf.idmag),
-            ven  AS (SELECT vd.idarticle, vd.idunite, v.idmag,  SUM(vd.qtvente)    AS quantite FROM tb_ventedetail vd INNER JOIN tb_vente v ON vd.idvente=v.id AND v.deleted=0 AND v.statut='VALIDEE' WHERE vd.deleted=0 GROUP BY vd.idarticle, vd.idunite, v.idmag),
-            tin  AS (SELECT t.idarticle,  t.idunite,  t.idmagentree  AS idmag, SUM(t.qttransfert) AS quantite FROM tb_transfertdetail t WHERE t.deleted=0 GROUP BY t.idarticle, t.idunite, t.idmagentree),
-            tout AS (SELECT t.idarticle,  t.idunite,  t.idmagsortie  AS idmag, SUM(t.qttransfert) AS quantite FROM tb_transfertdetail t WHERE t.deleted=0 GROUP BY t.idarticle, t.idunite, t.idmagsortie),
-            sor  AS (SELECT sd.idarticle, sd.idunite, sd.idmag,                SUM(sd.qtsortie)   AS quantite FROM tb_sortiedetail sd GROUP BY sd.idarticle, sd.idunite, sd.idmag),
-            inv  AS (SELECT bu.idarticle, bu.idunite, i.idmag,                 SUM(i.qtinventaire) AS quantite FROM tb_inventaire i INNER JOIN tb_unite u ON i.codearticle=u.codearticle INNER JOIN base_unite_par_article bu ON bu.idarticle=u.idarticle AND bu.idunite=u.idunite GROUP BY bu.idarticle, bu.idunite, i.idmag),
-            avo  AS (SELECT ad.idarticle, ad.idunite, ad.idmag,                SUM(ad.qtavoir)    AS quantite FROM tb_avoir a INNER JOIN tb_avoirdetail ad ON a.id=ad.idavoir WHERE a.deleted=0 AND ad.deleted=0 GROUP BY ad.idarticle, ad.idunite, ad.idmag),
-            conso AS (SELECT cd.idarticle, cd.idunite, cd.idmag,               SUM(cd.qtconsomme) AS quantite FROM tb_consommationinterne_details cd GROUP BY cd.idarticle, cd.idunite, cd.idmag),
-            ech_in  AS (SELECT dce.idarticle, dce.idunite, dce.idmagasin AS idmag, SUM(dce.quantite_entree) AS quantite FROM tb_detailchange_entree dce GROUP BY dce.idarticle, dce.idunite, dce.idmagasin),
-            ech_out AS (SELECT dcs.idarticle, dcs.idunite, dcs.idmagasin AS idmag, SUM(dcs.quantite_sortie) AS quantite FROM tb_detailchange_sortie dcs GROUP BY dcs.idarticle, dcs.idunite, dcs.idmagasin),
-            mouvements_agreges AS (
-                SELECT idarticle, idunite, idmag, quantite, 'reception'            AS type_mouvement FROM rec   UNION ALL
-                SELECT idarticle, idunite, idmag, quantite, 'vente'                AS type_mouvement FROM ven   UNION ALL
-                SELECT idarticle, idunite, idmag, quantite, 'transfert_in'         AS type_mouvement FROM tin   UNION ALL
-                SELECT idarticle, idunite, idmag, quantite, 'transfert_out'        AS type_mouvement FROM tout  UNION ALL
-                SELECT idarticle, idunite, idmag, quantite, 'sortie'               AS type_mouvement FROM sor   UNION ALL
-                SELECT idarticle, idunite, idmag, quantite, 'inventaire'           AS type_mouvement FROM inv   UNION ALL
-                SELECT idarticle, idunite, idmag, quantite, 'avoir'                AS type_mouvement FROM avo   UNION ALL
-                SELECT idarticle, idunite, idmag, quantite, 'consommation_interne' AS type_mouvement FROM conso UNION ALL
-                SELECT idarticle, idunite, idmag, quantite, 'echange_entree'       AS type_mouvement FROM ech_in  UNION ALL
-                SELECT idarticle, idunite, idmag, quantite, 'echange_sortie'       AS type_mouvement FROM ech_out
-            ),
-            mouvements_bruts AS (
-                SELECT ma.idarticle, ma.idmag,
-                       COALESCE(uc.coeff_hierarchique,1) as coeff_source_vers_base,
-                       ma.quantite, ma.type_mouvement
-                FROM mouvements_agreges ma
-                LEFT JOIN unite_coeff uc ON uc.idarticle=ma.idarticle AND uc.idunite=ma.idunite
-            ),
-            solde_base_par_mag AS (
-                SELECT idarticle, idmag,
-                    SUM(CASE type_mouvement
-                        WHEN 'reception'            THEN  quantite*coeff_source_vers_base
-                        WHEN 'transfert_in'         THEN  quantite*coeff_source_vers_base
-                        WHEN 'inventaire'           THEN  quantite*coeff_source_vers_base
-                        WHEN 'avoir'                THEN  quantite*coeff_source_vers_base
-                        WHEN 'echange_entree'       THEN  quantite*coeff_source_vers_base
-                        WHEN 'vente'                THEN -quantite*coeff_source_vers_base
-                        WHEN 'sortie'               THEN -quantite*coeff_source_vers_base
-                        WHEN 'transfert_out'        THEN -quantite*coeff_source_vers_base
-                        WHEN 'consommation_interne' THEN -quantite*coeff_source_vers_base
-                        WHEN 'echange_sortie'       THEN -quantite*coeff_source_vers_base
-                        ELSE 0 END
-                    ) as solde_base
-                FROM mouvements_bruts GROUP BY idarticle, idmag
-            ),
-            dernier_prix AS (
-                SELECT idunite, AVG(prix) AS prix
-                FROM tb_prix
-                WHERE deleted = 0
-                GROUP BY idunite
-            ),
-            prix_achat_unite AS (
-                SELECT idunite, AVG(punitcmd) AS prix_achat
-                FROM tb_commandedetail
-                WHERE punitcmd IS NOT NULL
-                GROUP BY idunite
-            ),
-            frais_charge_unite AS (
-                SELECT idunite, AVG(montant_charge) AS frais_charge
-                FROM tb_commandedetail
-                WHERE montant_charge IS NOT NULL
-                GROUP BY idunite
-            ),
-            dernier_fournisseur_unite AS (
-                -- Dernier fournisseur (par id DESC) pour chaque idunite
-                SELECT DISTINCT ON (cd.idunite)
-                    cd.idunite,
-                    f.nomfrs
-                FROM tb_commandedetail cd
-                INNER JOIN tb_fournisseur f ON f.idfrs = cd.idfrs
-                WHERE cd.idfrs IS NOT NULL
-                ORDER BY cd.idunite, cd.id DESC
-            )
-            SELECT u.codearticle, a.designation, u.designationunite,
-                COALESCE(dfu.nomfrs, 'Aucun Fournisseur')         AS dernier_fournisseur,
-                COALESCE(pau.prix_achat, 0)          AS prix_achat,
-                COALESCE(fcu.frais_charge, 0)        AS frais_charge,
-                COALESCE(dp.prix, 0)                 AS prix,
-                u.idarticle, u.idunite, m.idmag,
-                COALESCE(sb.solde_base,0) / NULLIF(COALESCE(uc.coeff_hierarchique,1),0) as stock
-            FROM tb_unite u
-            INNER JOIN tb_article a ON u.idarticle=a.idarticle
-            CROSS JOIN tb_magasin m
-            LEFT JOIN solde_base_par_mag sb ON sb.idarticle=u.idarticle AND sb.idmag=m.idmag
-            LEFT JOIN unite_coeff uc ON uc.idarticle=u.idarticle AND uc.idunite=u.idunite
-            LEFT JOIN dernier_prix dp ON dp.idunite = u.idunite
-            LEFT JOIN prix_achat_unite pau ON pau.idunite = u.idunite
-            LEFT JOIN frais_charge_unite fcu ON fcu.idunite = u.idunite
-            LEFT JOIN dernier_fournisseur_unite dfu ON dfu.idunite = u.idunite
-            WHERE a.deleted=0 AND m.deleted=0
-            ORDER BY a.designation ASC, u.codearticle ASC
+            # Les métadonnées restent propres au rapport; les soldes viennent
+            # exclusivement du moteur central.
+            query_metadonnees = """
+                WITH dernier_prix AS (
+                    SELECT idunite, AVG(prix) AS prix
+                    FROM tb_prix
+                    WHERE deleted = 0
+                    GROUP BY idunite
+                ),
+                prix_achat_unite AS (
+                    SELECT idunite, AVG(punitcmd) AS prix_achat
+                    FROM tb_commandedetail
+                    WHERE punitcmd IS NOT NULL
+                    GROUP BY idunite
+                ),
+                frais_charge_unite AS (
+                    SELECT idunite, AVG(montant_charge) AS frais_charge
+                    FROM tb_commandedetail
+                    WHERE montant_charge IS NOT NULL
+                    GROUP BY idunite
+                ),
+                dernier_fournisseur_unite AS (
+                    SELECT DISTINCT ON (cd.idunite) cd.idunite, f.nomfrs
+                    FROM tb_commandedetail cd
+                    INNER JOIN tb_fournisseur f ON f.idfrs = cd.idfrs
+                    WHERE cd.idfrs IS NOT NULL
+                    ORDER BY cd.idunite, cd.id DESC
+                )
+                SELECT u.codearticle, a.designation, u.designationunite,
+                    COALESCE(dfu.nomfrs, 'Aucun Fournisseur') AS dernier_fournisseur,
+                    COALESCE(pau.prix_achat, 0) AS prix_achat,
+                    COALESCE(fcu.frais_charge, 0) AS frais_charge,
+                    COALESCE(dp.prix, 0) AS prix,
+                    u.idarticle, u.idunite
+                FROM tb_unite u
+                INNER JOIN tb_article a ON a.idarticle = u.idarticle
+                LEFT JOIN dernier_prix dp ON dp.idunite = u.idunite
+                LEFT JOIN prix_achat_unite pau ON pau.idunite = u.idunite
+                LEFT JOIN frais_charge_unite fcu ON fcu.idunite = u.idunite
+                LEFT JOIN dernier_fournisseur_unite dfu ON dfu.idunite = u.idunite
+                WHERE a.deleted = 0 AND u.deleted = 0
+                ORDER BY a.designation ASC, u.codearticle ASC
             """
-            cursor.execute(query_optimisee)
+            cursor.execute(query_metadonnees)
             resultats = cursor.fetchall()
+            with StockManagerUpdateLatest.from_db_config() as stock_manager:
+                facteurs_unite = {
+                    int(unite["idunite"]): float(unite["facteur_vers_base"])
+                    for unite in stock_manager.get_unites_tous_articles()
+                }
+                stock_base_par_magasin = {
+                    (int(stock["idarticle"]), int(stock["idmag"])): float(
+                        stock["stock_en_base"] or 0
+                    )
+                    for stock in stock_manager.get_stocks_tous_articles_par_magasin()
+                }
             articles_dict = {}
-            # résultat : code, desig, unite, fournisseur, prix_achat,
-            #            frais_charge, prix, idarticle, idunite, idmag, stock
-            for code, desig, unite, fournisseur, prix_achat, frais_charge, prix, idarticle, idunite, idmag, stock in resultats:
+            # Résultat : code, désignation, unité, fournisseur, prix,
+            # frais, prix de vente, idarticle et idunite.
+            for code, desig, unite, fournisseur, prix_achat, frais_charge, prix, idarticle, idunite in resultats:
                 key = (code, idunite)
                 if key not in articles_dict:
+                    facteur = facteurs_unite.get(int(idunite))
+                    if facteur is None or facteur <= 0:
+                        raise ValueError(
+                            f"Facteur de conversion manquant pour l'unité {idunite}."
+                        )
+                    stocks = {}
+                    total_stock = 0.0
+                    for idmag, nom_mag in self.magasins:
+                        stock_base = stock_base_par_magasin.get(
+                            (int(idarticle), int(idmag)), 0.0
+                        )
+                        stock_unite = stock_base / facteur
+                        stocks[nom_mag] = stock_unite
+                        total_stock += stock_unite
                     articles_dict[key] = {
                         'code':          code,
                         'designation':   desig,
@@ -721,14 +679,9 @@ class PageStock(ctk.CTkFrame):
                         'prix_achat':    prix_achat,
                         'frais_charge':  frais_charge,
                         'prix':          prix,
-                        'stocks':        {},
-                        'total':         0
+                        'stocks':        stocks,
+                        'total':         total_stock
                     }
-                if idmag:
-                    nom_mag   = next((m[1] for m in self.magasins if m[0] == idmag), f"Mag{idmag}")
-                    stock_val = max(0, stock or 0)
-                    articles_dict[key]['stocks'][nom_mag] = stock_val
-                    articles_dict[key]['total'] += stock_val
             all_data = []
             for _idx, (_key, data) in enumerate(articles_dict.items()):
                 prix_achat_val   = float(data['prix_achat']   or 0)
@@ -757,7 +710,7 @@ class PageStock(ctk.CTkFrame):
             return all_data
         except Exception as e:
             print(f"ERREUR DÉTAILLÉE: {e}")
-            return []
+            raise
         finally:
             cursor.close()
             conn.close()

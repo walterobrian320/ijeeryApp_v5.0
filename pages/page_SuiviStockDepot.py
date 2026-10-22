@@ -6,6 +6,7 @@ import winsound
 import pandas as pd
 from datetime import datetime
 from resource_utils import get_config_path, safe_file_read
+from stock_manager_update_latest import StockManagerUpdateLatest
 
 
 class PageSuiviStockDepot(ctk.CTkFrame):
@@ -111,24 +112,34 @@ class PageSuiviStockDepot(ctk.CTkFrame):
             return
         
         try:
-            cursor = conn.cursor()
-            query = """
-                SELECT DISTINCT ON (a.idarticle)
-                    u.codearticle, 
-                    a.designation, 
-                    u.designationunite, 
-                    s.qtstock, 
-                    a.alertdepot,
-                    COALESCE(m.designationmag, 'Non assigné') as magasin
-                FROM tb_article a
-                JOIN tb_unite u ON a.idarticle = u.idarticle
-                JOIN tb_stock s ON u.codearticle = s.codearticle
-                LEFT JOIN tb_magasin m ON a.idmag = m.idmag
-                WHERE a.deleted = 0
-                ORDER BY a.idarticle, u.codearticle DESC;
-            """
-            cursor.execute(query)
-            articles = cursor.fetchall()
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT a.idarticle, a.designation, a.alertdepot, a.idmag,
+                           COALESCE(m.designationmag, 'Non assigné') AS magasin
+                    FROM tb_article a
+                    LEFT JOIN tb_magasin m
+                      ON m.idmag = a.idmag AND m.deleted = 0
+                    WHERE a.deleted = 0
+                    ORDER BY a.designation
+                """)
+                articles = cursor.fetchall()
+
+            with StockManagerUpdateLatest.from_db_config() as manager:
+                unites_par_article = {}
+                for unite in manager.get_unites_tous_articles():
+                    idarticle = int(unite["idarticle"])
+                    precedente = unites_par_article.get(idarticle)
+                    if (
+                        precedente is None
+                        or int(unite["niveau"]) > int(precedente["niveau"])
+                    ):
+                        unites_par_article[idarticle] = unite
+                stocks_par_magasin = {
+                    (int(row["idarticle"]), int(row["idmag"])): float(
+                        row.get("stock_en_base", 0.0) or 0.0
+                    )
+                    for row in manager.get_stocks_tous_articles_par_magasin()
+                }
             
             for item in self.tree.get_children():
                 self.tree.delete(item)
@@ -136,12 +147,23 @@ class PageSuiviStockDepot(ctk.CTkFrame):
             self.donnees_actuelles = []
             alerte_detectee = False
 
-            for i, art in enumerate(articles):
-                code, desig, unite, stock, seuil, mag = art
+            for idarticle, desig, seuil, idmag, mag in articles:
+                unite_info = unites_par_article.get(int(idarticle))
+                if unite_info is None:
+                    continue
+                facteur = float(unite_info["facteur_vers_base"] or 0.0)
+                if facteur <= 0:
+                    raise ValueError(
+                        f"Facteur de conversion invalide pour l'article {idarticle}."
+                    )
+                code = unite_info["codearticle"]
+                unite = unite_info["designationunite"]
+                stock_base = stocks_par_magasin.get(
+                    (int(idarticle), int(idmag)), 0.0
+                ) if idmag is not None else 0.0
+                stock = stock_base / facteur
                 seuil = seuil or 0
-                stock = stock or 0
-                
-                stock_formate = "{:.2f}".format(float(stock)) if stock is not None else "0.00"
+                stock_formate = "{:.2f}".format(float(stock))
                 
                 # Gestion de l'alternance des couleurs et de l'alerte
                 tags = []
@@ -156,7 +178,9 @@ class PageSuiviStockDepot(ctk.CTkFrame):
                     tags.append('oddrow')
                 
                 self.tree.insert("", "end", values=(code, desig, unite, stock_formate, seuil, mag), tags=tuple(tags))
-                self.donnees_actuelles.append(art)
+                self.donnees_actuelles.append(
+                    (code, desig, unite, stock, seuil, mag)
+                )
 
             if alerte_detectee:
                 self.notifier()
@@ -164,7 +188,8 @@ class PageSuiviStockDepot(ctk.CTkFrame):
                 self.icon_notif.configure(text_color="white")
 
         except Exception as e:
-            print(f"Erreur SQL: {e}")
+            print(f"Erreur calcul stock centralisé: {e}")
+            messagebox.showerror("Erreur de stock", str(e))
         finally:
             conn.close()
 

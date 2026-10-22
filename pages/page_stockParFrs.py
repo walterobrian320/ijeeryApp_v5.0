@@ -6,6 +6,7 @@ from datetime import datetime
 import threading
 from resource_utils import get_config_path, safe_file_read
 from log_utils import resolve_connected_user_id
+from stock_manager_update_latest import StockManagerUpdateLatest
 
 # ── Thème iJeery ──────────────────────────────────────────────────────────────
 try:
@@ -376,119 +377,17 @@ class PageStockParFrs(ctk.CTkFrame):
             if not idarticles:
                 return []
 
-            # ── Étape 2 : calcul du stock — même logique que page_SuiviCommande ──
+            # Seules les métadonnées de l'article et du fournisseur sont lues ici.
             query = """
-                WITH unite_hierarchie AS (
-                    SELECT idarticle, idunite, niveau, qtunite
-                    FROM tb_unite
-                    WHERE deleted = 0
-                ),
-                unite_coeff AS (
-                    SELECT
-                        idarticle,
-                        idunite,
-                        exp(
-                            sum(ln(NULLIF(CASE WHEN qtunite > 0 THEN qtunite ELSE 1 END, 0)))
-                            OVER (
-                                PARTITION BY idarticle
-                                ORDER BY niveau
-                                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                            )
-                        ) AS coeff_hierarchique
-                    FROM unite_hierarchie
-                ),
-                base_unite_par_article AS (
-                    SELECT DISTINCT ON (idarticle) idarticle, idunite
-                    FROM tb_unite
-                    WHERE deleted = 0
-                    ORDER BY idarticle, qtunite ASC, idunite ASC
-                ),
-                rec AS (
-                    SELECT idarticle, idunite, SUM(qtlivrefrs) AS quantite
-                    FROM tb_livraisonfrs
-                    WHERE deleted = 0 AND idarticle = ANY(%(ids)s)
-                    GROUP BY idarticle, idunite
-                ),
-                ven AS (
-                    SELECT vd.idarticle, vd.idunite, SUM(vd.qtvente) AS quantite
-                    FROM tb_ventedetail vd
-                    INNER JOIN tb_vente v ON vd.idvente = v.id AND v.deleted = 0
-                    WHERE vd.deleted = 0 AND vd.idarticle = ANY(%(ids)s)
-                    GROUP BY vd.idarticle, vd.idunite
-                ),
-                tin AS (
-                    SELECT idarticle, idunite, SUM(qttransfert) AS quantite
-                    FROM tb_transfertdetail
-                    WHERE deleted = 0 AND idarticle = ANY(%(ids)s)
-                    GROUP BY idarticle, idunite
-                ),
-                tout AS (
-                    SELECT idarticle, idunite, SUM(qttransfert) AS quantite
-                    FROM tb_transfertdetail
-                    WHERE deleted = 0 AND idarticle = ANY(%(ids)s)
-                    GROUP BY idarticle, idunite
-                ),
-                sor AS (
-                    SELECT idarticle, idunite, SUM(qtsortie) AS quantite
-                    FROM tb_sortiedetail
-                    WHERE idarticle = ANY(%(ids)s)
-                    GROUP BY idarticle, idunite
-                ),
-                inv AS (
-                    SELECT bu.idarticle, bu.idunite, SUM(i.qtinventaire) AS quantite
-                    FROM tb_inventaire i
-                    INNER JOIN tb_unite u ON i.codearticle = u.codearticle
-                    INNER JOIN base_unite_par_article bu
-                        ON bu.idarticle = u.idarticle AND bu.idunite = u.idunite
-                    WHERE bu.idarticle = ANY(%(ids)s)
-                    GROUP BY bu.idarticle, bu.idunite
-                ),
-                avo AS (
-                    SELECT ad.idarticle, ad.idunite, SUM(ad.qtavoir) AS quantite
-                    FROM tb_avoir av
-                    INNER JOIN tb_avoirdetail ad ON av.id = ad.idavoir
-                    WHERE av.deleted = 0 AND ad.deleted = 0
-                      AND ad.idarticle = ANY(%(ids)s)
-                    GROUP BY ad.idarticle, ad.idunite
-                ),
-                mouvements AS (
-                    SELECT idarticle, idunite, quantite, 'rec'  AS t FROM rec
-                    UNION ALL SELECT idarticle, idunite, quantite, 'ven'  FROM ven
-                    UNION ALL SELECT idarticle, idunite, quantite, 'tin'  FROM tin
-                    UNION ALL SELECT idarticle, idunite, quantite, 'tout' FROM tout
-                    UNION ALL SELECT idarticle, idunite, quantite, 'sor'  FROM sor
-                    UNION ALL SELECT idarticle, idunite, quantite, 'inv'  FROM inv
-                    UNION ALL SELECT idarticle, idunite, quantite, 'avo'  FROM avo
-                ),
-                solde_base AS (
-                    SELECT
-                        m.idarticle,
-                        SUM(
-                            CASE m.t
-                                WHEN 'rec'  THEN  m.quantite * COALESCE(uc.coeff_hierarchique, 1)
-                                WHEN 'tin'  THEN  m.quantite * COALESCE(uc.coeff_hierarchique, 1)
-                                WHEN 'inv'  THEN  m.quantite * COALESCE(uc.coeff_hierarchique, 1)
-                                WHEN 'avo'  THEN  m.quantite * COALESCE(uc.coeff_hierarchique, 1)
-                                WHEN 'ven'  THEN -m.quantite * COALESCE(uc.coeff_hierarchique, 1)
-                                WHEN 'sor'  THEN -m.quantite * COALESCE(uc.coeff_hierarchique, 1)
-                                WHEN 'tout' THEN -m.quantite * COALESCE(uc.coeff_hierarchique, 1)
-                                ELSE 0
-                            END
-                        ) AS solde_base
-                    FROM mouvements m
-                    LEFT JOIN unite_coeff uc
-                        ON uc.idarticle = m.idarticle AND uc.idunite = m.idunite
-                    GROUP BY m.idarticle
-                ),
-                dernier_prix AS (
-                    -- Dernier prix d'achat chez ce fournisseur, par article
+                WITH dernier_prix AS (
                     SELECT DISTINCT ON (cd.idarticle)
-                           cd.idarticle,
-                           cd.punitcmd,
-                           f.nomfrs
+                        cd.idarticle,
+                        cd.punitcmd,
+                        f.nomfrs
                     FROM tb_commandedetail cd
-                    LEFT JOIN tb_commande c   ON cd.idcom  = c.idcom
-                    LEFT JOIN tb_fournisseur f ON COALESCE(cd.idfrs, c.idfrs) = f.idfrs
+                    LEFT JOIN tb_commande c ON cd.idcom = c.idcom
+                    LEFT JOIN tb_fournisseur f
+                        ON COALESCE(cd.idfrs, c.idfrs) = f.idfrs
                     WHERE COALESCE(cd.idfrs, c.idfrs) = %(idfrs)s
                       AND cd.idarticle = ANY(%(ids)s)
                       AND cd.punitcmd > 0
@@ -498,16 +397,13 @@ class PageStockParFrs(ctk.CTkFrame):
                     u.codearticle,
                     a.designation,
                     u.designationunite,
-                    GREATEST(0, COALESCE(sb.solde_base, 0)
-                        / NULLIF(COALESCE(uc.coeff_hierarchique, 1), 0))  AS stock,
-                    COALESCE(dp.nomfrs, 'Inconnu')                        AS dernier_frs,
-                    COALESCE(dp.punitcmd, 0)                              AS prix_achat
+                    COALESCE(dp.nomfrs, 'Inconnu') AS dernier_frs,
+                    COALESCE(dp.punitcmd, 0) AS prix_achat,
+                    a.idarticle,
+                    u.idunite
                 FROM tb_article a
                 INNER JOIN tb_unite u
                     ON a.idarticle = u.idarticle AND u.deleted = 0
-                LEFT JOIN unite_coeff uc
-                    ON uc.idarticle = u.idarticle AND uc.idunite = u.idunite
-                LEFT JOIN solde_base sb ON sb.idarticle = a.idarticle
                 LEFT JOIN dernier_prix dp ON dp.idarticle = a.idarticle
                 WHERE a.idarticle = ANY(%(ids)s)
                   AND a.deleted = 0
@@ -516,13 +412,29 @@ class PageStockParFrs(ctk.CTkFrame):
             cur.execute(query, {"idfrs": idfrs, "ids": idarticles})
             rows = cur.fetchall()
 
+            with StockManagerUpdateLatest.from_db_config() as stock_manager:
+                facteurs_unite = {
+                    int(unite["idunite"]): float(unite["facteur_vers_base"])
+                    for unite in stock_manager.get_unites_tous_articles()
+                }
+                stocks_base = {
+                    int(stock["idarticle"]): float(stock["stock_en_base"] or 0)
+                    for stock in stock_manager.get_stock_tous_articles()
+                }
+
             result = []
-            for code, desig, unite, stock, frs, prix in rows:
+            for code, desig, unite, frs, prix, idarticle, idunite in rows:
+                facteur = facteurs_unite.get(int(idunite))
+                if facteur is None or facteur <= 0:
+                    raise ValueError(
+                        f"Facteur de conversion manquant pour l'unité {idunite}."
+                    )
+                stock = stocks_base.get(int(idarticle), 0.0) / facteur
                 result.append((
                     code,
                     desig,
                     unite,
-                    self._fmt(max(0, float(stock or 0))),
+                    self._fmt(stock),
                     frs,
                     self._fmt(prix),
                 ))

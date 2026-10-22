@@ -20,6 +20,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from log_utils import AppLogger
+from stock_manager_update_latest import StockManagerUpdateLatest
 
 # ── Thème centralisé ──────────────────────────────────────────────────────────
 try:
@@ -59,115 +60,6 @@ class _C:
 
 
 C = Colors if _THEME_OK else _C
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Requête SQL
-# ─────────────────────────────────────────────────────────────────────────────
-SQL_STOCK_ALERTE = """
-WITH RECURSIVE
-
-    facteur_conversion AS (
-        SELECT u.idunite, u.idarticle, u.niveau, u.designationunite,
-               1.0::double precision AS facteur_vers_base
-        FROM tb_unite u
-        WHERE u.niveau = 0 AND u.deleted = 0
-
-        UNION ALL
-
-        SELECT u.idunite, u.idarticle, u.niveau, u.designationunite,
-               fc.facteur_vers_base * u.qtunite AS facteur_vers_base
-        FROM tb_unite u
-        JOIN facteur_conversion fc
-          ON fc.idarticle = u.idarticle AND fc.niveau = u.niveau - 1
-        WHERE u.deleted = 0
-    ),
-
-    unite_max AS (
-        SELECT DISTINCT ON (u.idarticle)
-            u.idarticle, u.idunite, u.codearticle,
-            u.designationunite, fc.facteur_vers_base
-        FROM tb_unite u
-        JOIN facteur_conversion fc ON fc.idunite = u.idunite
-        WHERE u.deleted = 0
-        ORDER BY u.idarticle, u.niveau DESC
-    ),
-
-    tous_mouvements AS (
-        SELECT ed.idunite, ed.idmag, ed.qtentree AS quantite, 1 AS signe
-        FROM tb_entreedetail ed
-        JOIN tb_entree e ON e.id = ed.identree
-        WHERE ed.deleted = 0 AND e.deleted = 0
-        UNION ALL
-        SELECT lf.idunite, lf.idmag, lf.qtlivrefrs  AS quantite, 1 AS signe
-        FROM tb_livraisonfrs lf WHERE lf.deleted = 0
-        UNION ALL
-        SELECT u.idunite, inv.idmag, inv.qtinventaire, 1
-        FROM tb_inventaire inv
-        JOIN tb_unite u ON u.codearticle = inv.codearticle AND u.niveau=0 AND u.deleted=0
-        UNION ALL
-        SELECT ad.idunite, ad.idmag, ad.qtavoir, 1
-        FROM tb_avoirdetail ad JOIN tb_avoir av ON av.id=ad.idavoir
-        WHERE ad.deleted=0 AND av.deleted=0
-        UNION ALL
-        SELECT dce.idunite, dce.idmagasin, dce.quantite_entree::double precision, 1
-        FROM tb_detailchange_entree dce JOIN tb_changement chg ON chg.idchg=dce.idchg
-        UNION ALL
-        SELECT td.idunite, td.idmagentree, td.qttransfertentree, 1
-        FROM tb_transfertdetail td JOIN tb_transfert t ON t.idtransfert=td.idtransfert
-        WHERE td.deleted=0 AND t.deleted=0
-        UNION ALL
-        SELECT vd.idunite, vd.idmag, vd.qtvente, -1
-        FROM tb_ventedetail vd JOIN tb_vente v ON v.id=vd.idvente
-        WHERE vd.deleted=0 AND v.deleted=0 AND v.statut='VALIDEE'
-        UNION ALL
-        SELECT sd.idunite, sd.idmag, sd.qtsortie, -1
-        FROM tb_sortiedetail sd JOIN tb_sortie s ON s.id=sd.idsortie
-        WHERE sd.deleted=0 AND s.deleted=0
-        UNION ALL
-        SELECT cid.idunite, cid.idmag, cid.qtconsomme::double precision, -1
-        FROM tb_consommationinterne_details cid
-        JOIN tb_consommationinterne ci ON ci.id=cid.idconsommation
-        UNION ALL
-        SELECT dcs.idunite, dcs.idmagasin, dcs.quantite_sortie::double precision, -1
-        FROM tb_detailchange_sortie dcs JOIN tb_changement chg ON chg.idchg=dcs.idchg
-        UNION ALL
-        SELECT td.idunite, td.idmagsortie, td.qttransfertsortie, -1
-        FROM tb_transfertdetail td JOIN tb_transfert t ON t.idtransfert=td.idtransfert
-        WHERE td.deleted=0 AND t.deleted=0
-    ),
-
-    stock_base AS (
-        SELECT fc.idarticle, tm.idmag,
-               SUM(tm.quantite * fc.facteur_vers_base * tm.signe) AS stock_base_mag
-        FROM tous_mouvements tm
-        JOIN facteur_conversion fc ON fc.idunite=tm.idunite
-        GROUP BY fc.idarticle, tm.idmag
-    ),
-
-    stock_general AS (
-        SELECT idarticle, SUM(stock_base_mag) AS stock_base_gen
-        FROM stock_base GROUP BY idarticle
-    )
-
-SELECT
-    um.codearticle,
-    a.designation                                                                    AS designationarticle,
-    um.designationunite                                                              AS unite,
-    m.designationmag,
-    a.alertdepot                                                                     AS alert_mag,
-    ROUND((COALESCE(sbm.stock_base_mag,0.0)/um.facteur_vers_base)::numeric,4)       AS stock_mag,
-    a.alert                                                                          AS alert_gen,
-    ROUND((COALESCE(sg.stock_base_gen, 0.0)/um.facteur_vers_base)::numeric,4)       AS stock_gen,
-    a.idarticle, um.idunite, a.idmag
-FROM tb_article a
-JOIN unite_max   um ON um.idarticle = a.idarticle
-JOIN tb_magasin  m  ON m.idmag      = a.idmag AND m.deleted=0
-LEFT JOIN stock_base    sbm ON sbm.idarticle=a.idarticle AND sbm.idmag=a.idmag
-LEFT JOIN stock_general sg  ON sg.idarticle =a.idarticle
-WHERE a.deleted=0
-ORDER BY a.designation;
-"""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -280,15 +172,74 @@ class PageStockAlerte(ctk.CTkFrame):
         if not conn:
             return
         try:
-            cur = conn.cursor()
-            cur.execute(SQL_STOCK_ALERTE)
-            self.all_rows = cur.fetchall()
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT a.idarticle, a.designation, a.idmag,
+                           a.alertdepot, a.alert, m.designationmag
+                    FROM tb_article a
+                    JOIN tb_magasin m
+                      ON m.idmag = a.idmag AND m.deleted = 0
+                    WHERE a.deleted = 0
+                    ORDER BY a.designation
+                """)
+                articles = cur.fetchall()
+
+            with StockManagerUpdateLatest.from_db_config() as manager:
+                unites_par_article = {}
+                for unite in manager.get_unites_tous_articles():
+                    idarticle = int(unite["idarticle"])
+                    precedente = unites_par_article.get(idarticle)
+                    if (
+                        precedente is None
+                        or int(unite["niveau"]) > int(precedente["niveau"])
+                    ):
+                        unites_par_article[idarticle] = unite
+
+                stocks_globaux = {
+                    int(row["idarticle"]): float(row.get("stock_en_base", 0.0) or 0.0)
+                    for row in manager.get_stock_tous_articles(idmagasin=0)
+                }
+                stocks_par_magasin = {
+                    (int(row["idarticle"]), int(row["idmag"])): float(
+                        row.get("stock_en_base", 0.0) or 0.0
+                    )
+                    for row in manager.get_stocks_tous_articles_par_magasin()
+                }
+
+            rows = []
+            for idarticle, designation, idmag, alert_mag, alert_gen, nom_mag in articles:
+                unite = unites_par_article.get(int(idarticle))
+                if unite is None:
+                    continue
+                facteur = float(unite["facteur_vers_base"] or 0.0)
+                if facteur <= 0:
+                    raise ValueError(
+                        f"Facteur de conversion invalide pour l'article {idarticle}."
+                    )
+                stock_mag = stocks_par_magasin.get(
+                    (int(idarticle), int(idmag)), 0.0
+                ) / facteur
+                stock_gen = stocks_globaux.get(int(idarticle), 0.0) / facteur
+                rows.append((
+                    unite["codearticle"],
+                    designation,
+                    unite["designationunite"],
+                    nom_mag,
+                    alert_mag,
+                    stock_mag,
+                    alert_gen,
+                    stock_gen,
+                    idarticle,
+                    unite["idunite"],
+                    idmag,
+                ))
+            self.all_rows = rows
             self._refresh_magasin_filter()
             self._apply_filters()
             self._lbl_statut.configure(
                 text=f"Actualisé : {datetime.now().strftime('%d/%m/%Y  %H:%M:%S')}")
         except Exception as e:
-            messagebox.showerror("Erreur SQL", str(e))
+            messagebox.showerror("Erreur de calcul du stock", str(e))
         finally:
             conn.close()
 

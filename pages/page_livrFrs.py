@@ -19,6 +19,7 @@ from tkcalendar import DateEntry
 from resource_utils import get_config_path, safe_file_read
 from app_theme import Colors, Fonts, styled, Theme
 from log_utils import AppLogger
+from stock_service import invalidate_snapshot
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -611,6 +612,9 @@ class PageBonReception(ctk.CTkFrame):
 
             dateregistre = datetime.now()
             idmag = self.magasins.get(self.combo_magasin.get())
+            if idmag is None:
+                messagebox.showwarning("Attention", "Veuillez sélectionner un magasin.")
+                return
             a_payer = 1 if self.var_a_payer.get() else 0
 
             q_insert = """
@@ -652,6 +656,7 @@ class PageBonReception(ctk.CTkFrame):
                           f"BL {self.entry_ref.get()} — fact. {numero_facture}"))
 
             conn.commit()
+            invalidate_snapshot(int(idmag))
             self.derniere_reflivfrs_enregistree = self.entry_ref.get()
             try:
                 self._logger.log(

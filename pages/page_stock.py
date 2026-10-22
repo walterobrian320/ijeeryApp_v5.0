@@ -8,7 +8,7 @@ from tkinter import ttk
 import os
 from resource_utils import get_config_path, safe_file_read
 from log_utils import AppLogger, resolve_connected_user_id
-from stock_manager import StockManager
+from stock_manager_update_latest import StockManagerUpdateLatest
 from db import ensure_connection, get_connection, load_db_config
 
 # ── Thème iJeery ──────────────────────────────────────────────────────────────
@@ -44,6 +44,7 @@ class _C:
 
 
 C = Colors if _T else _C
+_SEUIL_STOCK_NUL = 1e-9
 
 
 # ── Style Treeview ────────────────────────────────────────────────────────────
@@ -219,6 +220,13 @@ class PageStock(ctk.CTkFrame):
             font=self._f(10, "bold"), text_color=C.PRIMARY)
         self.label_total_articles.pack(side="left")
 
+        ctk.CTkLabel(
+            footer,
+            text="⚠ Fond rouge clair : stock négatif",
+            font=self._f(9),
+            text_color=C.DANGER_DARK,
+        ).pack(side="left", padx=(12, 0))
+
         self.label_derniere_maj = ctk.CTkLabel(
             footer, text="",
             font=self._f(9), text_color=C.TEXT_MUTED)
@@ -312,6 +320,19 @@ class PageStock(ctk.CTkFrame):
         self.tree.tag_configure("odd",  background="#F0F4F8",   foreground=C.TEXT_PRIMARY)
         self.tree.tag_configure("stock_zero_even", background=C.BG_CARD, foreground="#E74C3C")
         self.tree.tag_configure("stock_zero_odd",  background="#F0F4F8", foreground="#E74C3C")
+        negative_font = ("Roboto" if _T else "Segoe UI", 10, "bold")
+        self.tree.tag_configure(
+            "stock_negative_even",
+            background="#FCE8E6",
+            foreground=C.DANGER_DARK,
+            font=negative_font,
+        )
+        self.tree.tag_configure(
+            "stock_negative_odd",
+            background="#F8DEDC",
+            foreground=C.DANGER_DARK,
+            font=negative_font,
+        )
 
         self.tree.bind("<Double-1>", self.ouvrir_inventaire_double_clic)
 
@@ -411,7 +432,7 @@ class PageStock(ctk.CTkFrame):
                 for _idmag, _nom_mag in self.magasins:
                     valeurs.append(self.formater_nombre(0))
                 valeurs.append(self.formater_nombre(0))
-                self.all_data.append((valeurs, 0.0))
+                self.all_data.append((valeurs, 0.0, False))
             self.recharger_treeview()
             self.label_derniere_maj.configure(
                 text="Chargement des stocks en cours…")
@@ -431,13 +452,13 @@ class PageStock(ctk.CTkFrame):
 
     def _calculer_all_data_stocks(self):
         """
-        Calcule les stocks via `StockManager` (logique métier unique),
+        Calcule les stocks via `StockManagerUpdateLatest` (logique métier unique),
         puis convertit le stock de l'unité de base vers chaque unité affichée.
 
         Stratégie performance:
         - 1 requête pour la liste des unités (articles + prix)
         - 1 requête récursive pour les facteurs de conversion de TOUTES les unités
-        - N requêtes (N = nb magasins) pour le stock base par article via StockManager
+        - N requêtes (N = nb magasins) pour le stock base par article via le moteur central
         """
         conn = self.connect_db()
         if not conn:
@@ -505,12 +526,12 @@ class PageStock(ctk.CTkFrame):
             """)
             facteurs = {int(idu): float(f) for (idu, f) in cursor.fetchall()}
 
-            # 3) Calcul des stocks en unité de base par article et par magasin via StockManager
+            # 3) Calcul des stocks en unité de base par article et par magasin via le moteur central
             db_config = load_db_config()
             if not db_config:
                 return []
 
-            sm = StockManager(
+            sm = StockManagerUpdateLatest(
                 host=db_config['host'],
                 port=db_config['port'],
                 dbname=db_config['database'],
@@ -539,20 +560,23 @@ class PageStock(ctk.CTkFrame):
                 ]
 
                 total = 0.0
+                stock_negatif = False
                 for idmag, nom_mag in self.magasins:
                     stock_base = stock_base_par_article_mag.get(int(idmag), {}).get(int(idarticle), 0.0)
                     stock_unite = (stock_base / facteur) if facteur else 0.0
                     stock_unite = float(stock_unite or 0.0)
+                    if stock_unite < -_SEUIL_STOCK_NUL:
+                        stock_negatif = True
                     valeurs.append(self.formater_nombre(stock_unite))
                     total += stock_unite
 
                 valeurs.append(self.formater_nombre(total))
-                all_data.append((valeurs, total))
+                all_data.append((valeurs, total, stock_negatif))
 
             return all_data
 
         except Exception as e:
-            print(f"ERREUR DÉTAILLÉE (StockManager): {e}")
+            print(f"ERREUR DÉTAILLÉE (StockManagerUpdateLatest): {e}")
             return []
         finally:
             try:
@@ -583,7 +607,7 @@ class PageStock(ctk.CTkFrame):
 
     def calculer_stock_article(self, idarticle, idunite_cible, idmag=None):
         """
-        Calcul de stock via StockManager (utilisé pour la sync vers tb_stock).
+        Calcul de stock via StockManagerUpdateLatest (utilisé pour la sync vers tb_stock).
         Retourne le stock dans l'unité cible, en appliquant la conversion depuis l'unité de base.
         """
         sm = None
@@ -592,7 +616,7 @@ class PageStock(ctk.CTkFrame):
             if not db_config:
                 return []
 
-            sm = StockManager(
+            sm = StockManagerUpdateLatest(
                 host=db_config['host'],
                 port=db_config['port'],
                 dbname=db_config['database'],
@@ -611,7 +635,7 @@ class PageStock(ctk.CTkFrame):
             stock_unite = (base_val / facteur) if facteur else 0.0
             return float(stock_unite or 0.0)
         except Exception as e:
-            print(f"Erreur calcul stock StockManager : {e}")
+            print(f"Erreur calcul stock StockManagerUpdateLatest : {e}")
             return 0.0
         finally:
             try:
@@ -706,13 +730,13 @@ class PageStock(ctk.CTkFrame):
             self.recharger_treeview()
             return
         filtered_data = [
-            (valeurs, total) for valeurs, total in self.all_data
+            (valeurs, total, stock_negatif)
+            for valeurs, total, stock_negatif in self.all_data
             if search_term in f"{valeurs[0]} {valeurs[1]} {valeurs[2]} {valeurs[3]}".lower()
         ]
         if filtered_data:
-            for idx, (valeurs, total) in enumerate(filtered_data):
-                zebra = "even" if idx % 2 == 0 else "odd"
-                tag   = (f"stock_zero_{zebra}" if float(total) <= 1e-9 else zebra)
+            for idx, (valeurs, total, stock_negatif) in enumerate(filtered_data):
+                tag = self._tag_ligne_stock(idx, total, stock_negatif)
                 self.tree.insert("", "end", values=valeurs, tags=(tag,))
             self.label_total_articles.configure(text=f"Total articles : {len(filtered_data)}")
         else:
@@ -725,14 +749,22 @@ class PageStock(ctk.CTkFrame):
         self.entry_recherche.delete(0, 'end')
         self.recharger_treeview()
 
+    @staticmethod
+    def _tag_ligne_stock(index, total, stock_negatif=False):
+        zebra = "even" if index % 2 == 0 else "odd"
+        if stock_negatif or float(total) < -_SEUIL_STOCK_NUL:
+            return f"stock_negative_{zebra}"
+        if abs(float(total)) <= _SEUIL_STOCK_NUL:
+            return f"stock_zero_{zebra}"
+        return zebra
+
     def recharger_treeview(self):
         """Recharge le Treeview avec toutes les données stockées"""
         for item in self.tree.get_children():
             self.tree.delete(item)
         if self.all_data:
-            for idx, (valeurs, total) in enumerate(self.all_data):
-                zebra = "even" if idx % 2 == 0 else "odd"
-                tag   = (f"stock_zero_{zebra}" if float(total) <= 1e-9 else zebra)
+            for idx, (valeurs, total, stock_negatif) in enumerate(self.all_data):
+                tag = self._tag_ligne_stock(idx, total, stock_negatif)
                 self.tree.insert("", "end", values=valeurs, tags=(tag,))
             self.label_total_articles.configure(text=f"Total articles : {len(self.all_data)}")
         else:

@@ -3,7 +3,7 @@
         "host": "localhost",
         "user": "postgres",
         "password": "root",
-        "database": "tavaratra_debug",
+        "database": "tranombarotra_jules",
         "port": 5432
     }
 }

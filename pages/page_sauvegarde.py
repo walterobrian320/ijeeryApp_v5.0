@@ -8,7 +8,7 @@ import threading
 import json
 import sys
 import socket
-from resource_utils import get_config_path
+from resource_utils import application_writable_root, get_config_path
 from app_theme import Colors, Fonts, styled
 from log_utils import AppLogger
 
@@ -499,6 +499,41 @@ class PageSauvegarde(ctk.CTkFrame):
         else:
             app.db_conn = app.db_manager.get_connection()
 
+    def _create_pre_restore_backup(self):
+        company = self.get_nomesociete().strip().replace(" ", "_")
+        invalid_chars = '<>:"/\\|?*'
+        company = "".join(
+            "_" if char in invalid_chars or ord(char) < 32 else char
+            for char in company
+        ).strip("._ ") or "SOCIETE"
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        backup_dir = os.path.join(application_writable_root(), "saves")
+        os.makedirs(backup_dir, exist_ok=True)
+        backup_path = os.path.join(
+            backup_dir, f"save-restauration-{company}-{timestamp}.backup"
+        )
+        env = os.environ.copy()
+        env["PGPASSWORD"] = self.DB_PASSWORD
+        subprocess.run(
+            [
+                self.pg_dump_path,
+                "-U",
+                self.DB_USER,
+                "-h",
+                self.DB_HOST,
+                "-p",
+                self.DB_PORT,
+                "-F",
+                "c",
+                "-f",
+                backup_path,
+                self.DB_NAME,
+            ],
+            check=True,
+            env=env,
+        )
+        return backup_path
+
     def terminate_all_db_connections(self, dbname_to_terminate):
         conn_sys = None
         try:
@@ -536,8 +571,22 @@ class PageSauvegarde(ctk.CTkFrame):
             return
 
         def restauration_thread():
-            self.lbl_progression.configure(text="Préparation de la base...")
+            self.lbl_progression.configure(text="Sauvegarde de sécurité avant restauration...")
             self.update_idletasks()
+
+            try:
+                backup_path = self._create_pre_restore_backup()
+            except Exception as e:
+                self.lbl_progression.configure(text="Échec de la sauvegarde de sécurité.")
+                messagebox.showerror(
+                    "Sauvegarde impossible",
+                    f"La restauration est annulée car la sauvegarde préalable a échoué :\n{e}",
+                )
+                return
+
+            self.lbl_progression.configure(
+                text=f"Sauvegarde créée : {os.path.basename(backup_path)}. Préparation de la base..."
+            )
 
             if not self.terminate_all_db_connections(self.DB_NAME):
                 return

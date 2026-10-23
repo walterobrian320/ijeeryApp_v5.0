@@ -270,6 +270,7 @@ class StockManager:
           - quantite       : quantité dans l'unité du mouvement
           - type_mouvement : libellé du type (ex: 'VENTE', 'LIVRAISON'…)
           - signe          : +1 pour entrée, -1 pour sortie
+          - id_mouvement   : identifiant de la ligne source du mouvement
         """
         return """
         tous_mouvements AS (
@@ -283,7 +284,8 @@ class StockManager:
                 e.dateregistre              AS date_mouvement,
                 ed.qtentree                 AS quantite,
                 'ENTREE'                    AS type_mouvement,
-                1                           AS signe
+                1                           AS signe,
+                ed.id                       AS id_mouvement
             FROM tb_entreedetail ed
             JOIN tb_entree e ON e.id = ed.identree
             WHERE ed.deleted = 0
@@ -298,7 +300,8 @@ class StockManager:
                 lf.dateregistre             AS date_mouvement,
                 lf.qtlivrefrs               AS quantite,
                 'LIVRAISON'                 AS type_mouvement,
-                1                           AS signe
+                1                           AS signe,
+                lf.idlivfrs                 AS id_mouvement
             FROM tb_livraisonfrs lf
             WHERE lf.deleted = 0
 
@@ -310,15 +313,25 @@ class StockManager:
             SELECT
                 u.idunite,
                 inv.idmag,
-                inv.date                    AS date_mouvement,
+                COALESCE(log_initial.date_action, inv.date) AS date_mouvement,
                 inv.qtinventaire            AS quantite,
                 'INVENTAIRE'                AS type_mouvement,
-                1                           AS signe
+                1                           AS signe,
+                inv.id                      AS id_mouvement
             FROM tb_inventaire inv
             JOIN tb_unite u
               ON u.codearticle = inv.codearticle
              AND u.niveau      = 0
              AND u.deleted     = 0
+            -- Le lot "inventaire jules" porte l'année 20026 dans tb_inventaire;
+            -- tb_log_stock conserve l'horodatage réel de ces mêmes lignes.
+            LEFT JOIN tb_log_stock log_initial
+              ON log_initial.id         = inv.id
+             AND log_initial.idmag      = inv.idmag
+             AND log_initial.codearticle = inv.codearticle
+             AND log_initial.nouveau_stock = inv.qtinventaire
+             AND LOWER(BTRIM(log_initial.type_action)) = 'inventaire jules'
+             AND LOWER(BTRIM(inv.observation)) = 'inventaire jules'
 
             UNION ALL
 
@@ -329,7 +342,8 @@ class StockManager:
                 av.dateavoir             AS date_mouvement,
                 ad.qtavoir                  AS quantite,
                 'AVOIR'                     AS type_mouvement,
-                1                           AS signe
+                1                           AS signe,
+                ad.id                       AS id_mouvement
             FROM tb_avoirdetail ad
             JOIN tb_avoir av ON av.id = ad.idavoir
             WHERE ad.deleted = 0
@@ -344,7 +358,8 @@ class StockManager:
                 chg.datechg                 AS date_mouvement,
                 dce.quantite_entree::double precision AS quantite,
                 'CHANGEMENT_ENTREE'         AS type_mouvement,
-                1                           AS signe
+                1                           AS signe,
+                dce.iddetail                AS id_mouvement
             FROM tb_detailchange_entree dce
             JOIN tb_changement chg ON chg.idchg = dce.idchg
 
@@ -357,7 +372,8 @@ class StockManager:
                 t.dateregistre              AS date_mouvement,
                 td.qttransfertentree        AS quantite,
                 'TRANSFERT_ENTREE'          AS type_mouvement,
-                1                           AS signe
+                1                           AS signe,
+                td.id                       AS id_mouvement
             FROM tb_transfertdetail td
             JOIN tb_transfert t ON t.idtransfert = td.idtransfert
             WHERE td.deleted = 0
@@ -374,7 +390,8 @@ class StockManager:
                 v.dateregistre              AS date_mouvement,
                 vd.qtvente                  AS quantite,
                 'VENTE'                     AS type_mouvement,
-                -1                          AS signe
+                -1                          AS signe,
+                vd.id                       AS id_mouvement
             FROM tb_ventedetail vd
             JOIN tb_vente v ON v.id = vd.idvente
             WHERE vd.deleted  = 0
@@ -390,7 +407,8 @@ class StockManager:
                 s.dateregistre              AS date_mouvement,
                 sd.qtsortie                 AS quantite,
                 'SORTIE'                    AS type_mouvement,
-                -1                          AS signe
+                -1                          AS signe,
+                sd.id                       AS id_mouvement
             FROM tb_sortiedetail sd
             JOIN tb_sortie s ON s.id = sd.idsortie
             WHERE sd.deleted = 0
@@ -405,7 +423,8 @@ class StockManager:
                 ci.dateregistre             AS date_mouvement,
                 cid.qtconsomme::double precision AS quantite,
                 'CONSOMMATION'              AS type_mouvement,
-                -1                          AS signe
+                -1                          AS signe,
+                cid.id                      AS id_mouvement
             FROM tb_consommationinterne_details cid
             JOIN tb_consommationinterne ci ON ci.id = cid.idconsommation
 
@@ -418,7 +437,8 @@ class StockManager:
                 chg.datechg                 AS date_mouvement,
                 dcs.quantite_sortie::double precision AS quantite,
                 'CHANGEMENT_SORTIE'         AS type_mouvement,
-                -1                          AS signe
+                -1                          AS signe,
+                dcs.iddetail                AS id_mouvement
             FROM tb_detailchange_sortie dcs
             JOIN tb_changement chg ON chg.idchg = dcs.idchg
 
@@ -431,7 +451,8 @@ class StockManager:
                 t.dateregistre              AS date_mouvement,
                 td.qttransfertsortie        AS quantite,
                 'TRANSFERT_SORTIE'          AS type_mouvement,
-                -1                          AS signe
+                -1                          AS signe,
+                td.id                       AS id_mouvement
             FROM tb_transfertdetail td
             JOIN tb_transfert t ON t.idtransfert = td.idtransfert
             WHERE td.deleted = 0

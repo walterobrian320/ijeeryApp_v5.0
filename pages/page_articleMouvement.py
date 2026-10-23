@@ -4,13 +4,14 @@
 ║          iJeery — page_ArticleMouvement.py  (refonte v3)                   ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  • Requête SQL UNIFIÉE — un seul aller-retour DB pour tous les mouvements   ║
-║  • Stock calculé en SQL par blocs de 50 lignes AVANT insertion treeview     ║
+║  • Stock calculé par le moteur central après chaque mouvement identifié     ║
 ║  • Insertion par after() → UI reste réactive pendant le chargement          ║
 ║  • Zéro thread, zéro placeholder                                            ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 """
 
 import customtkinter as ctk
+import tkinter as tk
 from tkinter import ttk, messagebox, StringVar
 from tkcalendar import DateEntry
 import psycopg2
@@ -21,6 +22,11 @@ import os
 
 from resource_utils import get_config_path, get_session_path
 from stock_manager_update_latest import StockManagerUpdateLatest
+from stock_service import (
+    format_stock_exact,
+    stock_est_fractionnaire,
+    stock_valeur_affichable,
+)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -67,7 +73,6 @@ C = Colors if _T else _C
 
 # Taille d'un bloc : lignes insérées par tick UI
 _BATCH_SIZE = 50
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fenêtre recherche article
@@ -254,8 +259,11 @@ class PageArticleMouvement(ctk.CTkFrame):
         self._pending_rows: list = []
         self._full_rows:    list = []
         self._after_id            = None
-        self._db_conn             = None  # connexion maintenue pendant les batchs
-        self._facteur_vers_base_par_unite: dict[int, float] = {}
+        self._db_conn             = None  # connexion utilisée pour calculer les soldes
+        self._stock_tooltips_by_item = {}
+        self._stock_tooltip_after = None
+        self._stock_tooltip_window = None
+        self._stock_tooltip_key = None
         self._is_destroyed = False
         self.bind("<Destroy>", self._on_destroy)
 
@@ -320,6 +328,7 @@ class PageArticleMouvement(ctk.CTkFrame):
 
     def _on_destroy(self, event=None):
         self._is_destroyed = True
+        self._masquer_stock_tooltip()
         self._close_db_conn()
 
     # ── Style treeview ────────────────────────────────────────────────────────
@@ -479,6 +488,8 @@ class PageArticleMouvement(ctk.CTkFrame):
         self.tree.grid(row=0, column=0, sticky="nsew", padx=(6, 0), pady=(6, 0))
         sy.grid(row=0, column=1, sticky="ns", pady=(6, 0))
         sx.grid(row=1, column=0, sticky="ew", padx=(6, 0))
+        self.tree.bind("<Motion>", self._on_stock_tree_motion)
+        self.tree.bind("<Leave>", self._on_stock_tree_leave)
 
         # Footer
         footer = ctk.CTkFrame(self, fg_color="transparent")
@@ -526,143 +537,127 @@ class PageArticleMouvement(ctk.CTkFrame):
             conn.close()
 
     # ══════════════════════════════════════════════════════════════════════════
-    # CALCUL STOCK (StockManager) + gestion mêmes datetime
+    # CALCUL DU SOLDE CENTRAL APRÈS CHAQUE MOUVEMENT IDENTIFIÉ
     # ══════════════════════════════════════════════════════════════════════════
-    def _fetch_facteurs_conversion(self, conn) -> dict[int, float]:
-        """Retourne {idunite: facteur_vers_base} via la CTE StockManager."""
-        sql = f"""
-        WITH RECURSIVE {StockManagerUpdateLatest._cte_facteur_conversion()}
-        SELECT idunite, facteur_vers_base
-        FROM facteur_conversion
-        """
-        with conn.cursor() as cur:
-            cur.execute(sql)
-            return {int(idu): float(f or 0.0) for (idu, f) in cur.fetchall()}
-
-    def _stock_base_avant_seconde_batch(self, conn, demandes):
-        """
-        Stock en unité de base STRICTEMENT AVANT la seconde de datetime_cible.
-
-        demandes: liste de dicts {idarticle, idmag, datetime_cible}
-        Retour: dict (idarticle, idmag, datetime_str) -> float stock_base_avant
-        """
-        valid = [
-            r for r in demandes
-            if str(r["idmag"]) not in ("-1", "", "None", "none")
-            and r.get("datetime_cible")
-        ]
-        if not valid:
-            return {}
-
-        value_rows, params = [], []
-        for r in valid:
-            value_rows.append("(%s::int, %s::int, %s::timestamp)")
-            params.extend([int(r["idarticle"]), int(r["idmag"]), r["datetime_cible"]])
-        values_sql = ",\n               ".join(value_rows)
-
-        sql = f"""
-        WITH RECURSIVE
-            {StockManagerUpdateLatest._cte_facteur_conversion()},
-            {StockManagerUpdateLatest._cte_tous_mouvements()},
-            demandes(idarticle, idmag, datetime_cible) AS (
-                VALUES {values_sql}
-            )
-        SELECT
-            d.idarticle,
-            d.idmag,
-            to_char(d.datetime_cible, 'YYYY-MM-DD HH24:MI:SS') AS datetime_str,
-            COALESCE(SUM(tm.quantite * fc.facteur_vers_base * tm.signe), 0.0) AS stock_en_base
-        FROM demandes d
-        LEFT JOIN facteur_conversion fc
-               ON fc.idarticle = d.idarticle
-        LEFT JOIN tous_mouvements tm
-               ON tm.idunite = fc.idunite
-              AND tm.idmag   = d.idmag
-              AND date_trunc('second', tm.date_mouvement)
-                  <
-                  date_trunc('second', d.datetime_cible)
-        GROUP BY d.idarticle, d.idmag, d.datetime_cible
-        """
-
-        out = {}
-        try:
-            with conn.cursor() as cur:
-                cur.execute(sql, params)
-                for (idarticle, idmag, dt_str, stock_base) in cur.fetchall():
-                    out[(int(idarticle), int(idmag), str(dt_str))] = float(stock_base or 0.0)
-        except Exception as e:
-            print(f"[StockAvantSecondeBatch] Erreur SQL: {e}")
-            import traceback; traceback.print_exc()
-        return out
-
     def _precompute_stock_apres_mouvements(self):
-        """
-        Remplit row["display"][7] (colonne Stock) pour TOUTES les lignes de
-        self._full_rows en utilisant la logique StockManager (même CTEs),
-        sans arrondir pendant les calculs.
-
-        Spécificité: si plusieurs mouvements ont le même datetime (à la seconde),
-        on applique les deltas séquentiellement pour éviter d'afficher la même valeur.
-        """
         if not self._db_conn or not self._full_rows:
             return
 
-        try:
-            if not self._facteur_vers_base_par_unite:
-                self._facteur_vers_base_par_unite = self._fetch_facteurs_conversion(self._db_conn)
-        except Exception as e:
-            print(f"[PrecomputeStock] Erreur facteurs conversion: {e}")
-            self._facteur_vers_base_par_unite = {}
-
-        # Grouper par (article, magasin, datetime à la seconde)
-        groupes = {}
-        for idx, row in enumerate(self._full_rows):
-            idmg = row.get("idmag")
-            if str(idmg) in ("-1", "", "None", "none"):
+        demandes = []
+        for id_ligne, row in enumerate(self._full_rows):
+            idmag = row["idmag"]
+            if idmag is None or int(idmag) <= 0:
                 continue
-            dt = str(row.get("datetime_cible") or "")
-            if not dt:
-                continue
-            key = (int(row["idarticle"]), int(idmg), dt)
-            groupes.setdefault(key, []).append(idx)
+            demandes.append({
+                "id_ligne": id_ligne,
+                "idarticle": int(row["idarticle"]),
+                "idunite": int(row["idunite"]),
+                "idmag": int(idmag),
+                "date_mouvement": row["date_mouvement"],
+                "type_mouvement": row["type_mouvement"],
+                "id_mouvement": int(row["id_mouvement"]),
+            })
 
-        if not groupes:
+        if not demandes:
             return
 
-        # Demandes uniques pour récupérer le stock "avant la seconde" (strict)
-        demandes = [{"idarticle": k[0], "idmag": k[1], "datetime_cible": k[2]} for k in groupes.keys()]
+        stocks = StockManagerUpdateLatest.get_stock_apres_mouvements(
+            self._db_conn,
+            demandes,
+        )
+        for id_ligne, stock in stocks.items():
+            row = self._full_rows[id_ligne]
+            row["display"][7], row["stock_tooltip"] = (
+                self._formater_stock_apres_mouvement(stock, row)
+            )
 
-        # Batch pour éviter des requêtes trop longues
-        stock_avant = {}
-        CHUNK = 400
-        for i in range(0, len(demandes), CHUNK):
-            stock_avant.update(self._stock_base_avant_seconde_batch(self._db_conn, demandes[i:i + CHUNK]))
+    def _formater_stock_apres_mouvement(self, stock, row):
+        if not row["unite_de_base"]:
+            return self.formater_nombre(stock), None
 
-        # Appliquer deltas séquentiels dans chaque groupe
-        for (idarticle, idmag, dt), indices in groupes.items():
-            base = float(stock_avant.get((idarticle, idmag, dt), 0.0) or 0.0)
+        valeur_affichable = stock_valeur_affichable(
+            stock,
+            unite_de_base=True,
+        )
+        texte = self.formater_nombre(valeur_affichable)
+        if valeur_affichable == 0 and stock < 0:
+            texte = "-0,00"
 
-            # IMPORTANT:
-            # L'affichage est trié par datetime décroissant. Donc, à l'intérieur d'une même seconde,
-            # la ligne "la plus récente" (plus haut dans le tableau) doit montrer le stock APRÈS
-            # tous les mouvements de cette seconde. On accumule donc en sens inverse (bas -> haut).
-            running = base
-            for idx in reversed(indices):
-                r = self._full_rows[idx]
-                idunite = int(r.get("idunite") or 0)
+        tooltip = None
+        if stock_est_fractionnaire(stock):
+            texte += " ⚠"
+            tooltip = (
+                f"Solde calculé exact : {format_stock_exact(stock)} "
+                f"{row['display'][4]}. La partie entière est affichée."
+            )
+        return texte, tooltip
 
-                # delta du mouvement en unité d'origine -> base (sans arrondi)
-                # NB: on utilise les valeurs numériques (avant formatage UI)
-                entree = float(r.get("_entree_num") or 0.0)
-                sortie = float(r.get("_sortie_num") or 0.0)
-                facteur = float(self._facteur_vers_base_par_unite.get(idunite, 1.0) or 1.0)
-                delta_base = (entree - sortie) * facteur
-                running += delta_base
+    def _on_stock_tree_motion(self, event):
+        item = self.tree.identify_row(event.y)
+        column = self.tree.identify_column(event.x)
+        tooltip = (
+            self._stock_tooltips_by_item.get(item)
+            if column == "#8"
+            else None
+        )
+        if not tooltip:
+            self._masquer_stock_tooltip()
+            return
 
-                # conversion base -> unité cible (idunite du mouvement), sans floor
-                facteur_cible = facteur if facteur != 0 else 1.0
-                stock_unite = running / facteur_cible
-                r["display"][7] = self.formater_nombre(stock_unite)
+        key = (item, column)
+        if key == self._stock_tooltip_key:
+            return
+        self._masquer_stock_tooltip()
+        self._stock_tooltip_key = key
+        self._stock_tooltip_after = self.after(
+            450,
+            lambda: self._afficher_stock_tooltip(
+                key,
+                tooltip,
+                event.x_root + 12,
+                event.y_root + 12,
+            ),
+        )
+
+    def _on_stock_tree_leave(self, event):
+        if event.widget is self.tree:
+            self._masquer_stock_tooltip()
+
+    def _afficher_stock_tooltip(self, key, texte, x, y):
+        self._stock_tooltip_after = None
+        if key != self._stock_tooltip_key:
+            return
+        self._stock_tooltip_window = tk.Toplevel(self)
+        self._stock_tooltip_window.wm_overrideredirect(True)
+        self._stock_tooltip_window.wm_geometry(f"+{x}+{y}")
+        tk.Label(
+            self._stock_tooltip_window,
+            text=texte,
+            justify="left",
+            wraplength=340,
+            background="#FFF8D8",
+            foreground=C.TEXT_PRIMARY,
+            relief="solid",
+            borderwidth=1,
+            padx=8,
+            pady=5,
+        ).pack()
+
+    def _masquer_stock_tooltip(self):
+        if self._stock_tooltip_after is not None:
+            try:
+                self.after_cancel(self._stock_tooltip_after)
+            except tk.TclError:
+                pass
+            self._stock_tooltip_after = None
+        self._stock_tooltip_key = None
+        if self._stock_tooltip_window is not None:
+            tooltip_window = self._stock_tooltip_window
+            self._stock_tooltip_window = None
+            try:
+                tooltip_window.destroy()
+            except tk.TclError:
+                pass
 
     # ── Requete mouvements ────────────────────────────────────────────────────
     def build_mouvements_query(self, date_debut, date_fin, type_doc, idmag):
@@ -678,7 +673,8 @@ class PageArticleMouvement(ctk.CTkFrame):
                     COALESCE('[FRS: '||frs.nomfrs||']'
                              ||COALESCE(', TRANS : '||tr.nom,'')
                              ||COALESCE(', COMMANDE : '||c.refcom,'')
-                             ||COALESCE(', FACT : '||lf.factfrs,''), '')
+                             ||COALESCE(', FACT : '||lf.factfrs,''), ''),
+                    'LIVRAISON', lf.idlivfrs
                 FROM tb_livraisonfrs lf
                 INNER JOIN tb_unite u ON lf.idunite = u.idunite
                 INNER JOIN tb_article a ON u.idarticle = a.idarticle
@@ -691,6 +687,7 @@ class PageArticleMouvement(ctk.CTkFrame):
                 LEFT JOIN tb_fournisseur frs ON cd.idfrs = frs.idfrs
                 WHERE DATE(lf.dateregistre) BETWEEN %s AND %s
                   AND lf.deleted = 0
+                  AND u.deleted = 0
             """
             p = [date_debut, date_fin]
             if self.selected_idarticle:
@@ -706,7 +703,8 @@ class PageArticleMouvement(ctk.CTkFrame):
                     COALESCE(ed.qtentree,0), 0,
                     COALESCE(m.designationmag,'N/A'), COALESCE(usr.username,'N/A'),
                     u.idunite, u.codearticle, a.idarticle,
-                    u.idunite, COALESCE(ed.idmag,-1), COALESCE(ed.motif,'')
+                    u.idunite, COALESCE(ed.idmag,-1), COALESCE(ed.motif,''),
+                    'ENTREE', ed.id
                 FROM tb_entree e
                 INNER JOIN tb_entreedetail ed ON e.id = ed.identree
                 INNER JOIN tb_unite u ON ed.idunite = u.idunite
@@ -715,6 +713,7 @@ class PageArticleMouvement(ctk.CTkFrame):
                 LEFT JOIN tb_users usr ON e.iduser = usr.iduser
                 WHERE DATE(e.dateregistre) BETWEEN %s AND %s
                   AND e.deleted = 0 AND ed.deleted = 0
+                  AND u.deleted = 0
             """
             p = [date_debut, date_fin]
             if self.selected_idarticle:
@@ -730,7 +729,8 @@ class PageArticleMouvement(ctk.CTkFrame):
                     0, COALESCE(sd.qtsortie,0),
                     COALESCE(m.designationmag,'N/A'), COALESCE(usr.username,'N/A'),
                     u.idunite, u.codearticle, a.idarticle,
-                    u.idunite, COALESCE(sd.idmag,-1), COALESCE(sd.motif,'')
+                    u.idunite, COALESCE(sd.idmag,-1), COALESCE(sd.motif,''),
+                    'SORTIE', sd.id
                 FROM tb_sortie s
                 INNER JOIN tb_sortiedetail sd ON s.id = sd.idsortie
                 INNER JOIN tb_unite u ON sd.idunite = u.idunite
@@ -739,6 +739,7 @@ class PageArticleMouvement(ctk.CTkFrame):
                 LEFT JOIN tb_users usr ON s.iduser = usr.iduser
                 WHERE DATE(s.dateregistre) BETWEEN %s AND %s
                   AND s.deleted = 0 AND sd.deleted = 0
+                  AND u.deleted = 0
             """
             p = [date_debut, date_fin]
             if self.selected_idarticle:
@@ -756,7 +757,8 @@ class PageArticleMouvement(ctk.CTkFrame):
                     u.idunite, u.codearticle, a.idarticle,
                     u.idunite, COALESCE(vd.idmag,-1),
                     '[CL: '||COALESCE(cl.nomcli,'N/A')||'] vente '
-                    ||COALESCE(mp.modedepaiement,'N/A')||' validee!'
+                    ||COALESCE(mp.modedepaiement,'N/A')||' validee!',
+                    'VENTE', vd.id
                 FROM tb_vente v
                 INNER JOIN tb_ventedetail vd ON v.id = vd.idvente
                 INNER JOIN tb_unite u ON vd.idunite = u.idunite
@@ -767,6 +769,7 @@ class PageArticleMouvement(ctk.CTkFrame):
                 LEFT JOIN tb_modepaiement mp ON v.idmode = mp.idmode
                 WHERE DATE(v.dateregistre) BETWEEN %s AND %s
                   AND v.deleted = 0 AND vd.deleted = 0 AND v.statut = 'VALIDEE'
+                  AND u.deleted = 0
             """
             p = [date_debut, date_fin]
             if self.selected_idarticle:
@@ -783,7 +786,8 @@ class PageArticleMouvement(ctk.CTkFrame):
                     COALESCE(m.designationmag,'N/A'), COALESCE(usr.username,'N/A'),
                     u.idunite, u.codearticle, a.idarticle,
                     u.idunite, COALESCE(td.idmagsortie,-1),
-                    COALESCE(td.description,'')
+                    COALESCE(td.description,''),
+                    'TRANSFERT_SORTIE', td.id
                 FROM tb_transfert t
                 INNER JOIN tb_transfertdetail td ON t.idtransfert = td.idtransfert
                 INNER JOIN tb_unite u ON td.idunite = u.idunite
@@ -792,6 +796,7 @@ class PageArticleMouvement(ctk.CTkFrame):
                 LEFT JOIN tb_users usr ON t.iduser = usr.iduser
                 WHERE DATE(t.dateregistre) BETWEEN %s AND %s
                   AND t.deleted = 0 AND td.deleted = 0
+                  AND u.deleted = 0
             """
             p = [date_debut, date_fin]
             if self.selected_idarticle:
@@ -807,7 +812,8 @@ class PageArticleMouvement(ctk.CTkFrame):
                     COALESCE(m.designationmag,'N/A'), COALESCE(usr.username,'N/A'),
                     u.idunite, u.codearticle, a.idarticle,
                     u.idunite, COALESCE(td.idmagentree,-1),
-                    COALESCE(td.description,'')
+                    COALESCE(td.description,''),
+                    'TRANSFERT_ENTREE', td.id
                 FROM tb_transfert t
                 INNER JOIN tb_transfertdetail td ON t.idtransfert = td.idtransfert
                 INNER JOIN tb_unite u ON td.idunite = u.idunite
@@ -816,6 +822,7 @@ class PageArticleMouvement(ctk.CTkFrame):
                 LEFT JOIN tb_users usr ON t.iduser = usr.iduser
                 WHERE DATE(t.dateregistre) BETWEEN %s AND %s
                   AND t.deleted = 0 AND td.deleted = 0
+                  AND u.deleted = 0
             """
             p = [date_debut, date_fin]
             if self.selected_idarticle:
@@ -834,9 +841,13 @@ class PageArticleMouvement(ctk.CTkFrame):
                     i.qtinventaire, 0,
                     COALESCE(m.designationmag,'N/A'), COALESCE(usr.username,'N/A'),
                     u.idunite, u.codearticle, a.idarticle,
-                    u.idunite, COALESCE(i.idmag,-1), COALESCE(i.observation,'')
+                    u.idunite, COALESCE(i.idmag,-1), COALESCE(i.observation,''),
+                    'INVENTAIRE', i.id
                 FROM tb_inventaire i
-                INNER JOIN tb_unite u ON i.codearticle = u.codearticle
+                INNER JOIN tb_unite u
+                    ON i.codearticle = u.codearticle
+                   AND u.niveau = 0
+                   AND u.deleted = 0
                 INNER JOIN tb_article a ON u.idarticle = a.idarticle
                 LEFT JOIN tb_magasin m ON i.idmag = m.idmag
                 LEFT JOIN tb_users usr ON i.iduser = usr.iduser
@@ -857,14 +868,17 @@ class PageArticleMouvement(ctk.CTkFrame):
                     COALESCE(m.designationmag,'N/A'), COALESCE(usr.username,'N/A'),
                     u.idunite, u.codearticle, a.idarticle,
                     u.idunite, COALESCE(ad.idmag,-1),
-                    COALESCE(av.observation,'')
+                    COALESCE(av.observation,''),
+                    'AVOIR', ad.id
                 FROM tb_avoir av
                 INNER JOIN tb_avoirdetail ad ON av.id = ad.idavoir
                 INNER JOIN tb_unite u ON ad.idunite = u.idunite
                 INNER JOIN tb_article a ON u.idarticle = a.idarticle
                 LEFT JOIN tb_magasin m ON ad.idmag = m.idmag
                 LEFT JOIN tb_users usr ON av.iduser = usr.iduser
-                WHERE DATE(av.dateavoir) BETWEEN %s AND %s AND av.deleted = 0
+                WHERE DATE(av.dateavoir) BETWEEN %s AND %s
+                  AND av.deleted = 0 AND ad.deleted = 0
+                  AND u.deleted = 0
             """
             p = [date_debut, date_fin]
             if self.selected_idarticle:
@@ -881,7 +895,8 @@ class PageArticleMouvement(ctk.CTkFrame):
                     COALESCE(m.designationmag,'N/A'), COALESCE(usr.username,'N/A'),
                     u.idunite, u.codearticle, a.idarticle,
                     u.idunite, COALESCE(cid.idmag,-1),
-                    COALESCE(cid.observation,'')
+                    COALESCE(cid.observation,''),
+                    'CONSOMMATION', cid.id
                 FROM tb_consommationinterne ci
                 INNER JOIN tb_consommationinterne_details cid
                     ON ci.id = cid.idconsommation
@@ -890,6 +905,7 @@ class PageArticleMouvement(ctk.CTkFrame):
                 LEFT JOIN tb_magasin m ON cid.idmag = m.idmag
                 LEFT JOIN tb_users usr ON ci.iduser = usr.iduser
                 WHERE DATE(ci.dateregistre) BETWEEN %s AND %s
+                  AND u.deleted = 0
             """
             p = [date_debut, date_fin]
             if self.selected_idarticle:
@@ -906,7 +922,8 @@ class PageArticleMouvement(ctk.CTkFrame):
                     COALESCE(m.designationmag,'N/A'), COALESCE(usr.username,'N/A'),
                     u.idunite, u.codearticle, a.idarticle,
                     u.idunite, COALESCE(dcs.idmagasin,-1),
-                    COALESCE(chg.note,'')
+                    COALESCE(chg.note,''),
+                    'CHANGEMENT_SORTIE', dcs.iddetail
                 FROM tb_changement chg
                 INNER JOIN tb_detailchange_sortie dcs ON chg.idchg = dcs.idchg
                 INNER JOIN tb_unite u ON dcs.idunite = u.idunite
@@ -914,6 +931,7 @@ class PageArticleMouvement(ctk.CTkFrame):
                 LEFT JOIN tb_magasin m ON dcs.idmagasin = m.idmag
                 LEFT JOIN tb_users usr ON chg.iduser = usr.iduser
                 WHERE DATE(chg.datechg) BETWEEN %s AND %s
+                  AND u.deleted = 0
             """
             p = [date_debut, date_fin]
             if self.selected_idarticle:
@@ -929,7 +947,8 @@ class PageArticleMouvement(ctk.CTkFrame):
                     COALESCE(m.designationmag,'N/A'), COALESCE(usr.username,'N/A'),
                     u.idunite, u.codearticle, a.idarticle,
                     u.idunite, COALESCE(dce.idmagasin,-1),
-                    COALESCE(chg.note,'')
+                    COALESCE(chg.note,''),
+                    'CHANGEMENT_ENTREE', dce.iddetail
                 FROM tb_changement chg
                 INNER JOIN tb_detailchange_entree dce ON chg.idchg = dce.idchg
                 INNER JOIN tb_unite u ON dce.idunite = u.idunite
@@ -937,6 +956,7 @@ class PageArticleMouvement(ctk.CTkFrame):
                 LEFT JOIN tb_magasin m ON dce.idmagasin = m.idmag
                 LEFT JOIN tb_users usr ON chg.iduser = usr.iduser
                 WHERE DATE(chg.datechg) BETWEEN %s AND %s
+                  AND u.deleted = 0
             """
             p = [date_debut, date_fin]
             if self.selected_idarticle:
@@ -964,6 +984,8 @@ class PageArticleMouvement(ctk.CTkFrame):
         # Fermer connexion batch precedente
         self._close_db_conn()
 
+        self._masquer_stock_tooltip()
+        self._stock_tooltips_by_item.clear()
         self.tree.delete(*self.tree.get_children())
         self._lbl_total.configure(text="Chargement...")
         self._lbl_progress.configure(text="")
@@ -985,25 +1007,23 @@ class PageArticleMouvement(ctk.CTkFrame):
                          if mag_sel != "Tous les magasins" else None
 
             cur = conn.cursor()
-            cur.execute("SELECT idunite, designationunite FROM tb_unite "
+            cur.execute("SELECT idunite, designationunite, niveau FROM tb_unite "
                         "WHERE deleted=0")
-            unite_map = {r[0]: r[1] for r in cur.fetchall()}
+            unite_map = {r[0]: (r[1], r[2]) for r in cur.fetchall()}
 
             mouvements = []
             queries, params_list = self.build_mouvements_query(
                 date_debut, date_fin, type_doc, idmag)
 
             for query, p in zip(queries, params_list):
-                try:
-                    cur.execute(query, p)
-                    mouvements.extend(cur.fetchall())
-                except Exception as e:
-                    print(f"ERREUR requete mouvement: {e}")
-                    import traceback; traceback.print_exc()
+                cur.execute(query, p)
+                mouvements.extend(cur.fetchall())
 
             cur.close()
 
         except Exception as e:
+            self._lbl_total.configure(text="Erreur de chargement")
+            self._lbl_progress.configure(text="")
             messagebox.showerror("Erreur DB", str(e))
             conn.close()
             return
@@ -1015,20 +1035,20 @@ class PageArticleMouvement(ctk.CTkFrame):
                 text=f"Actualise : {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
             return
 
-        # Tris stables
-        try:
-            mouvements.sort(key=lambda x: x[9] or "")
-        except Exception:
-            pass
-        try:
-            mouvements.sort(key=lambda x: (x[2].lower() if x[2] else ""))
-        except Exception:
-            pass
-        try:
-            mouvements.sort(
-                key=lambda x: x[0] if x[0] else datetime.min, reverse=True)
-        except Exception:
-            pass
+        # En cas d'horodatage identique, l'ordre inverse garantit des soldes
+        # successifs cohérents avec l'ordre cumulatif du moteur central.
+        mouvements.sort(key=lambda x: int(x[15] or 0))
+        mouvements.sort(
+            key=lambda x: StockManagerUpdateLatest._ORDRE_TYPE_MOUVEMENT.get(
+                x[14], 99
+            )
+        )
+        mouvements.sort(key=lambda x: x[9] or "")
+        mouvements.sort(key=lambda x: (x[2] or "").lower())
+        mouvements.sort(
+            key=lambda x: x[0] if x[0] else datetime.min,
+            reverse=True,
+        )
 
         te = ts = 0.0
         for mouv in mouvements:
@@ -1045,10 +1065,11 @@ class PageArticleMouvement(ctk.CTkFrame):
             idarticle        = mouv[10]
             idmag_r          = mouv[12]
             description      = mouv[13] or "-"
-            datetime_cible   = (mouv[0].strftime('%Y-%m-%d %H:%M:%S')
-                                if mouv[0] else "")
+            type_mouvement   = mouv[14]
+            id_mouvement     = mouv[15]
 
-            unite_display = unite_map.get(idunite, "")
+            unite_display, niveau_unite = unite_map.get(idunite, ("", None))
+            unite_de_base = niveau_unite is not None and int(niveau_unite) == 0
             is_inventaire = "inventaire" in type_doc_display.lower()
             if is_inventaire:
                 e_fmt = "-"
@@ -1065,9 +1086,11 @@ class PageArticleMouvement(ctk.CTkFrame):
                 "idarticle":      idarticle,
                 "idunite":        idunite,
                 "idmag":          idmag_r,
-                "datetime_cible": datetime_cible,
-                "_entree_num":    entree,
-                "_sortie_num":    sortie,
+                "date_mouvement": mouv[0],
+                "type_mouvement": type_mouvement,
+                "id_mouvement":   id_mouvement,
+                "unite_de_base":  unite_de_base,
+                "stock_tooltip":  None,
                 "display": [
                     date_format, reference, article_design, type_doc_display,
                     unite_display, e_fmt, s_fmt, "-",
@@ -1085,24 +1108,28 @@ class PageArticleMouvement(ctk.CTkFrame):
         self._lbl_statut.configure(
             text=f"Actualise : {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
 
-        # Stocker la connexion pour l'utiliser dans _insert_batch
+        # Conserver la connexion pendant le calcul SQL des soldes.
         self._db_conn      = conn
         self._pending_rows = list(self._full_rows)
 
-        # Pré-calculer la colonne Stock (logique StockManager + cas mêmes datetime)
+        # Calculer le solde central après chaque mouvement identifié.
         self._lbl_progress.configure(text="Calcul stock…")
         try:
             self._precompute_stock_apres_mouvements()
         except Exception as e:
-            print(f"[LoadMouvements] Erreur precompute stock: {e}")
+            self._lbl_progress.configure(text="")
+            self._lbl_total.configure(text="Erreur de calcul du stock")
+            self._close_db_conn()
+            messagebox.showerror("Calcul du stock", str(e))
+            return
 
+        self._close_db_conn()
         self._insert_batch()
 
     # ── Insertion par blocs avec stock calcule AVANT insertion ────────────────
     def _insert_batch(self):
         """
-        Prend _BATCH_SIZE lignes, calcule leurs stocks en SQL,
-        insere dans le treeview avec les vrais stocks,
+        Insere un lot de lignes dont le stock a déjà été calculé,
         reschedule via after(5) pour ne pas bloquer l'UI.
         Le stock calcule est sauvegarde dans row["display"][7] de _full_rows
         pour que le filtre client le reutilise sans re-requete.
@@ -1123,7 +1150,9 @@ class PageArticleMouvement(ctk.CTkFrame):
         for i, row in enumerate(batch):
             display = row["display"]
             parity = "even" if (offset + i) % 2 == 0 else "odd"
-            self.tree.insert("", "end", values=display, tags=(parity,))
+            item = self.tree.insert("", "end", values=display, tags=(parity,))
+            if row["stock_tooltip"]:
+                self._stock_tooltips_by_item[item] = row["stock_tooltip"]
 
         n_done = len(self.tree.get_children())
         n_tot  = len(self._full_rows)
@@ -1144,8 +1173,9 @@ class PageArticleMouvement(ctk.CTkFrame):
             self.after_cancel(self._after_id)
             self._after_id = None
 
-        # Ne pas fermer _db_conn si un chargement est en cours
         search = self._var_recherche.get().strip().lower()
+        self._masquer_stock_tooltip()
+        self._stock_tooltips_by_item.clear()
         self.tree.delete(*self.tree.get_children())
 
         if not search:
@@ -1180,7 +1210,9 @@ class PageArticleMouvement(ctk.CTkFrame):
         offset = len(self.tree.get_children())
         for i, row in enumerate(batch):
             parity = "even" if (offset + i) % 2 == 0 else "odd"
-            self.tree.insert("", "end", values=row["display"], tags=(parity,))
+            item = self.tree.insert("", "end", values=row["display"], tags=(parity,))
+            if row["stock_tooltip"]:
+                self._stock_tooltips_by_item[item] = row["stock_tooltip"]
 
         if self._pending_rows:
             self._lbl_progress.configure(

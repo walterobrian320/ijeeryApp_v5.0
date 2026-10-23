@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import tkinter as tk
 from tkinter import ttk, messagebox
 import psycopg2
 import json
@@ -9,6 +10,11 @@ import os
 from resource_utils import get_config_path, safe_file_read
 from log_utils import AppLogger, resolve_connected_user_id
 from stock_manager_update_latest import StockManagerUpdateLatest
+from stock_service import (
+    format_stock_exact,
+    stock_est_fractionnaire,
+    stock_valeur_affichable,
+)
 from db import ensure_connection, get_connection, load_db_config
 
 # ── Thème iJeery ──────────────────────────────────────────────────────────────
@@ -93,6 +99,10 @@ class PageStock(ctk.CTkFrame):
         self.magasins            = []
         self.colonnes_dynamiques = []
         self.all_data            = []
+        self._stock_tooltips_by_item = {}
+        self._stock_tooltip_after = None
+        self._stock_tooltip_window = None
+        self._stock_tooltip_key = None
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
@@ -226,6 +236,12 @@ class PageStock(ctk.CTkFrame):
             font=self._f(9),
             text_color=C.DANGER_DARK,
         ).pack(side="left", padx=(12, 0))
+        ctk.CTkLabel(
+            footer,
+            text="⚠ Unité de base : partie entière affichée; survolez le symbole pour le solde exact.",
+            font=self._f(9),
+            text_color=C.WARNING_TEXT,
+        ).pack(side="left", padx=(12, 0))
 
         self.label_derniere_maj = ctk.CTkLabel(
             footer, text="",
@@ -302,6 +318,8 @@ class PageStock(ctk.CTkFrame):
 
     def creer_treeview(self):
         """Initialise le tableau avec colonnes larges et barres de défilement"""
+        self._masquer_stock_tooltip()
+        self._stock_tooltips_by_item.clear()
         if self.tree:
             self.tree.destroy()
 
@@ -335,6 +353,8 @@ class PageStock(ctk.CTkFrame):
         )
 
         self.tree.bind("<Double-1>", self.ouvrir_inventaire_double_clic)
+        self.tree.bind("<Motion>", self._on_stock_tree_motion)
+        self.tree.bind("<Leave>", lambda _event: self._masquer_stock_tooltip())
 
         vsb = ctk.CTkScrollbar(self.tree_frame_inner, orientation="vertical",   command=self.tree.yview)
         hsb = ctk.CTkScrollbar(self.tree_frame_inner, orientation="horizontal",  command=self.tree.xview)
@@ -432,7 +452,7 @@ class PageStock(ctk.CTkFrame):
                 for _idmag, _nom_mag in self.magasins:
                     valeurs.append(self.formater_nombre(0))
                 valeurs.append(self.formater_nombre(0))
-                self.all_data.append((valeurs, 0.0, False))
+                self.all_data.append((valeurs, 0.0, False, {}))
             self.recharger_treeview()
             self.label_derniere_maj.configure(
                 text="Chargement des stocks en cours…")
@@ -501,7 +521,7 @@ class PageStock(ctk.CTkFrame):
             # 2) Facteurs et soldes issus du même moteur que les snapshots.
             db_config = load_db_config()
             if not db_config:
-                return []
+                raise FileNotFoundError("Configuration de la base de données introuvable.")
 
             sm = StockManagerUpdateLatest(
                 host=db_config['host'],
@@ -511,9 +531,14 @@ class PageStock(ctk.CTkFrame):
                 password=db_config['password'],
             )
 
+            unites = sm.get_unites_tous_articles()
             facteurs = {
                 int(ligne["idunite"]): float(ligne["facteur_vers_base"])
-                for ligne in sm.get_unites_tous_articles()
+                for ligne in unites
+            }
+            niveaux = {
+                int(ligne["idunite"]): int(ligne["niveau"])
+                for ligne in unites
             }
 
             # 3) Calcul des stocks en unité de base par article et par magasin via le moteur central
@@ -528,7 +553,15 @@ class PageStock(ctk.CTkFrame):
             # 4) Construire all_data (1 ligne par unité)
             all_data = []
             for code, desig, unite, prix, idarticle, idunite in unite_rows:
-                facteur = facteurs.get(int(idunite), 1.0) or 1.0
+                facteur = facteurs.get(int(idunite))
+                niveau = niveaux.get(int(idunite))
+                if facteur is None or facteur <= 0:
+                    raise ValueError(
+                        f"Facteur de conversion absent ou invalide pour l'unité {idunite}."
+                    )
+                if niveau is None:
+                    raise ValueError(f"Niveau absent pour l'unité {idunite}.")
+                unite_de_base = niveau == 0
 
                 valeurs = [
                     code,
@@ -539,23 +572,50 @@ class PageStock(ctk.CTkFrame):
 
                 total = 0.0
                 stock_negatif = False
-                for idmag, nom_mag in self.magasins:
+                tooltips = {}
+                for index_mag, (idmag, _nom_mag) in enumerate(self.magasins):
                     stock_base = stock_base_par_article_mag.get(int(idmag), {}).get(int(idarticle), 0.0)
-                    stock_unite = (stock_base / facteur) if facteur else 0.0
+                    stock_unite = stock_base / facteur
                     stock_unite = float(stock_unite or 0.0)
                     if stock_unite < -_SEUIL_STOCK_NUL:
                         stock_negatif = True
-                    valeurs.append(self.formater_nombre(stock_unite))
+                    valeur_affichable = stock_valeur_affichable(
+                        stock_unite,
+                        unite_de_base=unite_de_base,
+                    )
+                    texte_stock = self.formater_nombre(valeur_affichable)
+                    if unite_de_base and stock_est_fractionnaire(stock_unite):
+                        if valeur_affichable == 0 and stock_unite < 0:
+                            texte_stock = "-0"
+                        texte_stock += " ⚠"
+                        tooltips[4 + index_mag] = (
+                            f"Stock réel : {format_stock_exact(stock_unite)} {unite}. "
+                            "La partie entière est affichée."
+                        )
+                    valeurs.append(texte_stock)
                     total += stock_unite
 
-                valeurs.append(self.formater_nombre(total))
-                all_data.append((valeurs, total, stock_negatif))
+                total_affichable = stock_valeur_affichable(
+                    total,
+                    unite_de_base=unite_de_base,
+                )
+                texte_total = self.formater_nombre(total_affichable)
+                if unite_de_base and stock_est_fractionnaire(total):
+                    if total_affichable == 0 and total < 0:
+                        texte_total = "-0"
+                    texte_total += " ⚠"
+                    tooltips[4 + len(self.magasins)] = (
+                        f"Stock réel total : {format_stock_exact(total)} {unite}. "
+                        "La partie entière est affichée."
+                    )
+                valeurs.append(texte_total)
+                all_data.append((valeurs, total, stock_negatif, tooltips))
 
             return all_data
 
         except Exception as e:
             print(f"ERREUR DÉTAILLÉE (StockManagerUpdateLatest): {e}")
-            return []
+            raise
         finally:
             try:
                 if sm:
@@ -708,14 +768,18 @@ class PageStock(ctk.CTkFrame):
             self.recharger_treeview()
             return
         filtered_data = [
-            (valeurs, total, stock_negatif)
-            for valeurs, total, stock_negatif in self.all_data
+            (valeurs, total, stock_negatif, tooltips)
+            for valeurs, total, stock_negatif, tooltips in self.all_data
             if search_term in f"{valeurs[0]} {valeurs[1]} {valeurs[2]} {valeurs[3]}".lower()
         ]
+        self._masquer_stock_tooltip()
+        self._stock_tooltips_by_item.clear()
         if filtered_data:
-            for idx, (valeurs, total, stock_negatif) in enumerate(filtered_data):
+            for idx, (valeurs, total, stock_negatif, tooltips) in enumerate(filtered_data):
                 tag = self._tag_ligne_stock(idx, total, stock_negatif)
-                self.tree.insert("", "end", values=valeurs, tags=(tag,))
+                item = self.tree.insert("", "end", values=valeurs, tags=(tag,))
+                if tooltips:
+                    self._stock_tooltips_by_item[item] = tooltips
             self.label_total_articles.configure(text=f"Total articles : {len(filtered_data)}")
         else:
             empty = ["", "Aucun résultat trouvé", "", ""] + [""] * (len(self.colonnes_dynamiques) - 4)
@@ -738,17 +802,74 @@ class PageStock(ctk.CTkFrame):
 
     def recharger_treeview(self):
         """Recharge le Treeview avec toutes les données stockées"""
+        self._masquer_stock_tooltip()
+        self._stock_tooltips_by_item.clear()
         for item in self.tree.get_children():
             self.tree.delete(item)
         if self.all_data:
-            for idx, (valeurs, total, stock_negatif) in enumerate(self.all_data):
+            for idx, (valeurs, total, stock_negatif, tooltips) in enumerate(self.all_data):
                 tag = self._tag_ligne_stock(idx, total, stock_negatif)
-                self.tree.insert("", "end", values=valeurs, tags=(tag,))
+                item = self.tree.insert("", "end", values=valeurs, tags=(tag,))
+                if tooltips:
+                    self._stock_tooltips_by_item[item] = tooltips
             self.label_total_articles.configure(text=f"Total articles : {len(self.all_data)}")
         else:
             empty = ["", "Aucun article trouvé", "", ""] + [""] * (len(self.colonnes_dynamiques) - 4)
             self.tree.insert('', 'end', values=empty)
             self.label_total_articles.configure(text="Total articles : 0")
+
+    def _on_stock_tree_motion(self, event):
+        item = self.tree.identify_row(event.y)
+        column = self.tree.identify_column(event.x)
+        if not item or not column.startswith("#"):
+            self._masquer_stock_tooltip()
+            return
+
+        tooltip = self._stock_tooltips_by_item.get(item, {}).get(int(column[1:]) - 1)
+        if not tooltip:
+            self._masquer_stock_tooltip()
+            return
+
+        key = (item, column)
+        if key == self._stock_tooltip_key:
+            return
+        self._masquer_stock_tooltip()
+        self._stock_tooltip_key = key
+        self._stock_tooltip_after = self.after(
+            450,
+            lambda: self._afficher_stock_tooltip(
+                key, tooltip, event.x_root + 12, event.y_root + 12,
+            ),
+        )
+
+    def _afficher_stock_tooltip(self, key, texte, x, y):
+        self._stock_tooltip_after = None
+        if key != self._stock_tooltip_key:
+            return
+        self._stock_tooltip_window = tk.Toplevel(self)
+        self._stock_tooltip_window.wm_overrideredirect(True)
+        self._stock_tooltip_window.wm_geometry(f"+{x}+{y}")
+        tk.Label(
+            self._stock_tooltip_window,
+            text=texte,
+            justify="left",
+            wraplength=340,
+            background="#FFF8D8",
+            foreground=C.TEXT_PRIMARY,
+            relief="solid",
+            borderwidth=1,
+            padx=8,
+            pady=5,
+        ).pack()
+
+    def _masquer_stock_tooltip(self):
+        if self._stock_tooltip_after is not None:
+            self.after_cancel(self._stock_tooltip_after)
+            self._stock_tooltip_after = None
+        self._stock_tooltip_key = None
+        if self._stock_tooltip_window is not None:
+            self._stock_tooltip_window.destroy()
+            self._stock_tooltip_window = None
 
     def exporter_stocks(self):
         """Exporte les stocks vers un fichier CSV"""

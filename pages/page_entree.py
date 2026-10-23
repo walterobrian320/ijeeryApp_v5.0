@@ -25,7 +25,12 @@ from app_theme import Colors, Fonts
 from log_utils import AppLogger
 
 from db import ensure_connection, get_connection
-from stock_service import get_snapshot_cached, invalidate_snapshot, stock_unite
+from stock_service import (
+    get_snapshot_cached,
+    invalidate_snapshot,
+    stock_unite,
+    stock_display,
+)
 from stock_snapshot import format_nombre_auto
 
 
@@ -678,7 +683,7 @@ class PageEntree(ctk.CTkFrame):
                         row[3] or "", row[4] or "",
                         self.formater_nombre(row[5]),
                         self.formater_nombre(row[6]),
-                        self.formater_nombre(stk),
+                        stock_display(snapshot, int(row[0]), int(row[1])),
                     ), tags=tags)
             except Exception as e:
                 messagebox.showerror("Erreur chargement", str(e))

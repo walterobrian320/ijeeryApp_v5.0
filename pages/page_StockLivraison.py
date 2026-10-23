@@ -287,7 +287,12 @@ class PageStockLivraison(ctk.CTkFrame):
             # On collecte les combinaisons uniques pour éviter de recalculer plusieurs fois
             combos_uniques = list({(r[5], r[6], r[7]) for r in resultats})
 
-            from stock_service import get_snapshot_cached, stock_unite
+            from stock_service import (
+                get_snapshot_cached,
+                stock_display,
+                stock_unite,
+                stock_valeur_affichable,
+            )
             stocks = {}
             snapshots = {}
             for idarticle, idunite, idmag in combos_uniques:
@@ -311,6 +316,10 @@ class PageStockLivraison(ctk.CTkFrame):
                 total_livre = float(row[10] or 0.0)
 
                 stock_theo = stocks.get((idarticle, idunite, idmag), 0.0)
+                snapshot = snapshots[int(idmag)]
+                stock_theo_affichable = stock_display(
+                    snapshot, int(idarticle), int(idunite),
+                )
                 if statut_vente == "VALIDEE":
                     # La vente entière est déjà déduite; son reste non livré
                     # est encore présent dans le magasin.
@@ -320,6 +329,16 @@ class PageStockLivraison(ctk.CTkFrame):
                     # déjà livrés sont à retirer du stock présent.
                     stock_reel = stock_theo - total_livre
 
+                stock_reel_affichable = stock_valeur_affichable(
+                    stock_reel,
+                    unite_de_base=snapshot.unite_est_de_base(int(idunite)),
+                )
+                if stock_reel_affichable == 0 and stock_reel < 0:
+                    stock_reel_affichable = "-0"
+                else:
+                    stock_reel_affichable = self.formater_nombre(
+                        stock_reel_affichable
+                    )
                 self.tree.insert("", "end", values=(
                     code_art,
                     designation,
@@ -327,8 +346,8 @@ class PageStockLivraison(ctk.CTkFrame):
                     magasin,
                     nom_client,
                     self.formater_nombre(reste),
-                    self.formater_nombre(stock_theo),
-                    self.formater_nombre(stock_reel),
+                    stock_theo_affichable,
+                    stock_reel_affichable,
                 ))
 
             self.label_total.configure(text=f"Total lignes: {len(resultats)}")

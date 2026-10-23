@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import math
+from dataclasses import dataclass, field
 from typing import Dict, Any
 
 from db import load_db_config
@@ -46,6 +47,7 @@ class StockSnapshot:
     idmagasin: int
     stock_base_par_article: Dict[int, float]
     facteur_vers_base_par_unite: Dict[int, float]
+    niveau_par_unite: Dict[int, int] = field(default_factory=dict)
 
     @classmethod
     def build(cls, idmagasin: int, conn=None) -> "StockSnapshot":
@@ -62,9 +64,14 @@ class StockSnapshot:
             password=db["password"],
         )
         try:
+            unites = sm.get_unites_tous_articles()
             facteurs = {
                 int(row["idunite"]): float(row["facteur_vers_base"])
-                for row in sm.get_unites_tous_articles()
+                for row in unites
+            }
+            niveaux = {
+                int(row["idunite"]): int(row["niveau"])
+                for row in unites
             }
             lignes = sm.get_stock_tous_articles(idmagasin=int(idmagasin), date_fin=None)
             stock_base = {
@@ -81,11 +88,23 @@ class StockSnapshot:
             idmagasin=int(idmagasin),
             stock_base_par_article=stock_base,
             facteur_vers_base_par_unite=facteurs,
+            niveau_par_unite=niveaux,
         )
 
     def stock_unite(self, idarticle: int, idunite: int) -> float:
         base = float(self.stock_base_par_article.get(int(idarticle), 0.0) or 0.0)
-        facteur = float(self.facteur_vers_base_par_unite.get(int(idunite), 1.0) or 1.0)
-        if facteur == 0:
-            return 0.0
+        if not math.isfinite(base):
+            raise ValueError(f"Stock de base non fini pour l'article {idarticle}.")
+        facteur_brut = self.facteur_vers_base_par_unite.get(int(idunite))
+        if facteur_brut is None:
+            raise ValueError(f"Facteur de conversion absent pour l'unité {idunite}.")
+        facteur = float(facteur_brut)
+        if not math.isfinite(facteur) or facteur <= 0:
+            raise ValueError(f"Facteur de conversion invalide pour l'unité {idunite}.")
         return base / facteur
+
+    def unite_est_de_base(self, idunite: int) -> bool:
+        niveau = self.niveau_par_unite.get(int(idunite))
+        if niveau is None:
+            raise ValueError(f"Niveau de l'unité {idunite} absent du snapshot.")
+        return niveau == 0

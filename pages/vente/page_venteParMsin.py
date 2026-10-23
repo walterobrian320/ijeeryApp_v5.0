@@ -50,7 +50,15 @@ from pages.page_avoir import PageAvoir
 from pages.page_proforma import PageCommandeCli
 from log_utils import AppLogger
 from db import load_db_config
-from stock_service import get_snapshot_cached, stock_unite
+from stock_service import (
+    format_stock_exact,
+    get_snapshot_cached,
+    quantite_mouvement_en_base,
+    stock_base_disponible,
+    stock_display,
+    stock_unite,
+    stock_unite_disponible,
+)
 from pages.ui_dialogs import (
     PasswordDialog,
     ErrorDialog,
@@ -1042,11 +1050,40 @@ class PageVenteParMsin(ctk.CTkFrame):
             return
 
         try:
-            stock_precis = self.calculer_stock_magasin_precis(
-                self.article_selectionne['idarticle'],
-                self.article_selectionne['idunite'],
-                idmag
+            snapshot = get_snapshot_cached(int(idmag), force=True)
+            idarticle = int(self.article_selectionne['idarticle'])
+            idunite = int(self.article_selectionne['idunite'])
+            reservations_base = 0
+            for index, detail in enumerate(self.detail_vente):
+                if index == self.index_ligne_selectionnee:
+                    continue
+                if (
+                    int(detail['idarticle']) == idarticle
+                    and int(detail['idmag']) == int(idmag)
+                ):
+                    reservations_base += quantite_mouvement_en_base(
+                        snapshot,
+                        idarticle,
+                        int(detail['idunite']),
+                        detail['qtvente'],
+                    )
+            quantite_demandee_base = quantite_mouvement_en_base(
+                snapshot, idarticle, idunite, qtvente,
             )
+            stock_restant_base = stock_base_disponible(
+                snapshot,
+                idarticle,
+                reservations_base=reservations_base,
+            )
+            stock_disponible = stock_unite_disponible(
+                snapshot,
+                idarticle,
+                idunite,
+                reservations_base=reservations_base,
+            )
+        except ValueError as e:
+            MessageDialog("Quantité invalide", str(e), 'warning')
+            return
         except Exception as e:
             MessageDialog(
                 "Erreur de stock",
@@ -1055,25 +1092,13 @@ class PageVenteParMsin(ctk.CTkFrame):
             )
             return
 
-        # Round-trip texte (même logique que page_sortie.py / format_nombre_auto) :
-        # neutralise le bruit binaire du calcul SQL en alignant stock_precis
-        # EXACTEMENT sur ce qui serait affiché à l'écran (2 décimales).
-        stock_precis = self.parser_nombre(self.formater_nombre(stock_precis))
-
-        self.stock_temporaire_selection = stock_precis
-        if stock_precis <= 0:
-            MessageDialog(
-                "Stock indisponible",
-                f"Le magasin {mag_nom} ne dispose plus de cet article.",
-                'warning'
-            )
-            return
-
-        if qtvente > stock_precis:
+        self.stock_temporaire_selection = float(stock_disponible)
+        if quantite_demandee_base > stock_restant_base:
             MessageDialog(
                 "Stock Insuffisant",
-                f"Quantité saisie ({self.formater_nombre(qtvente)}) dépasse "
-                f"le stock disponible ({self.formater_nombre(stock_precis)}).",
+                f"Quantité saisie ({self.formater_nombre(qtvente)} {self.article_selectionne['nom_unite']}) "
+                f"dépasse le stock disponible ({format_stock_exact(stock_disponible)} "
+                f"{self.article_selectionne['nom_unite']}).",
                 'warning'
             )
             return
@@ -1497,9 +1522,7 @@ class PageVenteParMsin(ctk.CTkFrame):
 
                 for idx, row in enumerate(rows):
                     # Stock réel (peut être négatif) — ne pas forcer à 0
-                    stk = float(
-                        stock_unite(snapshot, int(row[0]), int(row[1])) or 0.0
-                    )
+                    stk = stock_unite(snapshot, int(row[0]), int(row[1]))
                     tags = ("even" if idx % 2 == 0 else "odd",)
                     if stk <= 0: tags = tags + ("stock_nul",)
                     tree.insert("", "end", values=(
@@ -1507,7 +1530,7 @@ class PageVenteParMsin(ctk.CTkFrame):
                         row[3] or "", row[4] or "",
                         self.formater_nombre(row[5]),
                         self.formater_nombre(row[6]),
-                        self.formater_nombre(stk),
+                        stock_display(snapshot, int(row[0]), int(row[1])),
                     ), tags=tags)
             except Exception as e:
                 MessageDialog("Erreur chargement", str(e), 'error')
@@ -1650,41 +1673,45 @@ class PageVenteParMsin(ctk.CTkFrame):
                 return
 
             quantites_par_article = {}
-            for detail in self.detail_vente:
-                cle = (
-                    detail['idarticle'],
-                    detail['idunite'],
-                    detail['idmag'],
-                    detail.get('code_article', 'N/A'),
-                    detail.get('nom_article', ''),
-                    detail.get('nom_unite', ''),
-                    detail.get('designationmag', ''),
-                )
-                quantites_par_article[cle] = (
-                    quantites_par_article.get(cle, 0)
-                    + float(detail.get('qtvente', 0) or 0)
-                )
-
             insuffisances_stock = []
             snapshots_validation = {}
             try:
-                for (idarticle, idunite, idmag, code, nom, unite, magasin), quantite_demandee in quantites_par_article.items():
-                    idmag_int = int(idmag)
+                for detail in self.detail_vente:
+                    idarticle = int(detail['idarticle'])
+                    idmag_int = int(detail['idmag'])
                     if idmag_int not in snapshots_validation:
                         snapshots_validation[idmag_int] = get_snapshot_cached(
                             idmag_int, force=True
                         )
-                    stock_disponible = stock_unite(
+                    demande_base = quantite_mouvement_en_base(
                         snapshots_validation[idmag_int],
-                        int(idarticle),
-                        int(idunite),
+                        idarticle,
+                        int(detail['idunite']),
+                        detail.get('qtvente', 0),
                     )
-                    if quantite_demandee > stock_disponible:
+                    cle = (idarticle, idmag_int)
+                    if cle not in quantites_par_article:
+                        quantites_par_article[cle] = {
+                            'demande_base': 0,
+                            'code': detail.get('code_article', 'N/A'),
+                            'nom': detail.get('nom_article', ''),
+                            'magasin': detail.get('designationmag', ''),
+                        }
+                    quantites_par_article[cle]['demande_base'] += demande_base
+
+                for (idarticle, idmag_int), demande in quantites_par_article.items():
+                    snapshot = snapshots_validation[idmag_int]
+                    stock_restant_base = stock_base_disponible(snapshot, idarticle)
+                    if demande['demande_base'] > stock_restant_base:
                         insuffisances_stock.append(
-                            f"[{code}] {nom} ({unite}) - demandé : "
-                            f"{self.formater_nombre(quantite_demandee)}, "
-                            f"en stock {magasin} : {self.formater_nombre(stock_disponible)}"
+                            f"[{demande['code']}] {demande['nom']} "
+                            f"(magasin {demande['magasin']}) - demandé : "
+                            f"{format_stock_exact(demande['demande_base'])} en base, "
+                            f"stock restant : {format_stock_exact(stock_restant_base)} en base"
                         )
+            except ValueError as e:
+                MessageDialog("Quantité invalide", str(e), 'warning')
+                return
             except Exception as e:
                 MessageDialog(
                     "Erreur de stock",
@@ -2552,6 +2579,29 @@ class PageVenteParMsin(ctk.CTkFrame):
             return
 
         ajoutes = []; bloquee = []; stock_insuf = []
+        demandes_base_par_article = {}
+
+        try:
+            for detail in self.detail_vente:
+                if int(detail.get('idmag', 0)) != int(idmag):
+                    continue
+                cle = int(detail['idarticle'])
+                demandes_base_par_article[cle] = (
+                    demandes_base_par_article.get(cle, 0)
+                    + quantite_mouvement_en_base(
+                        snapshot,
+                        cle,
+                        int(detail['idunite']),
+                        detail['qtvente'],
+                    )
+                )
+        except Exception as e:
+            MessageDialog(
+                "Erreur de stock",
+                f"Impossible de vérifier les lignes déjà saisies : {e}",
+                'error',
+            )
+            return
 
         for d in self.details_proforma_a_ajouter:
             ia, iu = d['idarticle'], d['idunite']
@@ -2559,14 +2609,30 @@ class PageVenteParMsin(ctk.CTkFrame):
             if not ok:
                 bloquee.append(f"{d['code_article']} ({d['nom_article']}): {msg}")
                 continue
-            stock = stock_unite(snapshot, int(ia), int(iu))
-            if stock < d['qtvente']:
+            try:
+                demande_base = quantite_mouvement_en_base(
+                    snapshot, int(ia), int(iu), d['qtvente'],
+                )
+            except ValueError as e:
+                bloquee.append(f"{d['code_article']} ({d['nom_article']}): {e}")
+                continue
+            cle = int(ia)
+            stock_restant_base = stock_base_disponible(
+                snapshot,
+                cle,
+                reservations_base=demandes_base_par_article.get(cle, 0),
+            )
+            if demande_base > stock_restant_base:
                 stock_insuf.append(
                     f"{d['code_article']} ({d['nom_article']}): "
-                    f"Demandé {self.formater_nombre(d['qtvente'])} / "
-                    f"Dispo {self.formater_nombre(stock)}"
+                    f"demandé {self.formater_nombre(d['qtvente'])} {d['nom_unite']} "
+                    f"({format_stock_exact(demande_base)} en base) / "
+                    f"disponible {format_stock_exact(stock_restant_base)} en base"
                 )
                 continue
+            demandes_base_par_article[cle] = (
+                demandes_base_par_article.get(cle, 0) + demande_base
+            )
             nd = {**d, 'designationmag': mag_nom, 'idmag': idmag}
             ht = nd['qtvente'] * nd['prixunit']
             nd.update({'remise': 0, 'montant_ht': ht, 'montant_remise': 0, 'montant_ttc': ht})
@@ -2575,7 +2641,10 @@ class PageVenteParMsin(ctk.CTkFrame):
         if ajoutes:
             self.detail_vente.extend(ajoutes)
             self.charger_details_treeview()
-            if self.details_proforma_a_ajouter_idprof:
+            if (
+                len(ajoutes) == len(self.details_proforma_a_ajouter)
+                and self.details_proforma_a_ajouter_idprof
+            ):
                 self.marquer_proforma_comme_facture(self.details_proforma_a_ajouter_idprof)
 
         self.reset_proforma_state()

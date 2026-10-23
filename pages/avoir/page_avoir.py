@@ -36,7 +36,12 @@ from app_theme import Colors, Fonts, styled
 from settings_utils import open_file_if_enabled
 from log_utils import AppLogger
 from db import ensure_connection, get_connection  # noqa: F401 — connect_db
-from stock_service import get_snapshot_cached, invalidate_snapshot, stock_unite
+from stock_service import (
+    get_snapshot_cached,
+    invalidate_snapshot,
+    stock_display,
+    stock_unite,
+)
 from pages.ui_dialogs import MessageDialog, YesNoDialog, SimpleDialogWithChoice
 
 # ── Imports ReportLab (impression PDF) ───────────────────────────────────────
@@ -1123,16 +1128,30 @@ class PageAvoir(ctk.CTkFrame):
                 resultats = cursor.fetchall()
                 designationmag = self.combo_magasin.get()
                 idmag          = self.magasin_map.get(designationmag)
+                snapshot = (
+                    get_snapshot_cached(int(idmag))
+                    if idmag is not None
+                    else None
+                )
 
                 for idx, row in enumerate(resultats):
                     idarticle, designation, idunite, codearticle, designationunite = row
-                    stock = self.calculer_stock_article(idarticle, idunite, idmag)
+                    stock = (
+                        stock_unite(snapshot, int(idarticle), int(idunite))
+                        if snapshot is not None
+                        else 0.0
+                    )
+                    stock_affiche = (
+                        stock_display(snapshot, int(idarticle), int(idunite))
+                        if snapshot is not None
+                        else self.formater_nombre(stock)
+                    )
                     prix  = self.get_article_price(idarticle, idunite)
                     tree.insert('', 'end', values=(
                         idarticle, idunite, codearticle, designation,
                         designationunite,
                         self.formater_nombre(prix),
-                        self.formater_nombre(stock),
+                        stock_affiche,
                     ), tags=("even" if idx % 2 == 0 else "odd",))
 
                 label_count.configure(text=f"{len(resultats)} article(s) trouvé(s)")

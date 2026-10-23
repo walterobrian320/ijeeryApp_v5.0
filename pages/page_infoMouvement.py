@@ -13,7 +13,16 @@ from app_theme import Colors, Fonts, styled
 from settings_utils import open_file_if_enabled
 from log_utils import AppLogger
 from db import ensure_connection, get_connection
-from stock_service import get_snapshot_cached, invalidate_snapshot, stock_unite
+from stock_service import (
+    format_stock_exact,
+    get_snapshot_cached,
+    invalidate_snapshot,
+    quantite_mouvement_en_base,
+    stock_base_disponible,
+    stock_display,
+    stock_unite,
+    stock_unite_disponible,
+)
 from stock_snapshot import format_nombre_auto
 from pages.ui_dialogs import PasswordDialog
 
@@ -876,14 +885,14 @@ class PageChangementArticle(ctk.CTkFrame):
                 cur.execute(QUERY_ARTICLES, (filtre_like, filtre_like))
                 rows = cur.fetchall()
                 for idx, row in enumerate(rows):
-                    stock_total = stock_unite(snapshot, row[0], row[1])
+                    stock_total = stock_unite(snapshot, int(row[0]), int(row[1]))
                     tags = ("even" if idx % 2 == 0 else "odd",)
                     if stock_total <= 0:
                         tags = tags + ("stock_nul",)
                     tree.insert('', 'end', values=(
                         row[0], row[1],
                         row[2] or "", row[3] or "", row[4] or "",
-                        format_nombre_auto(stock_total),
+                        stock_display(snapshot, int(row[0]), int(row[1])),
                     ), tags=tags)
                 label_count.configure(text=f"{len(rows)} article(s)")
 
@@ -1008,16 +1017,51 @@ class PageChangementArticle(ctk.CTkFrame):
                 messagebox.showwarning("Attention", "Quantité doit être > 0.")
                 return
 
-            stock_dispo = self.article_sortie_selectionne['stock_disponible']
-            if qty > stock_dispo:
+            magasin = self.combo_mag_sortie.get().strip()
+            idmag = self.magasins.get(magasin)
+            if idmag is None:
+                messagebox.showwarning("Attention", "Sélectionnez un magasin de sortie valide.")
+                return
+
+            idarticle = int(self.article_sortie_selectionne['idarticle'])
+            idunite = int(self.article_sortie_selectionne['idunite'])
+            snapshot = get_snapshot_cached(int(idmag), force=True)
+            reservations_base = 0
+            for article in self.articles_sortie:
+                if (
+                    int(article['idarticle']) == idarticle
+                    and int(article['idmagasin']) == int(idmag)
+                ):
+                    reservations_base += quantite_mouvement_en_base(
+                        snapshot,
+                        idarticle,
+                        int(article['idunite']),
+                        article['quantite'],
+                    )
+            demande_base = quantite_mouvement_en_base(
+                snapshot, idarticle, idunite, qty,
+            )
+            stock_restant_base = stock_base_disponible(
+                snapshot,
+                idarticle,
+                reservations_base=reservations_base,
+            )
+            stock_dispo = stock_unite_disponible(
+                snapshot,
+                idarticle,
+                idunite,
+                reservations_base=reservations_base,
+            )
+            if demande_base > stock_restant_base:
                 messagebox.showerror(
                     "Stock insuffisant",
-                    f"Stock disponible : {self.formater_nombre(stock_dispo)}\n"
-                    f"Demandé : {self.formater_nombre(qty)}",
+                    f"Stock disponible : {format_stock_exact(stock_dispo)} "
+                    f"{self.article_sortie_selectionne['unite']}\n"
+                    f"Demandé : {self.formater_nombre(qty)} "
+                    f"{self.article_sortie_selectionne['unite']}",
                 )
                 return
 
-            magasin     = self.combo_mag_sortie.get()
             designation = self.article_sortie_selectionne['designation']
             unite       = self.article_sortie_selectionne['unite']
             code        = self.article_sortie_selectionne['code']
@@ -1031,13 +1075,16 @@ class PageChangementArticle(ctk.CTkFrame):
                 'idarticle': self.article_sortie_selectionne['idarticle'],
                 'idunite':   self.article_sortie_selectionne['idunite'],
                 'idmagasin': self.magasins[magasin],
+                'magasin': magasin,
                 'designation': designation, 'code': code,
                 'unite': unite, 'quantite': qty,
             })
             self.annuler_sortie()
 
-        except ValueError:
-            messagebox.showerror("Erreur", "Quantité invalide.")
+        except ValueError as e:
+            messagebox.showerror("Quantité ou stock invalide", str(e))
+        except Exception as e:
+            messagebox.showerror("Erreur de stock", str(e))
 
     def ajouter_article_entree(self):
         """
@@ -1130,6 +1177,45 @@ class PageChangementArticle(ctk.CTkFrame):
     # SECTION 10 — ENREGISTREMENT
     # ══════════════════════════════════════════════════════════════════════════
 
+    def _insuffisances_stock_changement(self):
+        snapshots = {}
+        demandes = {}
+        for article in self.articles_sortie:
+            idmag = int(article['idmagasin'])
+            if idmag not in snapshots:
+                snapshots[idmag] = get_snapshot_cached(idmag, force=True)
+            snapshot = snapshots[idmag]
+            idarticle = int(article['idarticle'])
+            demande_base = quantite_mouvement_en_base(
+                snapshot,
+                idarticle,
+                int(article['idunite']),
+                article['quantite'],
+            )
+            key = (idarticle, idmag)
+            if key not in demandes:
+                demandes[key] = {
+                    'demande_base': 0,
+                    'code': article.get('code', 'N/A'),
+                    'designation': article.get('designation', ''),
+                    'magasin': article.get('magasin', ''),
+                }
+            demandes[key]['demande_base'] += demande_base
+
+        insuffisances = []
+        for (idarticle, idmag), demande in demandes.items():
+            stock_restant_base = stock_base_disponible(
+                snapshots[idmag], idarticle,
+            )
+            if demande['demande_base'] > stock_restant_base:
+                insuffisances.append(
+                    f"[{demande['code']}] {demande['designation']} "
+                    f"(magasin {demande['magasin']}) : "
+                    f"demandé {format_stock_exact(demande['demande_base'])} en base, "
+                    f"stock restant {format_stock_exact(stock_restant_base)} en base"
+                )
+        return insuffisances
+
     def enregistrer_changement(self):
         """
         Enregistre le changement dans tb_changement,
@@ -1148,6 +1234,15 @@ class PageChangementArticle(ctk.CTkFrame):
             return
 
         try:
+            insuffisances_stock = self._insuffisances_stock_changement()
+            if insuffisances_stock:
+                messagebox.showerror(
+                    "Stock insuffisant",
+                    "Le stock de sortie ne permet pas ce changement :\n\n"
+                    + "\n".join(insuffisances_stock),
+                )
+                return
+
             cursor = conn.cursor()
 
             refchg = self.entry_ref.get()

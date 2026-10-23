@@ -14,7 +14,7 @@ from html import escape
 from tkcalendar import DateEntry
 from resource_utils import get_config_path, safe_file_read
 from app_theme import Colors, Fonts, styled, Theme
-from stock_service import get_snapshot_cached
+from stock_service import get_snapshot_cached, stock_display, stock_unite
 from stock_snapshot import format_nombre_auto
 from pages.ui_dialogs import MessageDialog, YesNoDialog
 
@@ -1468,11 +1468,19 @@ class PageCommandeFrs(ctk.CTkFrame):
                 cur.execute(q, p)
                 rows = cur.fetchall()
                 for idx, r in enumerate(rows):
-                    stock_total = snapshot.stock_unite(r[0], r[4])
+                    stock_total = stock_unite(snapshot, int(r[0]), int(r[4]))
                     tags = ("row_even" if idx % 2 == 0 else "row_odd",)
                     if stock_total <= 0:
                         tags = tags + ("stock_nul",)
-                    tree.insert("", "end", values=(r[0], r[4], r[1], r[2], r[3], format_nombre_auto(stock_total)), tags=tags)
+                    tree.insert(
+                        "",
+                        "end",
+                        values=(
+                            r[0], r[4], r[1], r[2], r[3],
+                            stock_display(snapshot, int(r[0]), int(r[4])),
+                        ),
+                        tags=tags,
+                    )
                 self._refresh_table_alternating_colors(tree)
                 lbl_c.configure(text=f"{len(rows)} article(s)")
             except Exception as e:

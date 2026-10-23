@@ -23,11 +23,22 @@ import psycopg2
 import json
 from datetime import datetime
 import os
+from typing import Optional
 
 from resource_utils import get_config_path, safe_file_read
 from app_theme import Colors, Fonts
 from db import ensure_connection, get_connection
-from stock_service import get_snapshot_cached, invalidate_snapshot
+from stock_service import (
+    convertir_quantite_en_base,
+    format_stock_exact,
+    get_snapshot_cached,
+    invalidate_snapshot,
+    quantite_mouvement_en_base,
+    stock_base_disponible,
+    stock_display,
+    stock_unite,
+    stock_unite_disponible,
+)
 from stock_snapshot import format_nombre_auto
 from pages.ui_dialogs import MessageDialog, YesNoDialog
 
@@ -66,6 +77,9 @@ class PageTransfert(ctk.CTkFrame):
 
         # Identifiant du transfert en cours d'édition (None = nouveau)
         self.idtransfert_en_cours = None
+        self.idmag_sortie_original = None
+        self.idmag_entree_original = None
+        self.anciennes_lignes_transfert = []
 
         # ── Layout principal : 5 rows ─────────────────────────────────────────
         self.grid_columnconfigure(0, weight=1)
@@ -623,7 +637,9 @@ class PageTransfert(ctk.CTkFrame):
                 )
 
                 for idx, row in enumerate(cur.fetchall()):
-                    stock_total = snapshot.stock_unite(row[0], row[1])
+                    stock_total = stock_unite(
+                        snapshot, int(row[0]), int(row[1]),
+                    )
                     tags = ("even" if idx % 2 == 0 else "odd",)
                     if stock_total <= 0:
                         tags = tags + ("stock_nul",)
@@ -633,7 +649,7 @@ class PageTransfert(ctk.CTkFrame):
                         values=(
                             row[0], row[1],
                             row[2] or "", row[3] or "", row[4] or "",
-                            format_nombre_auto(stock_total),
+                            stock_display(snapshot, int(row[0]), int(row[1])),
                         ),
                         tags=tags,
                     )
@@ -843,6 +859,41 @@ class PageTransfert(ctk.CTkFrame):
     # SECTION 6 — GESTION DES LIGNES DU TRANSFERT
     # ══════════════════════════════════════════════════════════════════════════
 
+    def _stock_base_restitue_transfert(self, snapshot, idarticle, idmag_sortie):
+        if (
+            self.idtransfert_en_cours is None
+            or self.idmag_sortie_original != int(idmag_sortie)
+        ):
+            return 0
+        return sum(
+            (
+                convertir_quantite_en_base(
+                    snapshot,
+                    int(ligne['idarticle']),
+                    int(ligne['idunite']),
+                    ligne['quantite'],
+                )
+                for ligne in self.anciennes_lignes_transfert
+                if int(ligne['idarticle']) == int(idarticle)
+            ),
+            start=0,
+        )
+
+    def _reservations_transfert_base(self, snapshot, idarticle):
+        return sum(
+            (
+                convertir_quantite_en_base(
+                    snapshot,
+                    int(ligne['idarticle']),
+                    int(ligne['idunite']),
+                    ligne['quantite'],
+                )
+                for ligne in self.articles_transfert
+                if int(ligne['idarticle']) == int(idarticle)
+            ),
+            start=0,
+        )
+
     def ajouter_article(self):
         """
         Valide la saisie et ajoute une ligne au transfert.
@@ -871,14 +922,53 @@ class PageTransfert(ctk.CTkFrame):
             MessageDialog("Attention", "Sélectionnez le magasin de sortie.", type_='warning')
             return
 
-        stock_actuel = self.article_selectionne['stock_disponible']
+        idmag_sortie = self.magasins_data.get(mag_sortie_nom)
+        if idmag_sortie is None:
+            MessageDialog("Attention", "Magasin de sortie invalide.", type_='warning')
+            return
 
-        if quantite_saisie > stock_actuel:
+        idarticle = int(self.article_selectionne['id'])
+        idunite = int(self.article_selectionne['idunite'])
+        try:
+            snapshot = get_snapshot_cached(int(idmag_sortie), force=True)
+            reservations_base = self._reservations_transfert_base(snapshot, idarticle)
+            stock_base_restitue = self._stock_base_restitue_transfert(
+                snapshot, idarticle, int(idmag_sortie),
+            )
+            demande_base = quantite_mouvement_en_base(
+                snapshot, idarticle, idunite, quantite_saisie,
+            )
+            stock_restant_base = stock_base_disponible(
+                snapshot,
+                idarticle,
+                reservations_base=reservations_base,
+                stock_base_restitue=stock_base_restitue,
+            )
+            stock_actuel = stock_unite_disponible(
+                snapshot,
+                idarticle,
+                idunite,
+                reservations_base=reservations_base,
+                stock_base_restitue=stock_base_restitue,
+            )
+        except ValueError as e:
+            MessageDialog("Quantité ou stock invalide", str(e), type_='warning')
+            return
+        except Exception as e:
+            MessageDialog(
+                "Erreur de stock",
+                f"Impossible de vérifier le stock du magasin : {e}",
+                type_='error',
+            )
+            return
+
+        if demande_base > stock_restant_base:
             MessageDialog(
                 "Stock Insuffisant",
                 f"Transfert impossible.\n\n"
                 f"Article : {self.article_selectionne['nom']}\n"
-                f"Stock disponible : {stock_actuel}\n"
+                f"Stock disponible : {format_stock_exact(stock_actuel)} "
+                f"{self.article_selectionne['unite']}\n"
                 f"Quantité demandée : {quantite_saisie}",
                 type_='error',
             )
@@ -934,6 +1024,55 @@ class PageTransfert(ctk.CTkFrame):
     # SECTION 7 — ENREGISTREMENT DU TRANSFERT
     # ══════════════════════════════════════════════════════════════════════════
 
+    def _insuffisances_stock_transfert(self, idmag_sortie):
+        snapshot = get_snapshot_cached(int(idmag_sortie), force=True)
+        stock_restitue_par_article = {}
+        if (
+            self.idtransfert_en_cours is not None
+            and self.idmag_sortie_original == int(idmag_sortie)
+        ):
+            for ligne in self.anciennes_lignes_transfert:
+                idarticle = int(ligne['idarticle'])
+                stock_restitue_par_article[idarticle] = (
+                    stock_restitue_par_article.get(idarticle, 0)
+                    + convertir_quantite_en_base(
+                        snapshot,
+                        idarticle,
+                        int(ligne['idunite']),
+                        ligne['quantite'],
+                    )
+                )
+
+        demandes = {}
+        for ligne in self.articles_transfert:
+            idarticle = int(ligne['idarticle'])
+            demande_base = quantite_mouvement_en_base(
+                snapshot,
+                idarticle,
+                int(ligne['idunite']),
+                ligne['quantite'],
+            )
+            demandes[idarticle] = demandes.get(idarticle, 0) + demande_base
+
+        insuffisances = []
+        for idarticle, demande_base in demandes.items():
+            stock_restant_base = stock_base_disponible(
+                snapshot,
+                idarticle,
+                stock_base_restitue=stock_restitue_par_article.get(idarticle, 0),
+            )
+            if demande_base > stock_restant_base:
+                article = next(
+                    ligne for ligne in self.articles_transfert
+                    if int(ligne['idarticle']) == idarticle
+                )
+                insuffisances.append(
+                    f"[{article.get('code', 'N/A')}] {article.get('nom', '')} : "
+                    f"demandé {format_stock_exact(demande_base)} en base, "
+                    f"stock restant {format_stock_exact(stock_restant_base)} en base"
+                )
+        return insuffisances
+
     def enregistrer_transfert(self):
         """
         Enregistre ou met à jour le transfert dans tb_transfert + tb_transfertdetail.
@@ -953,6 +1092,30 @@ class PageTransfert(ctk.CTkFrame):
 
         if mag_sortie == mag_entree:
             MessageDialog("Attention", "Les magasins doivent être différents.", type_='warning')
+            return
+
+        idmag_sortie = self.magasins_data.get(mag_sortie)
+        idmag_entree = self.magasins_data.get(mag_entree)
+        if idmag_sortie is None or idmag_entree is None:
+            MessageDialog("Attention", "Sélectionnez deux magasins valides.", type_='warning')
+            return
+
+        try:
+            insuffisances_stock = self._insuffisances_stock_transfert(idmag_sortie)
+        except Exception as e:
+            MessageDialog(
+                "Erreur de stock",
+                f"Impossible de vérifier le stock avant l'enregistrement : {e}",
+                type_='error',
+            )
+            return
+        if insuffisances_stock:
+            MessageDialog(
+                "Stock insuffisant",
+                "Le stock du magasin de sortie ne permet pas ce transfert :\n\n"
+                + "\n".join(insuffisances_stock),
+                type_='warning',
+            )
             return
 
         try:
@@ -996,8 +1159,16 @@ class PageTransfert(ctk.CTkFrame):
                     )
 
                 conn.commit()
-                invalidate_snapshot(int(self.magasins_data[mag_sortie]))
-                invalidate_snapshot(int(self.magasins_data[mag_entree]))
+                magasins_a_invalider = {
+                    int(self.magasins_data[mag_sortie]),
+                    int(self.magasins_data[mag_entree]),
+                }
+                if self.idmag_sortie_original is not None:
+                    magasins_a_invalider.add(int(self.idmag_sortie_original))
+                if self.idmag_entree_original is not None:
+                    magasins_a_invalider.add(int(self.idmag_entree_original))
+                for idmag_cache in magasins_a_invalider:
+                    invalidate_snapshot(idmag_cache)
                 cur.close()
                 conn.close()
 
@@ -1554,6 +1725,11 @@ class PageTransfert(ctk.CTkFrame):
                     'code': det[2], 'nom': det[3], 'unite': det[4],
                     'quantite': det[5], 'description': det[6] or "",
                 })
+            self.idmag_sortie_original = int(transfert[5])
+            self.idmag_entree_original = int(transfert[6])
+            self.anciennes_lignes_transfert = [
+                dict(ligne) for ligne in self.articles_transfert
+            ]
 
             cur.close(); conn.close()
 
@@ -1596,12 +1772,15 @@ class PageTransfert(ctk.CTkFrame):
         # Vider le Treeview
         self.tree.delete(*self.tree.get_children())
         self.articles_transfert = []
+        self.idmag_sortie_original = None
+        self.idmag_entree_original = None
+        self.anciennes_lignes_transfert = []
+        self.idtransfert_en_cours = None
 
         if not is_loading:
             # Nouveau transfert réel → nouvelle référence + édition active
             self.generer_reference()
             self.activer_edition()
-            self.idtransfert_en_cours = None
 
 
 # ==============================================================================
@@ -1620,4 +1799,3 @@ if __name__ == "__main__":
     app.pack(fill="both", expand=True)
 
     root.mainloop()
-

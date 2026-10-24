@@ -141,6 +141,7 @@ class PageFournisseur(ctk.CTkFrame):
             self.cursor.execute("ALTER TABLE tb_fournisseur ADD COLUMN IF NOT EXISTS comptebancaire VARCHAR(150)")
             self.cursor.execute("ALTER TABLE tb_fournisseur ADD COLUMN IF NOT EXISTS adressebanque VARCHAR(150)")
             self.conn.commit()
+            self._ensure_autredette_table()
         except psycopg2.Error as err:
             messagebox.showerror("Erreur", f"Erreur lors de la création de la table : {err}")
 
@@ -274,47 +275,45 @@ class PageFournisseur(ctk.CTkFrame):
             return
         try:
             self.cursor.execute("""
-                SELECT idfrs, nomfrs, contactfrs, adressefrs,
-                       nombanque, comptebancaire, adressebanque,
-                       niffrs, statfrs, ciffrs
-                FROM tb_fournisseur
-                WHERE deleted = 0
+                WITH total_livraisons AS (
+                    SELECT cd.idfrs,
+                           COALESCE(SUM(cd.punitcmd * lf.qtlivrefrs), 0) AS montant
+                    FROM tb_livraisonfrs lf
+                    JOIN tb_commandedetail cd
+                      ON cd.idcom = lf.idcom AND cd.idarticle = lf.idarticle
+                    WHERE lf.deleted = 0
+                      AND lf.a_payer = 1
+                    GROUP BY cd.idfrs
+                ),
+                total_autres AS (
+                    SELECT idfrs, COALESCE(SUM(montant), 0) AS montant
+                    FROM tb_autredette
+                    GROUP BY idfrs
+                ),
+                total_payes AS (
+                    SELECT idfrs, COALESCE(SUM(mtpaye), 0) AS montant
+                    FROM tb_pmtcom
+                    GROUP BY idfrs
+                )
+                SELECT f.idfrs, f.nomfrs, f.contactfrs, f.adressefrs,
+                       f.nombanque, f.comptebancaire, f.adressebanque,
+                       f.niffrs, f.statfrs, f.ciffrs,
+                       GREATEST(
+                           COALESCE(l.montant, 0)
+                           + COALESCE(a.montant, 0)
+                           - COALESCE(p.montant, 0),
+                           0
+                       ) AS dette_restante
+                FROM tb_fournisseur f
+                LEFT JOIN total_livraisons l ON l.idfrs = f.idfrs
+                LEFT JOIN total_autres a ON a.idfrs = f.idfrs
+                LEFT JOIN total_payes p ON p.idfrs = f.idfrs
+                WHERE f.deleted = 0
             """)
-            fournisseurs = self.cursor.fetchall()
-
-            # Garantit que la table de dettes manuelles existe avant les agrégations.
-            self._ensure_autredette_table()
-
-            self.cursor.execute("""
-                SELECT cd.idfrs,
-                       COALESCE(SUM(cd.punitcmd * lf.qtlivrefrs), 0) AS total_livraison
-                FROM tb_livraisonfrs lf
-                JOIN tb_commandedetail cd ON cd.idcom = lf.idcom AND cd.idarticle = lf.idarticle
-                WHERE lf.deleted = 0
-                  AND lf.a_payer = 1
-                GROUP BY cd.idfrs
-            """)
-            total_livraisons = {row[0]: float(row[1] or 0) for row in self.cursor.fetchall()}
-
-            self.cursor.execute("""
-                SELECT idfrs, COALESCE(SUM(montant), 0) AS total_autredette
-                FROM tb_autredette
-                GROUP BY idfrs
-            """)
-            total_autres = {row[0]: float(row[1] or 0) for row in self.cursor.fetchall()}
-
-            self.cursor.execute("""
-                SELECT idfrs, COALESCE(SUM(mtpaye), 0) AS total_paye
-                FROM tb_pmtcom
-                GROUP BY idfrs
-            """)
-            total_payes = {row[0]: float(row[1] or 0) for row in self.cursor.fetchall()}
-
             fournisseurs_avec_dettes = []
-            for frs in fournisseurs:
-                idfrs = frs[0]
-                total_initial = total_livraisons.get(idfrs, 0.0) + total_autres.get(idfrs, 0.0)
-                dette_restante = max(total_initial - total_payes.get(idfrs, 0.0), 0.0)
+            for row in self.cursor.fetchall():
+                frs = row[:10]
+                dette_restante = float(row[10] or 0)
                 fournisseurs_avec_dettes.append((frs, dette_restante))
 
             fournisseurs_avec_dettes.sort(key=lambda x: x[1], reverse=True)

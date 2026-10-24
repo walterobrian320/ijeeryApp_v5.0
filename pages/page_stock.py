@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import psycopg2
 import json
+import math
 from datetime import datetime
 import threading
 from tkinter import ttk
@@ -243,6 +244,14 @@ class PageStock(ctk.CTkFrame):
             text_color=C.WARNING_TEXT,
         ).pack(side="left", padx=(12, 0))
 
+        self.label_unites_non_calculables = ctk.CTkLabel(
+            footer,
+            text="",
+            font=self._f(9, "bold"),
+            text_color=C.WARNING_TEXT,
+        )
+        self.label_unites_non_calculables.pack(side="left", padx=(12, 0))
+
         self.label_derniere_maj = ctk.CTkLabel(
             footer, text="",
             font=self._f(9), text_color=C.TEXT_MUTED)
@@ -338,6 +347,11 @@ class PageStock(ctk.CTkFrame):
         self.tree.tag_configure("odd",  background="#F0F4F8",   foreground=C.TEXT_PRIMARY)
         self.tree.tag_configure("stock_zero_even", background=C.BG_CARD, foreground="#E74C3C")
         self.tree.tag_configure("stock_zero_odd",  background="#F0F4F8", foreground="#E74C3C")
+        self.tree.tag_configure(
+            "stock_non_calculable",
+            background=C.WARNING_LIGHT,
+            foreground=C.WARNING_TEXT,
+        )
         negative_font = ("Roboto" if _T else "Segoe UI", 10, "bold")
         self.tree.tag_configure(
             "stock_negative_even",
@@ -479,6 +493,7 @@ class PageStock(ctk.CTkFrame):
         - 1 requête pour la liste des unités (articles + prix)
         - 1 requête centrale pour les facteurs de conversion de toutes les unités
         - N requêtes (N = nb magasins) pour le stock base par article via le moteur central
+        - unités sans conversion valide affichées en N/C sans bloquer les autres lignes
         """
         conn = self.connect_db()
         if not conn:
@@ -555,12 +570,31 @@ class PageStock(ctk.CTkFrame):
             for code, desig, unite, prix, idarticle, idunite in unite_rows:
                 facteur = facteurs.get(int(idunite))
                 niveau = niveaux.get(int(idunite))
-                if facteur is None or facteur <= 0:
-                    raise ValueError(
-                        f"Facteur de conversion absent ou invalide pour l'unité {idunite}."
+                if (
+                    facteur is None
+                    or not math.isfinite(facteur)
+                    or facteur <= 0
+                    or niveau is None
+                ):
+                    valeurs = [
+                        code,
+                        desig,
+                        unite,
+                        self.formater_nombre(prix),
+                    ] + ["N/C"] * (len(self.magasins) + 1)
+                    message_conversion = (
+                        f"Stock non calculable pour l'unité {idunite} "
+                        f"({unite}) de l'article {desig} : facteur ou niveau "
+                        "de conversion absent/invalide. Vérifiez qu'une unité "
+                        "active de niveau 0 existe et que les niveaux "
+                        "intermédiaires sont cohérents."
                     )
-                if niveau is None:
-                    raise ValueError(f"Niveau absent pour l'unité {idunite}.")
+                    tooltips = {
+                        index: message_conversion
+                        for index in range(4, 4 + len(self.magasins) + 1)
+                    }
+                    all_data.append((valeurs, 0.0, False, tooltips))
+                    continue
                 unite_de_base = niveau == 0
 
                 valeurs = [
@@ -635,6 +669,19 @@ class PageStock(ctk.CTkFrame):
     def _appliquer_all_data_calculee(self, all_data_calculee):
         """Applique les stocks calculés et rafraîchit le Treeview."""
         self.all_data = all_data_calculee
+        nb_unites_non_calculables = sum(
+            1
+            for valeurs, _total, _stock_negatif, _tooltips in self.all_data
+            if "N/C" in valeurs[4:]
+        )
+        self.label_unites_non_calculables.configure(
+            text=(
+                f"⚠ Stock N/C pour {nb_unites_non_calculables} unité(s) "
+                "sans conversion valide."
+                if nb_unites_non_calculables
+                else ""
+            )
+        )
         if self.entry_recherche.get().strip():
             self.filtrer_stocks()
         else:
@@ -776,7 +823,12 @@ class PageStock(ctk.CTkFrame):
         self._stock_tooltips_by_item.clear()
         if filtered_data:
             for idx, (valeurs, total, stock_negatif, tooltips) in enumerate(filtered_data):
-                tag = self._tag_ligne_stock(idx, total, stock_negatif)
+                tag = self._tag_ligne_stock(
+                    idx,
+                    total,
+                    stock_negatif,
+                    stock_non_calculable="N/C" in valeurs[4:],
+                )
                 item = self.tree.insert("", "end", values=valeurs, tags=(tag,))
                 if tooltips:
                     self._stock_tooltips_by_item[item] = tooltips
@@ -792,7 +844,14 @@ class PageStock(ctk.CTkFrame):
         self.recharger_treeview()
 
     @staticmethod
-    def _tag_ligne_stock(index, total, stock_negatif=False):
+    def _tag_ligne_stock(
+        index,
+        total,
+        stock_negatif=False,
+        stock_non_calculable=False,
+    ):
+        if stock_non_calculable:
+            return "stock_non_calculable"
         zebra = "even" if index % 2 == 0 else "odd"
         if stock_negatif or float(total) < -_SEUIL_STOCK_NUL:
             return f"stock_negative_{zebra}"
@@ -808,7 +867,12 @@ class PageStock(ctk.CTkFrame):
             self.tree.delete(item)
         if self.all_data:
             for idx, (valeurs, total, stock_negatif, tooltips) in enumerate(self.all_data):
-                tag = self._tag_ligne_stock(idx, total, stock_negatif)
+                tag = self._tag_ligne_stock(
+                    idx,
+                    total,
+                    stock_negatif,
+                    stock_non_calculable="N/C" in valeurs[4:],
+                )
                 item = self.tree.insert("", "end", values=valeurs, tags=(tag,))
                 if tooltips:
                     self._stock_tooltips_by_item[item] = tooltips

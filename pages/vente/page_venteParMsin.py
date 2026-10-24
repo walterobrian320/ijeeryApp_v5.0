@@ -1400,6 +1400,7 @@ class PageVenteParMsin(ctk.CTkFrame):
         tree.tag_configure("even",      background=Colors.BG_CARD)
         tree.tag_configure("odd",       background=Colors.BG_ROW_ALT)
         tree.tag_configure("stock_nul", foreground=Colors.DANGER)
+        tree.tag_configure("stock_non_calculable", foreground=Colors.DANGER)
 
         tree.heading("ID_Article", text="ID")
         tree.heading("ID_Unite",   text="IDU")
@@ -1521,16 +1522,26 @@ class PageVenteParMsin(ctk.CTkFrame):
                     snapshots_stock[idmag_int] = snapshot
 
                 for idx, row in enumerate(rows):
-                    # Stock réel (peut être négatif) — ne pas forcer à 0
-                    stk = stock_unite(snapshot, int(row[0]), int(row[1]))
                     tags = ("even" if idx % 2 == 0 else "odd",)
-                    if stk <= 0: tags = tags + ("stock_nul",)
+                    try:
+                        idarticle = int(row[0])
+                        idunite = int(row[1])
+                        # Stock réel (peut être négatif) — ne pas forcer à 0
+                        stk = stock_unite(snapshot, idarticle, idunite)
+                        stock_affiche = stock_display(
+                            snapshot, idarticle, idunite
+                        )
+                        if stk <= 0:
+                            tags = tags + ("stock_nul",)
+                    except ValueError:
+                        stock_affiche = "N/C"
+                        tags = tags + ("stock_non_calculable",)
                     tree.insert("", "end", values=(
                         row[0], row[1], row[2] or "",
                         row[3] or "", row[4] or "",
                         self.formater_nombre(row[5]),
                         self.formater_nombre(row[6]),
-                        stock_display(snapshot, int(row[0]), int(row[1])),
+                        stock_affiche,
                     ), tags=tags)
             except Exception as e:
                 MessageDialog("Erreur chargement", str(e), 'error')
@@ -1563,11 +1574,29 @@ class PageVenteParMsin(ctk.CTkFrame):
                     'warning')
                 return
             vals = tree.item(sel[0])['values']
-            stk  = self.parser_nombre(str(vals[7]))
+            idmag = self.magasin_map.get(self.combo_magasin.get())
+            if idmag is None:
+                MessageDialog(
+                    "Erreur de stock",
+                    "Sélectionnez un magasin valide avant de choisir un article.",
+                    'error',
+                )
+                return
+            try:
+                snapshot = get_snapshot_cached(int(idmag), force=True)
+                stk = stock_unite(snapshot, int(vals[0]), int(vals[1]))
+            except Exception as e:
+                MessageDialog(
+                    "Erreur de stock",
+                    f"Impossible de vérifier le stock de l'article : {e}",
+                    'error',
+                )
+                return
             if stk <= 0:
                 MessageDialog(
                     "Stock insuffisant",
-                    f"Stock disponible : {vals[7]} {vals[4]}. Impossible de continuer.",
+                    f"Stock disponible : {format_stock_exact(stk)} "
+                    f"{vals[4]}. Impossible de continuer.",
                     'warning'
                 )
                 return

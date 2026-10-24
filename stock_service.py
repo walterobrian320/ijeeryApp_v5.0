@@ -125,7 +125,7 @@ def stock_unite_disponible(
     reservations_base=0,
     stock_base_restitue=0,
 ) -> Decimal:
-    """Quantité utilisable dans l'unité choisie, sans relire une valeur affichée."""
+    """Quantité exacte utilisable dans l'unité choisie."""
     stock_base_restant = stock_base_disponible(
         snapshot,
         idarticle,
@@ -133,8 +133,6 @@ def stock_unite_disponible(
         stock_base_restitue=stock_base_restitue,
     )
     disponible = stock_base_restant / _facteur_decimal(snapshot, idunite)
-    if snapshot.unite_est_de_base(idunite):
-        return max(Decimal(0), Decimal(math.trunc(disponible)))
     return max(Decimal(0), disponible)
 
 
@@ -144,12 +142,10 @@ def quantite_mouvement_en_base(
     idunite: int,
     quantite,
 ) -> Decimal:
-    """Convertit une demande en base et interdit les fractions de l'unité de base."""
+    """Convertit une quantité positive en unité de base, y compris les fractions."""
     valeur = _decimal_stock(quantite, "la quantité demandée")
     if valeur <= 0:
         raise ValueError("La quantité demandée doit être strictement positive.")
-    if snapshot.unite_est_de_base(idunite) and valeur != valeur.to_integral_value():
-        raise ValueError("La quantité en unité de base doit être un nombre entier.")
     return valeur * _facteur_decimal(snapshot, idunite)
 
 

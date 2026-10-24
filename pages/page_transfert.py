@@ -909,7 +909,9 @@ class PageTransfert(ctk.CTkFrame):
             return
 
         try:
-            quantite_saisie = float(self.entry_quantite.get())
+            quantite_saisie = float(
+                self.entry_quantite.get().strip().replace(",", ".")
+            )
             if quantite_saisie <= 0:
                 MessageDialog("Attention", "La quantité doit être > 0.", type_='warning')
                 return

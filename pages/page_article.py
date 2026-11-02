@@ -95,6 +95,7 @@ class PageArticle(ctk.CTkFrame):
         self.toplevel_unite   = None
         self._config_cache    = None
         self._photo_ctk_image = None
+        self.toplevel_article_id = None
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(3, weight=1)
@@ -281,6 +282,7 @@ class PageArticle(ctk.CTkFrame):
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
         self.tree.bind("<Double-1>",         self.ouvrir_gestion_unites)
+        self.tree.bind("<Button-3>",         self.on_right_click)
 
     # ====================================================================
     # LOGIQUE MÉTIER — inchangée
@@ -689,8 +691,38 @@ class PageArticle(ctk.CTkFrame):
             info_page = PageInfoArticle(
                 self.toplevel_unite, initial_idarticle=id_article)
             info_page.pack(fill="both", expand=True)
+            self.toplevel_article_id = str(id_article)
+        elif self.toplevel_article_id != str(id_article):
+            self.toplevel_unite.destroy()
+            self.toplevel_unite = ctk.CTkToplevel(self)
+            self.toplevel_unite.title(f"Détails Article : {id_article}")
+            self.toplevel_unite.geometry("1000x600")
+            if _T:
+                Theme.apply_toplevel(self.toplevel_unite)
+            info_page = PageInfoArticle(
+                self.toplevel_unite, initial_idarticle=id_article)
+            info_page.pack(fill="both", expand=True)
+            self.toplevel_article_id = str(id_article)
         else:
             self.toplevel_unite.focus()
+
+    def on_right_click(self, event):
+        item = self.tree.identify_row(event.y)
+        if not item:
+            return
+
+        self.tree.selection_set(item)
+        self.tree.focus(item)
+        values = self.tree.item(item, 'values')
+        if not values or len(values) == 0:
+            return
+
+        menu = tk.Menu(self.tree, tearoff=0)
+        menu.add_command(
+            label="Ouvrir détail article",
+            command=lambda: self.ouvrir_gestion_unites(None)
+        )
+        menu.post(event.x_root, event.y_root)
 
 
 # ── Test standalone ───────────────────────────────────────────────────────────

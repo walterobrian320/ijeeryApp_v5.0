@@ -308,6 +308,7 @@ class page_listeArticle(customtkinter.CTkFrame):
 
         self.tree.bind('<Double-Button-1>', self.on_double_click)
         self.tree.bind('<ButtonRelease-1>', self.on_single_click)
+        self.tree.bind('<Button-3>', self.on_right_click)
 
         # Badge d'export ajoute automatiquement via export_utils.enable_treeview_export_badge()
 
@@ -539,6 +540,25 @@ class page_listeArticle(customtkinter.CTkFrame):
             if values and len(values) > 0:
                 idarticle = values[0]
                 self.open_info_article(idarticle)
+
+    def on_right_click(self, event):
+        item = self.tree.identify_row(event.y)
+        if not item:
+            return
+
+        self.tree.selection_set(item)
+        self.tree.focus(item)
+        values = self.tree.item(item, 'values')
+        if not values or len(values) == 0:
+            return
+
+        idarticle = values[0]
+        menu = tk.Menu(self.tree, tearoff=0)
+        menu.add_command(
+            label="Ouvrir détail article",
+            command=lambda article_id=idarticle: self.open_info_article(article_id)
+        )
+        menu.post(event.x_root, event.y_root)
 
     def open_info_article(self, idarticle):
         try:
